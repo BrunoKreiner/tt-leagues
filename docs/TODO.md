@@ -37,14 +37,14 @@ Quick facts (current state):
   - Action: When inserting/updating `is_admin`, pass boolean `true` (parameterized) to work for both SQLite and Postgres.
   - Acceptance: Admin user is correctly created/updated on both DBs. (Done)
 
-- [ ] .env.example (backend)
+- [x] .env.example (backend)
   - Files: `backend/.env.example`
   - Action: Provide a template with local defaults and production guidance.
     - Local: omit DATABASE_URL; set `DATABASE_PATH=backend/database/league.db`; set `FRONTEND_URL=http://localhost,http://localhost:5173`.
     - Production (Vercel): include `DATABASE_URL` (with sslmode=require if not present), `JWT_SECRET`, `FRONTEND_URL`.
   - Acceptance: Contributors can copy this to quickly configure local and Vercel environments.
 
-- [ ] DB mode smoke tests
+- [x] DB mode smoke tests
   - Files: `backend/scripts/db-smoke.js` (new), `backend/package.json` (scripts)
   - Action: Add a script that:
     - Without DATABASE_URL: verifies SQLite can read/write (simple create table, insert, select).

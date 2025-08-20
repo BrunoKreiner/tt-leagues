@@ -48,3 +48,21 @@ Result:
 Next steps:
 - Create `backend/.env.example` with local defaults and Vercel guidance.
 - Add DB mode smoke tests and document env/SSL details.
+
+---
+
+Date: 2025-08-21
+
+Summary: Added environment template and DB smoke tests.
+
+Changes:
+- Created `backend/.env.example` with:
+  - Local defaults: `DATABASE_PATH`, `FRONTEND_URL`, `PORT`, JWT vars.
+  - Production guidance: `DATABASE_URL` with `sslmode=require`, `JWT_SECRET`, `FRONTEND_URL`.
+- Added `backend/scripts/db-smoke.js` to verify:
+  - SQLite mode (no `DATABASE_URL`): create table, insert, select.
+  - Postgres mode (`DATABASE_URL` set): `SELECT 1`.
+- Updated `backend/package.json` with script `db:smoke`.
+
+Result:
+- Contributors can configure env quickly and validate DB connectivity/mode via `npm run db:smoke`.

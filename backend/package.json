@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "init-db": "node src/models/database.js"
+    "init-db": "node src/models/database.js",
+    "db:smoke": "node scripts/db-smoke.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
