@@ -116,13 +116,13 @@ class Database {
                 const hashedPassword = await bcrypt.hash(adminPassword || 'password', 10);
                 await this.run(
                     'INSERT INTO users (username, password_hash, first_name, last_name, email, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
-                    [adminUsername, hashedPassword, adminFirst, adminLast, adminEmail, 1]
+                    [adminUsername, hashedPassword, adminFirst, adminLast, adminEmail, true]
                 );
                 console.log('Admin user created from env vars');
             } else {
                 // Update existing admin to match env (avoid changing password if not provided)
                 const updates = ['first_name = ?', 'last_name = ?', 'email = ?', 'is_admin = ?'];
-                const params = [adminFirst, adminLast, adminEmail, 1];
+                const params = [adminFirst, adminLast, adminEmail, true];
                 if (adminPassword) {
                     const hashedPassword = await bcrypt.hash(adminPassword, 10);
                     updates.unshift('password_hash = ?');
@@ -225,6 +225,57 @@ class Database {
 
     async rollback() {
         await this.run('ROLLBACK');
+    }
+
+    async withTransaction(fn) {
+        if (this.isPg) {
+            const client = await this.pool.connect();
+            try {
+                await client.query('BEGIN');
+                const tx = {
+                    run: async (sql, params = []) => {
+                        const { text, values } = this._toPg(sql, params);
+                        const isInsert = /^\s*insert\s+/i.test(text) && !/returning\s+id/i.test(text);
+                        const textWithReturning = isInsert ? `${text} RETURNING id` : text;
+                        const result = await client.query(textWithReturning, values);
+                        return { id: result.rows?.[0]?.id, changes: result.rowCount };
+                    },
+                    get: async (sql, params = []) => {
+                        const { text, values } = this._toPg(sql, params);
+                        const result = await client.query(text, values);
+                        return result.rows?.[0];
+                    },
+                    all: async (sql, params = []) => {
+                        const { text, values } = this._toPg(sql, params);
+                        const result = await client.query(text, values);
+                        return result.rows;
+                    }
+                };
+                const result = await fn(tx);
+                await client.query('COMMIT');
+                return result;
+            } catch (err) {
+                try { await client.query('ROLLBACK'); } catch (_) {}
+                throw err;
+            } finally {
+                client.release();
+            }
+        } else {
+            await this.beginTransaction();
+            try {
+                const tx = {
+                    run: (sql, params = []) => this.run(sql, params),
+                    get: (sql, params = []) => this.get(sql, params),
+                    all: (sql, params = []) => this.all(sql, params)
+                };
+                const result = await fn(tx);
+                await this.commit();
+                return result;
+            } catch (err) {
+                try { await this.rollback(); } catch (_) {}
+                throw err;
+            }
+        }
     }
 
     // Convert SQLite-style '?' placeholders to Postgres $1, $2, ...

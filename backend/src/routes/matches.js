@@ -129,12 +129,10 @@ router.post('/', authenticateToken, validateMatchCreation, async (req, res) => {
             player2_sets_won
         );
         
-        // Start transaction
-        await database.beginTransaction();
-        
-        try {
+        // Perform write operations in a transaction
+        const txResult = await database.withTransaction(async (tx) => {
             // Create match
-            const matchResult = await database.run(`
+            const matchResult = await tx.run(`
                 INSERT INTO matches (
                     league_id, player1_id, player2_id, player1_sets_won, player2_sets_won,
                     player1_points_total, player2_points_total, game_type, winner_id,
@@ -145,20 +143,20 @@ router.post('/', authenticateToken, validateMatchCreation, async (req, res) => {
                 player1_points_total, player2_points_total, game_type, winnerId,
                 player1Elo, player2Elo, eloResult.newRating1, eloResult.newRating2
             ]);
-            
+
             // Create match sets if provided
             if (sets && sets.length > 0) {
                 for (let i = 0; i < sets.length; i++) {
-                    await database.run(
+                    await tx.run(
                         'INSERT INTO match_sets (match_id, set_number, player1_score, player2_score) VALUES (?, ?, ?, ?)',
                         [matchResult.id, i + 1, sets[i].player1_score, sets[i].player2_score]
                     );
                 }
             }
-            
+
             // Create notification for opponent
-            const league = await database.get('SELECT name FROM leagues WHERE id = ?', [league_id]);
-            await database.run(
+            const league = await tx.get('SELECT name FROM leagues WHERE id = ?', [league_id]);
+            await tx.run(
                 'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
                 [
                     player2_id,
@@ -168,11 +166,12 @@ router.post('/', authenticateToken, validateMatchCreation, async (req, res) => {
                     matchResult.id
                 ]
             );
-            
-            await database.commit();
-            
-            // Get created match with details
-            const match = await database.get(`
+
+            return { matchId: matchResult.id };
+        });
+
+        // Get created match with details
+        const match = await database.get(`
                 SELECT 
                     m.id, m.league_id, m.player1_sets_won, m.player2_sets_won, 
                     m.player1_points_total, m.player2_points_total, m.game_type, 
@@ -186,7 +185,7 @@ router.post('/', authenticateToken, validateMatchCreation, async (req, res) => {
                 JOIN users p1 ON m.player1_id = p1.id
                 JOIN users p2 ON m.player2_id = p2.id
                 WHERE m.id = ?
-            `, [matchResult.id]);
+            `, [txResult.matchId]);
             
             res.status(201).json({
                 message: 'Match created successfully. Waiting for admin approval.',
@@ -196,10 +195,7 @@ router.post('/', authenticateToken, validateMatchCreation, async (req, res) => {
                     player2_change: eloResult.newRating2 - player2Elo
                 }
             });
-        } catch (error) {
-            await database.rollback();
-            throw error;
-        }
+        
     } catch (error) {
         console.error('Create match error:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -586,50 +582,47 @@ router.post('/:id/accept', authenticateToken, validateId, async (req, res) => {
             }
         }
         
-        // Start transaction
-        await database.beginTransaction();
-        
-        try {
+        const result = await database.withTransaction(async (tx) => {
             // Accept match
-            await database.run(
+            await tx.run(
                 'UPDATE matches SET is_accepted = ?, accepted_by = ?, accepted_at = CURRENT_TIMESTAMP WHERE id = ?',
                 [true, req.user.id, matchId]
             );
-            
+
             // Update player ELO ratings
-            await database.run(
+            await tx.run(
                 'UPDATE league_members SET current_elo = ? WHERE league_id = ? AND user_id = ?',
                 [match.player1_elo_after, match.league_id, match.player1_id]
             );
-            
-            await database.run(
+
+            await tx.run(
                 'UPDATE league_members SET current_elo = ? WHERE league_id = ? AND user_id = ?',
                 [match.player2_elo_after, match.league_id, match.player2_id]
             );
-            
+
             // Record ELO history
-            const player1EloChange = match.player1_elo_after - (await database.get(
-                'SELECT player1_elo_before FROM matches WHERE id = ?', [matchId]
-            )).player1_elo_before;
-            
-            const player2EloChange = match.player2_elo_after - (await database.get(
-                'SELECT player2_elo_before FROM matches WHERE id = ?', [matchId]
-            )).player2_elo_before;
-            
-            await database.run(
-                'INSERT INTO elo_history (user_id, league_id, match_id, elo_before, elo_after, elo_change) VALUES (?, ?, ?, ?, ?, ?)',
-                [match.player1_id, match.league_id, matchId, match.player1_elo_before, match.player1_elo_after, player1EloChange]
+            const before = await tx.get(
+                'SELECT player1_elo_before, player2_elo_before FROM matches WHERE id = ?',
+                [matchId]
             );
-            
-            await database.run(
+
+            const player1EloChange = match.player1_elo_after - before.player1_elo_before;
+            const player2EloChange = match.player2_elo_after - before.player2_elo_before;
+
+            await tx.run(
                 'INSERT INTO elo_history (user_id, league_id, match_id, elo_before, elo_after, elo_change) VALUES (?, ?, ?, ?, ?, ?)',
-                [match.player2_id, match.league_id, matchId, match.player2_elo_before, match.player2_elo_after, player2EloChange]
+                [match.player1_id, match.league_id, matchId, before.player1_elo_before, match.player1_elo_after, player1EloChange]
             );
-            
+
+            await tx.run(
+                'INSERT INTO elo_history (user_id, league_id, match_id, elo_before, elo_after, elo_change) VALUES (?, ?, ?, ?, ?, ?)',
+                [match.player2_id, match.league_id, matchId, before.player2_elo_before, match.player2_elo_after, player2EloChange]
+            );
+
             // Create notifications for both players
-            const league = await database.get('SELECT name FROM leagues WHERE id = ?', [match.league_id]);
-            
-            await database.run(
+            const league = await tx.get('SELECT name FROM leagues WHERE id = ?', [match.league_id]);
+
+            await tx.run(
                 'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
                 [
                     match.player1_id,
@@ -639,8 +632,8 @@ router.post('/:id/accept', authenticateToken, validateId, async (req, res) => {
                     matchId
                 ]
             );
-            
-            await database.run(
+
+            await tx.run(
                 'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
                 [
                     match.player2_id,
@@ -650,20 +643,17 @@ router.post('/:id/accept', authenticateToken, validateId, async (req, res) => {
                     matchId
                 ]
             );
-            
-            await database.commit();
-            
-            res.json({
-                message: 'Match accepted successfully',
-                elo_changes: {
-                    player1_change: player1EloChange,
-                    player2_change: player2EloChange
-                }
-            });
-        } catch (error) {
-            await database.rollback();
-            throw error;
-        }
+
+            return { player1EloChange, player2EloChange };
+        });
+
+        res.json({
+            message: 'Match accepted successfully',
+            elo_changes: {
+                player1_change: result.player1EloChange,
+                player2_change: result.player2EloChange
+            }
+        });
     } catch (error) {
         console.error('Accept match error:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -704,23 +694,25 @@ router.post('/:id/reject', authenticateToken, validateId, async (req, res) => {
             }
         }
         
-        // Delete the match
-        await database.run('DELETE FROM matches WHERE id = ?', [matchId]);
-        
-        // Create notifications for both players
-        const league = await database.get('SELECT name FROM leagues WHERE id = ?', [match.league_id]);
-        const rejectionMessage = `Your match result in "${league.name}" has been rejected${reason ? ': ' + reason : ''}`;
-        
-        await database.run(
-            'INSERT INTO notifications (user_id, type, title, message) VALUES (?, ?, ?, ?)',
-            [match.player1_id, 'match_rejected', 'Match Rejected', rejectionMessage]
-        );
-        
-        await database.run(
-            'INSERT INTO notifications (user_id, type, title, message) VALUES (?, ?, ?, ?)',
-            [match.player2_id, 'match_rejected', 'Match Rejected', rejectionMessage]
-        );
-        
+        await database.withTransaction(async (tx) => {
+            // Delete the match
+            await tx.run('DELETE FROM matches WHERE id = ?', [matchId]);
+
+            // Create notifications for both players
+            const league = await tx.get('SELECT name FROM leagues WHERE id = ?', [match.league_id]);
+            const rejectionMessage = `Your match result in "${league.name}" has been rejected${reason ? ': ' + reason : ''}`;
+
+            await tx.run(
+                'INSERT INTO notifications (user_id, type, title, message) VALUES (?, ?, ?, ?)',
+                [match.player1_id, 'match_rejected', 'Match Rejected', rejectionMessage]
+            );
+
+            await tx.run(
+                'INSERT INTO notifications (user_id, type, title, message) VALUES (?, ?, ?, ?)',
+                [match.player2_id, 'match_rejected', 'Match Rejected', rejectionMessage]
+            );
+        });
+
         res.json({ message: 'Match rejected successfully' });
     } catch (error) {
         console.error('Reject match error:', error);

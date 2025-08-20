@@ -27,15 +27,15 @@ Quick facts (current state):
     - Updated: `backend/src/routes/matches.js` (parameterized `m.is_accepted` and `lm.is_admin` subquery conditions; accept route uses boolean parameter), `backend/src/routes/notifications.js` (`is_read` filters/updates), `backend/src/routes/leagues.js` (`is_active`, `is_public`, joins on `m.is_accepted`), `backend/src/routes/users.js` (joins on `m.is_accepted`, league `is_active`), `backend/src/routes/auth.js` (stats join on `m.is_accepted`).
     - Re-scan: Completed across `backend/src/**/*.js`; no remaining `= 0/1` comparisons for boolean columns.
 
-- [ ] Postgres transaction handling
+- [x] Postgres transaction handling
   - Files: `backend/src/models/database.js`, routes that perform multi-step writes (e.g., `backend/src/routes/matches.js`)
-  - Action: Add `withTransaction(fn)` for Postgres using `pool.connect()` and a pinned client. Extend `run/get/all` to accept an optional bound client, and use it inside `withTransaction`. Update multi-step flows (match create/accept) to wrap in a transaction.
-  - Acceptance: Multi-operation flows commit/rollback atomically on Postgres.
+  - Action: Added `withTransaction(fn)` using a pinned client for Postgres, providing `tx.run/get/all`. Updated multi-step flows in `matches.js` (create, accept, reject) to wrap writes in a transaction.
+  - Acceptance: Multi-operation flows commit/rollback atomically on Postgres. (Done)
 
-- [ ] Admin seeding: boolean consistency
+- [x] Admin seeding: boolean consistency
   - Files: `backend/src/models/database.js`
-  - Action: When inserting/updating `is_admin`, pass boolean `true` for Postgres path (keep SQLite compatibility via parameterization).
-  - Acceptance: Admin user is correctly created/updated on both DBs.
+  - Action: When inserting/updating `is_admin`, pass boolean `true` (parameterized) to work for both SQLite and Postgres.
+  - Acceptance: Admin user is correctly created/updated on both DBs. (Done)
 
 - [ ] .env.example (backend)
   - Files: `backend/.env.example`

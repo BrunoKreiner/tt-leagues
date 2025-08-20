@@ -28,3 +28,23 @@ Notes:
 
 Next steps:
 - Implement Postgres transaction handling (`withTransaction`) and update multi-step routes accordingly.
+
+---
+
+Date: 2025-08-20 (cont.)
+
+Summary: Implemented transaction handling and refactored match flows.
+
+Changes:
+- Added `withTransaction(fn)` in `backend/src/models/database.js` that pins a Postgres client and exposes `tx.run/get/all`. Falls back to `BEGIN/COMMIT/ROLLBACK` on SQLite.
+- Updated `backend/src/routes/matches.js`:
+  - Create match: wrap inserts and notification creation in a transaction.
+  - Accept match: wrap acceptance, ELO updates, ELO history inserts, and notifications in a transaction.
+  - Reject match: wrap deletion and notifications in a transaction.
+
+Result:
+- Multi-step operations are now atomic across Postgres and SQLite.
+
+Next steps:
+- Create `backend/.env.example` with local defaults and Vercel guidance.
+- Add DB mode smoke tests and document env/SSL details.
