@@ -135,9 +135,9 @@ router.get('/me', authenticateToken, async (req, res) => {
                 COUNT(DISTINCT CASE WHEN m.winner_id = ? THEN m.id END) as matches_won
             FROM users u
             LEFT JOIN league_members lm ON u.id = lm.user_id
-            LEFT JOIN matches m ON (m.player1_id = u.id OR m.player2_id = u.id) AND m.is_accepted = 1
+            LEFT JOIN matches m ON (m.player1_id = u.id OR m.player2_id = u.id) AND m.is_accepted = ?
             WHERE u.id = ?
-        `, [req.user.id, req.user.id, req.user.id, req.user.id]);
+        `, [req.user.id, req.user.id, req.user.id, true, req.user.id]);
         
         res.json({
             user: {

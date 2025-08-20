@@ -65,6 +65,11 @@ class Database {
 
     async initialize() {
         try {
+            // Guard rails: on Vercel, require DATABASE_URL to avoid ephemeral SQLite usage
+            if (process.env.VERCEL && !process.env.DATABASE_URL) {
+                throw new Error('DATABASE_URL must be set when running on Vercel. SQLite is not supported in the serverless runtime.');
+            }
+
             await this.connect();
 
             // Read and execute schema

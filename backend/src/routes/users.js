@@ -22,11 +22,11 @@ router.get('/', authenticateToken, requireAdmin, validatePagination, async (req,
                 COUNT(DISTINCT CASE WHEN m.player1_id = u.id OR m.player2_id = u.id THEN m.id END) as matches_played
             FROM users u
             LEFT JOIN league_members lm ON u.id = lm.user_id
-            LEFT JOIN matches m ON (m.player1_id = u.id OR m.player2_id = u.id) AND m.is_accepted = 1
+            LEFT JOIN matches m ON (m.player1_id = u.id OR m.player2_id = u.id) AND m.is_accepted = ?
             GROUP BY u.id
             ORDER BY u.created_at DESC
             LIMIT ? OFFSET ?
-        `, [limit, offset]);
+        `, [true, limit, offset]);
         
         const totalCount = await database.get('SELECT COUNT(*) as count FROM users');
         
@@ -66,10 +66,10 @@ router.get('/:id', authenticateToken, validateId, async (req, res) => {
                 COUNT(DISTINCT CASE WHEN m.winner_id = u.id THEN m.id END) as matches_won
             FROM users u
             LEFT JOIN league_members lm ON u.id = lm.user_id
-            LEFT JOIN matches m ON (m.player1_id = u.id OR m.player2_id = u.id) AND m.is_accepted = 1
+            LEFT JOIN matches m ON (m.player1_id = u.id OR m.player2_id = u.id) AND m.is_accepted = ?
             WHERE u.id = ?
             GROUP BY u.id
-        `, [userId]);
+        `, [true, userId]);
         
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
@@ -81,9 +81,9 @@ router.get('/:id', authenticateToken, validateId, async (req, res) => {
                 l.id, l.name, l.season, lm.current_elo, lm.is_admin as is_league_admin, lm.joined_at
             FROM leagues l
             JOIN league_members lm ON l.id = lm.league_id
-            WHERE lm.user_id = ? AND l.is_active = 1
+            WHERE lm.user_id = ? AND l.is_active = ?
             ORDER BY lm.joined_at DESC
-        `, [userId]);
+        `, [userId, true]);
         
         // Get recent matches
         const recentMatches = await database.all(`
@@ -97,10 +97,10 @@ router.get('/:id', authenticateToken, validateId, async (req, res) => {
             JOIN leagues l ON m.league_id = l.id
             JOIN users p1 ON m.player1_id = p1.id
             JOIN users p2 ON m.player2_id = p2.id
-            WHERE (m.player1_id = ? OR m.player2_id = ?) AND m.is_accepted = 1
+            WHERE (m.player1_id = ? OR m.player2_id = ?) AND m.is_accepted = ?
             ORDER BY m.played_at DESC
             LIMIT 10
-        `, [userId, userId]);
+        `, [userId, userId, true]);
         
         res.json({
             user: {
@@ -249,9 +249,9 @@ router.get('/:id/stats', authenticateToken, validateId, async (req, res) => {
                 AVG(lm.current_elo) as average_elo
             FROM users u
             LEFT JOIN league_members lm ON u.id = lm.user_id
-            LEFT JOIN matches m ON (m.player1_id = u.id OR m.player2_id = u.id) AND m.is_accepted = 1
+            LEFT JOIN matches m ON (m.player1_id = u.id OR m.player2_id = u.id) AND m.is_accepted = ?
             WHERE u.id = ?
-        `, [userId, userId, userId, userId]);
+        `, [userId, userId, userId, true, userId]);
         
         // Get league-specific stats
         const leagueStats = await database.all(`
@@ -262,11 +262,11 @@ router.get('/:id/stats', authenticateToken, validateId, async (req, res) => {
                 COUNT(CASE WHEN m.winner_id = ? THEN m.id END) as matches_won
             FROM leagues l
             JOIN league_members lm ON l.id = lm.league_id
-            LEFT JOIN matches m ON m.league_id = l.id AND (m.player1_id = ? OR m.player2_id = ?) AND m.is_accepted = 1
+            LEFT JOIN matches m ON m.league_id = l.id AND (m.player1_id = ? OR m.player2_id = ?) AND m.is_accepted = ?
             WHERE lm.user_id = ?
             GROUP BY l.id, l.name, l.season, lm.current_elo
             ORDER BY lm.current_elo DESC
-        `, [userId, userId, userId, userId, userId, userId]);
+        `, [userId, userId, userId, userId, userId, true, userId]);
         
         res.json({
             overall: {

@@ -21,9 +21,11 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
         const params = [req.user.id, req.user.id];
         
         if (status === 'pending') {
-            whereClause += ' AND m.is_accepted = 0';
+            whereClause += ' AND m.is_accepted = ?';
+            params.push(false);
         } else if (status === 'accepted') {
-            whereClause += ' AND m.is_accepted = 1';
+            whereClause += ' AND m.is_accepted = ?';
+            params.push(true);
         }
         
         const matches = await database.all(`
@@ -214,13 +216,13 @@ router.get('/pending', authenticateToken, validatePagination, async (req, res) =
         const limit = parseInt(req.query.limit) || 20;
         const offset = (page - 1) * limit;
         
-        let whereClause = 'm.is_accepted = 0';
-        const params = [];
+        let whereClause = 'm.is_accepted = ?';
+        const params = [false];
         
         // If not global admin, filter by leagues where user is league admin
         if (!req.user.is_admin) {
-            whereClause += ' AND EXISTS (SELECT 1 FROM league_members lm WHERE lm.league_id = m.league_id AND lm.user_id = ? AND lm.is_admin = 1)';
-            params.push(req.user.id);
+            whereClause += ' AND EXISTS (SELECT 1 FROM league_members lm WHERE lm.league_id = m.league_id AND lm.user_id = ? AND lm.is_admin = ?)';
+            params.push(req.user.id, true);
         }
         
         const matches = await database.all(`
@@ -590,8 +592,8 @@ router.post('/:id/accept', authenticateToken, validateId, async (req, res) => {
         try {
             // Accept match
             await database.run(
-                'UPDATE matches SET is_accepted = 1, accepted_by = ?, accepted_at = CURRENT_TIMESTAMP WHERE id = ?',
-                [req.user.id, matchId]
+                'UPDATE matches SET is_accepted = ?, accepted_by = ?, accepted_at = CURRENT_TIMESTAMP WHERE id = ?',
+                [true, req.user.id, matchId]
             );
             
             // Update player ELO ratings
@@ -736,13 +738,13 @@ router.get('/pending', authenticateToken, validatePagination, async (req, res) =
         const limit = parseInt(req.query.limit) || 20;
         const offset = (page - 1) * limit;
         
-        let whereClause = 'm.is_accepted = 0';
-        const params = [];
+        let whereClause = 'm.is_accepted = ?';
+        const params = [false];
         
         // If not global admin, filter by leagues where user is league admin
         if (!req.user.is_admin) {
-            whereClause += ' AND EXISTS (SELECT 1 FROM league_members lm WHERE lm.league_id = m.league_id AND lm.user_id = ? AND lm.is_admin = 1)';
-            params.push(req.user.id);
+            whereClause += ' AND EXISTS (SELECT 1 FROM league_members lm WHERE lm.league_id = m.league_id AND lm.user_id = ? AND lm.is_admin = ?)';
+            params.push(req.user.id, true);
         }
         
         const matches = await database.all(`
