@@ -6,7 +6,12 @@ require('dotenv').config();
 class Database {
     constructor() {
         this.db = null;
-        this.dbPath = process.env.DATABASE_PATH || path.join(__dirname, '../../database/league.db');
+        // On Vercel serverless, the filesystem is read-only except for /tmp.
+        // Default to /tmp/league.db when running on Vercel (VERCEL=1) unless DATABASE_PATH is explicitly set.
+        const isVercel = !!process.env.VERCEL;
+        const defaultLocalPath = path.join(__dirname, '../../database/league.db');
+        const defaultVercelPath = '/tmp/league.db';
+        this.dbPath = process.env.DATABASE_PATH || (isVercel ? defaultVercelPath : defaultLocalPath);
         this.schemaPath = process.env.DATABASE_SCHEMA_PATH || path.join(__dirname, '../../database/schema.sql');
     }
 
