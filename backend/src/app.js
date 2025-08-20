@@ -16,6 +16,16 @@ const notificationRoutes = require('./routes/notifications');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+// When running on Vercel, initialize the DB on cold start and await before handling requests
+let dbReady = null;
+if (process.env.VERCEL) {
+    try {
+        console.log('Initializing database on Vercel cold start...');
+        dbReady = database.initialize();
+    } catch (e) {
+        console.error('Failed to kick off DB initialization:', e);
+    }
+}
 
 // Rate limiting
 const limiter = rateLimit({
@@ -27,31 +37,55 @@ const limiter = rateLimit({
 // Middleware
 app.use(helmet());
 
-// CORS configuration: allow specific origins from FRONTEND_URL (comma-separated) or reflect origin in dev
-const allowedOrigins = (process.env.FRONTEND_URL || '')
-    .split(',')
-    .map(o => o.trim())
-    .filter(Boolean);
+// CORS configuration: allow specific origins from FRONTEND_URL (comma-separated)
+// Supports wildcards like https://tt-league-frontend-git-*.vercel.app
+const allowedOriginPatterns = (process.env.FRONTEND_URL || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean)
+  .map(pattern => {
+    if (pattern.includes('*')) {
+      // Escape dots and replace '*' with '.*' for regex
+      const regexStr = '^' + pattern
+        .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+        .replace(/\\\*/g, '.*') + '$';
+      return new RegExp(regexStr);
+    }
+    return pattern;
+  });
 
 const corsOptions = {
-    origin: (origin, callback) => {
-        // Allow non-browser requests or same-origin
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.length === 0) {
-            // No explicit origins configured: reflect request origin (use env FRONTEND_URL in production)
-            return callback(null, true);
-        }
-        if (allowedOrigins.includes(origin)) {
-            return callback(null, true);
-        }
-        return callback(new Error('Not allowed by CORS'));
-    },
-    credentials: true
+  origin: (origin, callback) => {
+    // Allow non-browser requests or same-origin
+    if (!origin) return callback(null, true);
+    if (allowedOriginPatterns.length === 0) {
+      // No explicit origins configured: reflect request origin (use env FRONTEND_URL in production)
+      return callback(null, true);
+    }
+    const allowed = allowedOriginPatterns.some(entry =>
+      typeof entry === 'string' ? entry === origin : entry.test(origin)
+    );
+    if (allowed) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
 };
+
+// Apply CORS and ensure preflight requests are handled
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+// Ensure DB is ready before proceeding (no-op locally since startServer awaited it)
+app.use(async (req, res, next) => {
+    try {
+        if (dbReady) await dbReady;
+        return next();
+    } catch (e) {
+        return next(e);
+    }
+});
 app.use('/api/', limiter);
 
 // Health check endpoint
