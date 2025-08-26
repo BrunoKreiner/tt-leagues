@@ -10,8 +10,9 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install dependencies (production only)
+# Using npm install to avoid lockfile mismatch errors during CI/build
+RUN npm install --omit=dev
 
 # Copy source code
 COPY . .

@@ -1,5 +1,5 @@
 const database = require('./src/models/database');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 async function testDatabase() {
     try {

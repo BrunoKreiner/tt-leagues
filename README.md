@@ -14,7 +14,7 @@ A full-stack table tennis league management application with ELO rating system, 
 ## Tech Stack
 
 - **Frontend**: React 19, Tailwind CSS, shadcn/ui components
-- **Backend**: Node.js, Express, SQLite
+- **Backend**: Node.js, Express, SQLite (local) / Postgres (production)
 - **Authentication**: JWT tokens
 - **Deployment**: Docker & Docker Compose
 
@@ -158,11 +158,32 @@ docker-compose build frontend
 
 ### Backend (.env)
 ```
-NODE_ENV=production
-DATABASE_PATH=/app/data/database.db
-JWT_SECRET=your-super-secret-jwt-key
+# Server
 PORT=3001
+FRONTEND_URL=http://localhost,http://localhost:5173
+
+# Database selection
+# Use Postgres when DATABASE_URL is set (e.g., on Vercel). Otherwise SQLite is used via DATABASE_PATH.
+# If sslmode is missing from DATABASE_URL, the backend appends `sslmode=require` automatically.
+# DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
+DATABASE_PATH=backend/database/league.db
+
+# Auth
+JWT_SECRET=your-super-secret-jwt-key-change-in-production
+JWT_EXPIRES_IN=7d
+
+# Admin seeding (created/updated on startup; ADMIN_PASSWORD required in production)
+ADMIN_USERNAME=admin
+ADMIN_FIRST_NAME=Admin
+ADMIN_LAST_NAME=User
+ADMIN_EMAIL=admin@tabletennis.local
+# ADMIN_PASSWORD=change-me
 ```
+
+Notes:
+- Database selection: `backend/src/models/database.js` uses Postgres when `DATABASE_URL` is set; otherwise SQLite at `DATABASE_PATH`. On Vercel, the app requires `DATABASE_URL` to avoid ephemeral SQLite.
+- SSL: If `sslmode` is not present in `DATABASE_URL`, the app adds `sslmode=require` and sets `ssl: { rejectUnauthorized: false }` on the PG Pool.
+- CORS: `FRONTEND_URL` supports comma-separated origins and `*` wildcards.
 
 ### Frontend (.env)
 ```

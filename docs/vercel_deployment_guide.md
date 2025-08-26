@@ -6,9 +6,11 @@ This guide explains how to deploy both the frontend and the backend on Vercel. T
 
 - **Frontend (Vite + React)**: Deployed to Vercel from `frontend/` with SPA routing via `frontend/vercel.json`.
 - **Backend (Express API)**: Deployed to Vercel from `backend/` as a Serverless Function with `backend/vercel.json` and entry at `backend/api/index.js` exporting the Express app.
-- **Database (Vercel Postgres)**: Managed Postgres database on Vercel. The backend reads `DATABASE_URL` from environment variables.
+- **Database (Neon/Vercel Postgres)**: Managed Postgres. The backend selects Postgres when `DATABASE_URL` is set and uses SSL (`sslmode=require`).
 
-Note: The current backend uses SQLite (`sqlite3`). To run fully on Vercel in production, migrate the database layer to Postgres (use `pg` and `DATABASE_URL`). SQLite files are not persistent in Vercel Serverless.
+Notes:
+- SQLite is not persistent on Vercel Serverless. On Vercel, the backend requires `DATABASE_URL` and will fail fast without it.
+- Locally, SQLite is used when `DATABASE_URL` is not set. See `backend/.env.example`.
 
 ## Prerequisites
 
@@ -47,8 +49,8 @@ Important: Until the backend is migrated from SQLite to Postgres, you cannot per
 4. Environment Variables (Project Settings -> Environment Variables):
    - `NODE_ENV=production`
    - `JWT_SECRET=your-strong-secret`
-   - `FRONTEND_URL=https://your-frontend-project.vercel.app` (you can comma-separate multiple origins)
-   - `DATABASE_URL=postgres://...` (from Vercel Postgres)
+   - `FRONTEND_URL=https://your-frontend-project.vercel.app` (comma-separated origins supported; wildcards `*` allowed)
+   - `DATABASE_URL=postgres://...` (Neon/Vercel Postgres). If `sslmode` is missing, the app appends `sslmode=require` automatically and enables TLS on the Pool.
 5. Deploy. After deploy, your backend will be available at `https://your-backend-project.vercel.app`. API base: `https://your-backend-project.vercel.app/api`.
 
 ## Step 3 — Frontend on Vercel (SPA)
@@ -74,6 +76,11 @@ app.use(cors({
 
 Set `FRONTEND_URL` to your Vercel frontend domain in the backend project settings. Multiple domains can be comma-separated.
 
+## Database & SSL Notes
+
+- The backend appends `sslmode=require` to `DATABASE_URL` if it is not present and sets `ssl: { rejectUnauthorized: false }` on the `pg` Pool.
+- Health route: `/health` is routed in `backend/vercel.json`; ensure it returns 200 after deploy.
+
 ## Default Admin Account
 
 - Username: `admin`
@@ -83,8 +90,8 @@ Change the default admin password on first login.
 
 ## Notes & Limitations
 
-- SQLite is not suitable for Vercel Serverless persistence. Migrate `backend/src/models/database.js` from `sqlite3` to Postgres (`pg`) and use `DATABASE_URL`.
-- After migration, add a simple migration step or use a migration tool (e.g., `knex`, `sequelize`, `drizzle`) to create tables and seed admin user.
+- SQLite is not suitable for Vercel Serverless persistence. On Vercel, set `DATABASE_URL`; the backend will automatically use Postgres with SSL.
+- Schema initialization runs from `backend/database/schema.pg.sql` on Postgres. You may adopt a migration tool (e.g., `knex`, `sequelize`, `drizzle`) if you prefer managed migrations.
 
 ## Troubleshooting
 

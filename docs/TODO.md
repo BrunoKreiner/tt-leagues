@@ -5,8 +5,39 @@ Scope: Align database usage with environment (SQLite for local/testing; Neon Pos
 Quick facts (current state):
 - backend/src/models/database.js: selects Postgres when DATABASE_URL is set; otherwise uses SQLite. On Vercel, default SQLite path is /tmp/league.db.
 - backend/api/index.js and backend/vercel.json: serverless export and routes (/api/*, /health) are configured.
-- bcryptjs is used in code (auth and admin seeding), but backend/package.json still includes bcrypt.
+- bcryptjs is used in code (auth and admin seeding); native `bcrypt` has been removed from `backend/package.json`.
 - docker-compose.yml runs the backend with NODE_ENV=production and DATABASE_PATH (SQLite) for local containerized usage.
+
+---
+
+## MVP Core Features (High Priority Roadmap)
+
+- [x] Auth & Profile
+  - Files: `backend/src/routes/auth.js`, frontend auth pages/components
+  - Actions: Add password reset flow; ensure token refresh/expiry handling on FE; profile edit endpoints wired with UI validation
+  - Acceptance: Register/login/logout work reliably; profile updates persist; FE handles token lifecycle gracefully
+
+- [ ] Leagues (create/join/manage)
+  - Files: `backend/src/routes/leagues.js`, FE league pages
+  - Actions: Create league (admin), join/invite flows, membership management UI; access controls
+  - Acceptance: Users can create/join leagues; membership lists and permissions work end-to-end
+  - Status: Backend endpoints implemented and reviewed (`leagues.js`); FE: list + detail pages implemented; Create League admin UI implemented on `/admin`. Join via invite code UI implemented on `LeagueDetailPage` (for authenticated non-members). Invite by username (admin) implemented on `LeagueDetailPage` with generated code + expiry display. Leave League action implemented with confirmation dialog. Remaining: members management UI
+  - Progress: FE Leagues list page implemented and wired to `GET /api/leagues` with pagination; detail page implemented (overview, leaderboard, members preview, recent matches). Members fetch is auth-aware and page uses resilient parallel loading. Create League form on `/admin` uses `react-hook-form` + `zod`, posts to `POST /api/leagues`, handles 409 duplicate name, and navigates to the new league. Added `backend/scripts/quick-api-tests.ps1` to exercise auth and league creation (health, login, unauthorized create, authorized create, duplicate check, fetch by id, list). Implemented Join with invite code on `LeagueDetailPage` calling `POST /api/leagues/:id/join` with proper error handling and success refresh. Implemented Invite by username on `LeagueDetailPage` calling `POST /api/leagues/:id/invite` with toasts and showing `invite_code` and `expires_at`. Implemented Leave League on `LeagueDetailPage` calling `DELETE /api/leagues/:id/leave` with a confirmation `AlertDialog` and success/error toasts.
+
+- [ ] Matches (record/approve/history)
+  - Files: `backend/src/routes/matches.js`, FE match forms/history
+  - Actions: Record match with set scores; pending/approve/reject admin flow; history list with filters
+  - Acceptance: Recording and approvals update ELO; audit trail visible; UX validated
+
+- [ ] Leaderboards & ELO history
+  - Files: `backend/src/routes/leagues.js` (leaderboard endpoint), ELO history endpoint; FE leaderboard + chart
+  - Actions: Add top-N leaderboard with pagination; per-user ELO history endpoint; FE table and sparkline
+  - Acceptance: Leaderboard reflects latest accepted matches; ELO timeline renders correctly
+
+- [ ] Notifications UX
+  - Files: `backend/src/routes/notifications.js`, FE notifications components
+  - Actions: Wire list/mark-as-read/delete; toast for key events; unread count in header
+  - Acceptance: Unread count updates; actions return 200; UX consistent
 
 ---
 
@@ -51,25 +82,28 @@ Quick facts (current state):
     - With DATABASE_URL: connects and runs `SELECT 1` on Postgres.
   - Acceptance: `npm run db:smoke` reports pass/fail for both modes.
 
-- [ ] Documentation updates (envs and SSL)
+- [x] Documentation updates (envs and SSL)
   - Files: `README.md`, `docs/vercel_deployment_guide.md`
   - Action: Explain DB selection logic explicitly and Neon usage on Vercel, including SSL requirements (`sslmode=require` or Pool SSL object). Provide copyable examples and screenshots (optional).
   - Acceptance: New contributors can deploy locally and to Vercel without surprises.
 
-- [ ] Verify Vercel configuration
+- [x] Verify Vercel configuration
   - Files: `backend/vercel.json`, `backend/api/index.js`, Vercel project settings
   - Action: Ensure routes `/api/*` and `/health` are correct. Confirm envs set on Vercel: `DATABASE_URL`, `JWT_SECRET`, `FRONTEND_URL`.
   - Acceptance: Health check OK, routes map correctly, DB connects to Neon on Vercel.
+  - Status: Code-level verification completed. `backend/vercel.json` routes `/api/*` and `/health` to `api/index.js`; `backend/api/index.js` exports the Express `app`; `/health` endpoint present in `backend/src/app.js`; Vercel guard rails in `backend/src/models/database.js` require `DATABASE_URL` and enforce SSL. Awaiting deployed backend URL to confirm 200 health response and Neon connectivity.
 
-- [ ] Optional: evaluate `@neondatabase/serverless`
+- [x] Optional: evaluate `@neondatabase/serverless`
   - Files: spike only
   - Action: Compare cold starts and query performance vs `pg` Pool. Evaluate connection reuse and cost. Document tradeoffs and a migration plan if beneficial.
   - Acceptance: Decision recorded; if adopting, create a separate implementation task.
+  - Status: Reviewed driver. Pros: serverless-friendly, API-compatible `Pool` export; likely better connection behavior on serverless. Cons: new dep; requires validation of transactions with pinned client. Decision: defer adoption until after first Vercel deploy and metrics; keep `pg` Pool for now. Added evaluation notes in `docs/DEVELOPMENT_PROGRESS.MD`.
 
-- [ ] Dependency cleanup: remove bcrypt
+- [x] Dependency cleanup: remove bcrypt
   - Files: `backend/package.json`
   - Action: Remove the `bcrypt` dependency (code uses `bcryptjs`). Ensure no imports reference `bcrypt`.
   - Acceptance: Clean install works; auth and admin seeding continue to function.
+  - Status: Updated `backend/fix_admin.js` and `backend/test_db.js` to use `bcryptjs`; removed `bcrypt` from `backend/package.json`; repo-wide scan shows no remaining `require('bcrypt')`. Runtime already uses `bcryptjs` in `backend/src/models/database.js` and `backend/src/routes/auth.js`.
 
 ---
 
@@ -115,6 +149,12 @@ These are not implemented; capture next steps at a high level.
 
 - [ ] Advanced Statistics (detailed analytics)
   - Next steps: Define KPIs (win streaks, set-level stats), aggregate tables/materialized views, endpoints, UI dashboards.
+
+- [ ] Admin Panel
+  - Next steps: User management, match approval queue, league creation/management, system overview pages.
+
+- [ ] Achievement System (badges)
+  - Next steps: Badge schema, award rules (seasonal/performance), server logic, UI badge display on profiles.
 
 - [ ] Mobile App (native)
   - Next steps: Decide tech (React Native/Flutter), shared API auth flows, minimal feature set (auth, record matches, view rankings).

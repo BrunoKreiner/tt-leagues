@@ -10,7 +10,6 @@
     "db:smoke": "node scripts/db-smoke.js"
   },
   "dependencies": {
-    "bcrypt": "^6.0.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
