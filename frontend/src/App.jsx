@@ -17,6 +17,9 @@ import LeagueDetailPage from './pages/LeagueDetailPage';
 import MatchesPage from './pages/MatchesPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
+import NotificationsPage from './pages/NotificationsPage';
+import RecordMatchPage from './pages/RecordMatchPage';
+import MatchDetailPage from './pages/MatchDetailPage';
 
 import './App.css';
 
@@ -81,6 +84,9 @@ function AppRoutes() {
           <Route path="leagues" element={<LeaguesPage />} />
           <Route path="leagues/:id" element={<LeagueDetailPage />} />
           <Route path="matches" element={<MatchesPage />} />
+          <Route path="matches/record" element={<RecordMatchPage />} />
+          <Route path="matches/:id" element={<MatchDetailPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="admin" element={
             <ProtectedRoute adminOnly>

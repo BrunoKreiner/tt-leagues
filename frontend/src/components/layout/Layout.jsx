@@ -1,4 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -17,12 +18,20 @@ import {
   Settings, 
   LogOut,
   Bell,
-  Shield
+  Shield,
+  UserPlus
 } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { toast } from 'sonner';
+import { notificationsAPI, leaguesAPI } from '@/services/api';
 
 const Layout = () => {
   const { user, logout, isAdmin } = useAuth();
   const location = useLocation();
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [acceptLoading, setAcceptLoading] = useState({});
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
@@ -41,6 +50,71 @@ const Layout = () => {
   const getUserInitials = (user) => {
     if (!user) return 'U';
     return `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase() || user.username?.[0]?.toUpperCase() || 'U';
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      setNotifLoading(true);
+      const res = await notificationsAPI.getAll({ limit: 10 });
+      setNotifications(res.data?.notifications || []);
+      setUnreadCount(res.data?.unread_count || 0);
+    } catch (e) {
+      // soft fail
+      console.error('Failed to load notifications', e);
+    } finally {
+      setNotifLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // initial fetch on layout mount
+    fetchNotifications();
+    // optional: poll every 60s
+    const t = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(t);
+  }, []);
+
+  const markAsRead = async (id) => {
+    try {
+      await notificationsAPI.markAsRead(id);
+      await fetchNotifications();
+    } catch (e) {
+      console.error('markAsRead failed', e);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await notificationsAPI.markAllAsRead();
+      await fetchNotifications();
+    } catch (e) {
+      console.error('markAllAsRead failed', e);
+    }
+  };
+
+  const handleAcceptInvite = async (n) => {
+    const leagueId = n.related_id;
+    if (!leagueId) {
+      toast.error('Missing league reference');
+      return;
+    }
+    try {
+      setAcceptLoading((s) => ({ ...s, [n.id]: true }));
+      const res = await leaguesAPI.join(leagueId);
+      toast.success(res.data?.message || 'Joined league');
+      await markAsRead(n.id);
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Failed to accept invite';
+      toast.error(msg);
+    } finally {
+      setAcceptLoading((s) => ({ ...s, [n.id]: false }));
+    }
+  };
+
+  const handleDenyInvite = async (n) => {
+    // No decline endpoint yet; soft-deny by marking notification as read
+    await markAsRead(n.id);
+    toast.success('Invitation dismissed');
   };
 
   return (
@@ -83,11 +157,93 @@ const Layout = () => {
           {/* Right side */}
           <div className="ml-auto flex items-center space-x-4">
             {/* Notifications */}
-            <Button variant="ghost" size="sm" className="relative">
-              <Bell className="h-4 w-4" />
-              {/* Notification badge - you can add logic here */}
-              {/* <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full text-xs"></span> */}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="relative" onClick={fetchNotifications}>
+                  <Bell className="h-4 w-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[1rem] h-4 px-1 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center">
+                      {unreadCount}
+                    </span>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-96" align="end" forceMount>
+                <div className="px-2 py-2 flex items-center justify-between">
+                  <span className="text-sm font-medium">Notifications</span>
+                  <Button variant="ghost" size="sm" onClick={markAllAsRead} disabled={notifLoading || unreadCount === 0}>
+                    Mark all as read
+                  </Button>
+                </div>
+                <DropdownMenuSeparator />
+                <div className="max-h-96 overflow-auto">
+                  {notifLoading ? (
+                    <div className="p-4 text-sm text-muted-foreground">Loading…</div>
+                  ) : notifications.length === 0 ? (
+                    <div className="p-4 text-sm text-muted-foreground">No notifications</div>
+                  ) : (
+                    notifications.map((n) => (
+                      <div key={n.id} className={`px-3 py-2 border-b last:border-b-0 ${!n.is_read ? 'bg-muted/40' : ''}`}>
+                        <div className="flex items-start gap-3">
+                          {/* Icon */}
+                          <div className="mt-0.5 text-muted-foreground">
+                            {n.type === 'league_invite' ? (
+                              <UserPlus className="h-4 w-4" />
+                            ) : (
+                              <Bell className="h-4 w-4" />
+                            )}
+                          </div>
+                          {/* Content */}
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <div className={`text-sm ${!n.is_read ? 'font-semibold' : 'font-medium'}`}>{n.title}</div>
+                                <div className="text-xs text-muted-foreground">{n.message}</div>
+                                {n.created_at && (
+                                  <div className="text-[10px] text-muted-foreground mt-1">
+                                    {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                                  </div>
+                                )}
+                              </div>
+                              {!n.is_read && (
+                                <Button variant="ghost" size="sm" onClick={() => markAsRead(n.id)}>Read</Button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        {n.type === 'league_invite' && (
+                          <div className="mt-2 space-y-2">
+                            {!n.is_read ? (
+                              <div className="flex items-center gap-2">
+                                <Button size="sm" onClick={() => handleAcceptInvite(n)} disabled={!!acceptLoading[n.id]}>
+                                  {acceptLoading[n.id] ? 'Joining…' : 'Accept'}
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => handleDenyInvite(n)}>
+                                  Deny
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="text-xs text-muted-foreground">Invite handled</div>
+                            )}
+                            {n.related_id && (
+                              <Link to={`/leagues/${n.related_id}`} className="text-xs text-primary underline">
+                                View league
+                              </Link>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+                <DropdownMenuSeparator />
+                <div className="p-2">
+                  <Link to="/notifications" className="w-full inline-flex items-center justify-center text-sm underline text-primary">
+                    View all notifications
+                  </Link>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* User menu */}
             <DropdownMenu>

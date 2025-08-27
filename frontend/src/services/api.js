@@ -65,10 +65,15 @@ export const leaguesAPI = {
   delete: (id) => api.delete(`/leagues/${id}`),
   getMembers: (id) => api.get(`/leagues/${id}/members`),
   invite: (id, userData) => api.post(`/leagues/${id}/invite`, userData),
-  join: (id, inviteCode) => api.post(`/leagues/${id}/join`, { invite_code: inviteCode }),
+  join: (id, inviteCode) => api.post(`/leagues/${id}/join`, inviteCode ? { invite_code: inviteCode } : {}),
   leave: (id) => api.delete(`/leagues/${id}/leave`),
   getLeaderboard: (id) => api.get(`/leagues/${id}/leaderboard`),
   getMatches: (id, params) => api.get(`/leagues/${id}/matches`, { params }),
+  // Admin tools
+  listInvites: (id, params) => api.get(`/leagues/${id}/invites`, { params }),
+  revokeInvite: (id, inviteId) => api.delete(`/leagues/${id}/invites/${inviteId}`),
+  promoteMember: (id, userId) => api.post(`/leagues/${id}/members/${userId}/promote`),
+  demoteMember: (id, userId) => api.post(`/leagues/${id}/members/${userId}/demote`),
 };
 
 // Matches API

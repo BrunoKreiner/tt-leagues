@@ -29,9 +29,8 @@ const DashboardPage = () => {
 
         setStats(userResponse.data.stats);
         setRecentMatches(matchesResponse.data.matches || []);
-        setUserLeagues(leaguesResponse.data.leagues?.filter(league => 
-          league.member_count > 0 // This is a simplified filter - in real app you'd check membership
-        ) || []);
+        // Use backend-provided membership flag
+        setUserLeagues(leaguesResponse.data.leagues?.filter((league) => !!league.is_member) || []);
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
       } finally {

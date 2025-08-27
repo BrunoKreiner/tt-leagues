@@ -1,0 +1,397 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useAuth } from '@/contexts/AuthContext';
+import { matchesAPI } from '@/services/api';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
+
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+
+const GAME_TYPES = [
+  { value: 'best_of_1', label: 'Best of 1' },
+  { value: 'best_of_3', label: 'Best of 3' },
+  { value: 'best_of_5', label: 'Best of 5' },
+  { value: 'best_of_7', label: 'Best of 7' },
+];
+
+const MAX_SETS_BY_TYPE = {
+  best_of_1: 1,
+  best_of_3: 3,
+  best_of_5: 5,
+  best_of_7: 7,
+};
+
+const schema = z.object({
+  game_type: z.enum(['best_of_1', 'best_of_3', 'best_of_5', 'best_of_7']),
+  player1_sets_won: z.coerce.number().int().min(0).max(4),
+  player2_sets_won: z.coerce.number().int().min(0).max(4),
+  player1_points_total: z.coerce.number().int().min(0),
+  player2_points_total: z.coerce.number().int().min(0),
+}).refine((data) => data.player1_sets_won !== data.player2_sets_won, {
+  path: ['player1_sets_won'],
+  message: 'Sets won must not be equal (there must be a winner)',
+});
+
+export default function MatchDetailPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const me = useMemo(() => {
+    if (user) return user;
+    try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch { return null; }
+  }, [user]);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [match, setMatch] = useState(null);
+  const [sets, setSets] = useState([]); // [{ set_number, player1_score, player2_score }]
+
+  const form = useForm({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      game_type: 'best_of_3',
+      player1_sets_won: 0,
+      player2_sets_won: 0,
+      player1_points_total: 0,
+      player2_points_total: 0,
+    },
+  });
+
+  const [setScores, setSetScores] = useState([]); // [{ p1, p2 }]
+
+  const gameType = form.watch('game_type');
+  const p1SetsWon = form.watch('player1_sets_won');
+  const p2SetsWon = form.watch('player2_sets_won');
+
+  const maxSets = useMemo(() => MAX_SETS_BY_TYPE[gameType] ?? 3, [gameType]);
+  const desiredSetCount = useMemo(() => {
+    const sum = (Number(p1SetsWon || 0) + Number(p2SetsWon || 0));
+    return Math.max(0, Math.min(maxSets, sum));
+  }, [p1SetsWon, p2SetsWon, maxSets]);
+
+  useEffect(() => {
+    setSetScores((prev) => {
+      let arr = [...prev];
+      if (desiredSetCount > arr.length) {
+        while (arr.length < desiredSetCount) arr.push({ p1: 0, p2: 0 });
+      } else if (desiredSetCount < arr.length) {
+        arr = arr.slice(0, desiredSetCount);
+      }
+      return arr;
+    });
+  }, [desiredSetCount]);
+
+  // Auto totals
+  useEffect(() => {
+    const t1 = setScores.reduce((acc, s) => acc + (Number.isFinite(+s.p1) ? +s.p1 : 0), 0);
+    const t2 = setScores.reduce((acc, s) => acc + (Number.isFinite(+s.p2) ? +s.p2 : 0), 0);
+    form.setValue('player1_points_total', t1, { shouldDirty: true, shouldValidate: false });
+    form.setValue('player2_points_total', t2, { shouldDirty: true, shouldValidate: false });
+  }, [setScores, form]);
+
+  const getSetClosenessStyle = (p1, p2) => {
+    const a = Number(p1);
+    const b = Number(p2);
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return {};
+    const margin = Math.abs(a - b);
+    const total = a + b;
+    const base = Math.min(Math.max((total - 20) / 14, 0), 1);
+    const penalty = Math.max(0, (margin - 2) * 0.25);
+    let score = Math.min(Math.max(base - penalty, 0), 1);
+    if (score <= 0) return {};
+    const hue = 30 - 30 * score;
+    const sat = 90;
+    const light = 60 - 10 * score;
+    const color = `hsl(${hue} ${sat}% ${light}%)`;
+    const glow = 4 + 8 * score;
+    return { border: `2px solid ${color}`, boxShadow: `0 0 ${glow}px ${color}`, transition: 'box-shadow 120ms ease, border-color 120ms ease' };
+  };
+
+  const canEdit = useMemo(() => {
+    if (!match || match.is_accepted) return false;
+    if (!me?.id) return false;
+    return me.id === match.player1_id || me.id === match.player2_id;
+  }, [match, me?.id]);
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await matchesAPI.getById(id);
+      const m = res.data?.match;
+      const s = res.data?.sets || [];
+      setMatch(m);
+      setSets(s);
+      form.reset({
+        game_type: m.game_type,
+        player1_sets_won: m.player1_sets_won,
+        player2_sets_won: m.player2_sets_won,
+        player1_points_total: m.player1_points_total ?? 0,
+        player2_points_total: m.player2_points_total ?? 0,
+      });
+      if (s.length > 0) {
+        setSetScores(s.map((it) => ({ p1: it.player1_score ?? 0, p2: it.player2_score ?? 0 })));
+      } else {
+        const sum = (m.player1_sets_won || 0) + (m.player2_sets_won || 0);
+        const initial = Array.from({ length: Math.max(0, Math.min(MAX_SETS_BY_TYPE[m.game_type] ?? 3, sum)) }, () => ({ p1: 0, p2: 0 }));
+        setSetScores(initial);
+      }
+    } catch (e) {
+      console.error('Failed to load match', e);
+      setError(e?.response?.data?.error || 'Failed to load match');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  const onSubmit = async (values) => {
+    try {
+      setSaving(true);
+      const payload = {
+        game_type: values.game_type,
+        player1_sets_won: values.player1_sets_won,
+        player2_sets_won: values.player2_sets_won,
+        player1_points_total: values.player1_points_total,
+        player2_points_total: values.player2_points_total,
+        sets: setScores.map((s) => ({ player1_score: Number(s.p1) || 0, player2_score: Number(s.p2) || 0 })),
+      };
+      await matchesAPI.update(id, payload);
+      toast.success('Match updated');
+      await load();
+    } catch (e) {
+      const msg = e?.response?.data?.error || 'Failed to update match';
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <div className="py-10"><LoadingSpinner /></div>;
+  if (error) return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Error</CardTitle>
+        <CardDescription className="text-red-500">{error}</CardDescription>
+      </CardHeader>
+    </Card>
+  );
+  if (!match) return null;
+
+  const deltaP1 = match.player1_elo_after != null && match.player1_elo_before != null ? match.player1_elo_after - match.player1_elo_before : null;
+  const deltaP2 = match.player2_elo_after != null && match.player2_elo_before != null ? match.player2_elo_after - match.player2_elo_before : null;
+
+  return (
+    <div className="px-4 py-6 mx-auto w-full max-w-3xl">
+      <div className="mb-4">
+        <h1 className="text-2xl font-semibold">Match Detail</h1>
+        <p className="text-sm text-muted-foreground">League: {match.league_name}</p>
+      </div>
+
+      <Card className="mb-4">
+        <CardHeader>
+          <CardTitle>{match.player1_username} vs {match.player2_username}</CardTitle>
+          <CardDescription>
+            {match.played_at ? `Played: ${format(new Date(match.played_at), 'PP p')}` : `Created: ${format(new Date(match.created_at), 'PP p')}`}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm space-y-2">
+          <div>Status: {match.is_accepted ? 'Accepted' : 'Pending'}</div>
+          {match.is_accepted && match.accepted_by_username && (
+            <div>Accepted by: {match.accepted_by_username}</div>
+          )}
+          <div>Game type: {GAME_TYPES.find((g) => g.value === match.game_type)?.label || match.game_type}</div>
+          <div>Result: {match.player1_sets_won} - {match.player2_sets_won}</div>
+          {match.is_accepted && (
+            <div className="grid gap-1 md:grid-cols-2">
+              <div>
+                <div className="text-muted-foreground">{match.player1_username} ELO</div>
+                <div>
+                  {match.player1_elo_before} → {match.player1_elo_after} {deltaP1 != null && (
+                    <span className={deltaP1 > 0 ? 'text-green-600' : deltaP1 < 0 ? 'text-red-600' : 'text-muted-foreground'}>
+                      ({deltaP1 >= 0 ? '+' : ''}{deltaP1})
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">{match.player2_username} ELO</div>
+                <div>
+                  {match.player2_elo_before} → {match.player2_elo_after} {deltaP2 != null && (
+                    <span className={deltaP2 > 0 ? 'text-green-600' : deltaP2 < 0 ? 'text-red-600' : 'text-muted-foreground'}>
+                      ({deltaP2 >= 0 ? '+' : ''}{deltaP2})
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{canEdit ? 'Edit Match' : 'Match Details'}</CardTitle>
+          <CardDescription>{canEdit ? 'You can edit before the match is accepted.' : 'Only participants can edit before acceptance.'}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                name="game_type"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Game Type</FormLabel>
+                    <FormControl>
+                      <RadioGroup value={field.value} onValueChange={field.onChange} className="grid gap-2 md:grid-cols-2">
+                        {GAME_TYPES.map((gt) => (
+                          <div key={gt.value} className="flex items-center space-x-2 rounded-md border p-3">
+                            <RadioGroupItem id={gt.value} value={gt.value} disabled={!canEdit} />
+                            <label htmlFor={gt.value} className={`text-sm leading-none ${canEdit ? 'cursor-pointer' : 'opacity-70'}`}>
+                              {gt.label}
+                            </label>
+                          </div>
+                        ))}
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <FormField
+                  name="player1_sets_won"
+                  control={form.control}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{match.player1_username} sets won</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={0} max={4} {...field} onChange={(e) => field.onChange(Number(e.target.value))} disabled={!canEdit} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  name="player2_sets_won"
+                  control={form.control}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{match.player2_username} sets won</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={0} max={4} {...field} onChange={(e) => field.onChange(Number(e.target.value))} disabled={!canEdit} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Sets:</span>
+                  {setScores.map((s, idx) => (
+                    <div key={idx} className="flex items-center gap-1 basis-full">
+                      <span className="text-sm">{idx + 1}:</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={s.p1}
+                        onChange={(e) => {
+                          const v = Number(e.target.value);
+                          setSetScores((arr) => arr.map((it, i) => (i === idx ? { ...it, p1: Number.isFinite(v) ? v : 0 } : it)));
+                        }}
+                        className="w-14 h-8 px-2 text-sm"
+                        aria-label={`${match.player1_username} points in set ${idx + 1}`}
+                        disabled={!canEdit}
+                        style={getSetClosenessStyle(s.p1, s.p2)}
+                      />
+                      <span className="text-sm">:</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={s.p2}
+                        onChange={(e) => {
+                          const v = Number(e.target.value);
+                          setSetScores((arr) => arr.map((it, i) => (i === idx ? { ...it, p2: Number.isFinite(v) ? v : 0 } : it)));
+                        }}
+                        className="w-14 h-8 px-2 text-sm"
+                        aria-label={`${match.player2_username} points in set ${idx + 1}`}
+                        disabled={!canEdit}
+                        style={getSetClosenessStyle(s.p1, s.p2)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <FormField
+                  name="player1_points_total"
+                  control={form.control}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{match.player1_username} total points (auto)</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={0} {...field} readOnly disabled />
+                      </FormControl>
+                      <FormDescription>Automatically calculated from set scores.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  name="player2_points_total"
+                  control={form.control}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{match.player2_username} total points (auto)</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={0} {...field} readOnly disabled />
+                      </FormControl>
+                      <FormDescription>Automatically calculated from set scores.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="flex gap-2">
+                {canEdit ? (
+                  <Button type="submit" disabled={saving}>
+                    {saving ? 'Saving…' : 'Save Changes'}
+                  </Button>
+                ) : (
+                  <Button type="button" variant="outline" asChild>
+                    <Link to="/matches">Back to Matches</Link>
+                  </Button>
+                )}
+                {!canEdit && (
+                  <Button type="button" variant="secondary" asChild>
+                    <Link to={`/leagues/${match.league_id}`}>View League</Link>
+                  </Button>
+                )}
+              </div>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

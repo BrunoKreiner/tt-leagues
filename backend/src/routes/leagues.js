@@ -21,7 +21,8 @@ router.get('/', optionalAuth, validatePagination, async (req, res) => {
                 l.id, l.name, l.description, l.is_public, l.season, l.created_at,
                 u.username as created_by_username,
                 COUNT(DISTINCT lm.user_id) as member_count,
-                COUNT(DISTINCT m.id) as match_count
+                COUNT(DISTINCT m.id) as match_count,
+                ${req.user ? 'MAX(CASE WHEN lm.user_id = ? THEN 1 ELSE 0 END) as is_member' : '0 as is_member'}
             FROM leagues l
             JOIN users u ON l.created_by = u.id
             LEFT JOIN league_members lm ON l.id = lm.league_id
@@ -29,7 +30,16 @@ router.get('/', optionalAuth, validatePagination, async (req, res) => {
             WHERE l.is_active = ?
         `;
         
-        const params = [true, true];
+        // Build params in the exact textual order of placeholders in the query string above
+        const params = [];
+        if (req.user) {
+            // For SELECT is_member aggregator
+            params.push(req.user.id);
+        }
+        // For LEFT JOIN matches m.is_accepted = ?
+        params.push(true);
+        // For WHERE l.is_active = ?
+        params.push(true);
         
         // If user is authenticated, show their leagues + public leagues
         // If not authenticated, show only public leagues
@@ -431,11 +441,7 @@ router.post('/:id/invite', authenticateToken, requireLeagueAdmin, validateId, as
 router.post('/:id/join', authenticateToken, validateId, async (req, res) => {
     try {
         const leagueId = parseInt(req.params.id);
-        const { invite_code } = req.body;
-        
-        if (!invite_code) {
-            return res.status(400).json({ error: 'Invite code required' });
-        }
+        const { invite_code } = req.body || {};
         
         // Check if user is already a member
         const existingMember = await database.get(
@@ -448,18 +454,28 @@ router.post('/:id/join', authenticateToken, validateId, async (req, res) => {
         }
         
         // Find and validate invite
-        const invite = await database.get(
-            'SELECT id, expires_at FROM league_invites WHERE league_id = ? AND invited_user_id = ? AND invite_code = ? AND status = "pending"',
-            [leagueId, req.user.id, invite_code]
-        );
+        let invite;
+        if (invite_code) {
+            // Code-based join (existing flow)
+            invite = await database.get(
+                'SELECT id, expires_at FROM league_invites WHERE league_id = ? AND invited_user_id = ? AND invite_code = ? AND status = "pending"',
+                [leagueId, req.user.id, invite_code]
+            );
+        } else {
+            // Code-less join triggered from notification: use any pending invite for this league and user
+            invite = await database.get(
+                'SELECT id, expires_at FROM league_invites WHERE league_id = ? AND invited_user_id = ? AND status = "pending"',
+                [leagueId, req.user.id]
+            );
+        }
         
         if (!invite) {
-            return res.status(404).json({ error: 'Invalid or expired invite code' });
+            return res.status(404).json({ error: 'No valid pending invite found for this league' });
         }
         
         // Check if invite has expired
         if (new Date(invite.expires_at) < new Date()) {
-            return res.status(400).json({ error: 'Invite code has expired' });
+            return res.status(400).json({ error: 'Invite has expired' });
         }
         
         // Add user to league
@@ -637,6 +653,147 @@ router.get('/:id/matches', optionalAuth, validateId, validatePagination, async (
         });
     } catch (error) {
         console.error('Get league matches error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * List league invites (league admin only)
+ * GET /api/leagues/:id/invites?status=pending|accepted|revoked
+ */
+router.get('/:id/invites', authenticateToken, requireLeagueAdmin, validateId, async (req, res) => {
+    try {
+        const leagueId = parseInt(req.params.id);
+        const { status } = req.query || {};
+
+        const where = ['li.league_id = ?'];
+        const params = [leagueId];
+        if (status) {
+            where.push('li.status = ?');
+            params.push(status);
+        }
+
+        const invites = await database.all(
+            `SELECT 
+                li.id, li.invite_code, li.status, li.expires_at, li.created_at, li.responded_at,
+                li.invited_user_id, u.username as invited_username,
+                li.invited_by, ub.username as invited_by_username
+             FROM league_invites li
+             JOIN users u ON li.invited_user_id = u.id
+             JOIN users ub ON li.invited_by = ub.id
+             WHERE ${where.join(' AND ')}
+             ORDER BY li.created_at DESC`,
+            params
+        );
+
+        res.json({ invites });
+    } catch (error) {
+        console.error('List league invites error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Revoke a pending invite (league admin only)
+ * DELETE /api/leagues/:id/invites/:inviteId
+ */
+router.delete('/:id/invites/:inviteId', authenticateToken, requireLeagueAdmin, validateId, async (req, res) => {
+    try {
+        const leagueId = parseInt(req.params.id);
+        const inviteId = parseInt(req.params.inviteId);
+
+        const invite = await database.get(
+            'SELECT id, status FROM league_invites WHERE id = ? AND league_id = ?',
+            [inviteId, leagueId]
+        );
+        if (!invite) {
+            return res.status(404).json({ error: 'Invite not found' });
+        }
+        if (invite.status !== 'pending') {
+            return res.status(400).json({ error: 'Only pending invites can be revoked' });
+        }
+
+        await database.run(
+            'UPDATE league_invites SET status = "revoked", responded_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [inviteId]
+        );
+
+        res.json({ message: 'Invite revoked' });
+    } catch (error) {
+        console.error('Revoke invite error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Promote a member to league admin (league admin only)
+ * POST /api/leagues/:id/members/:userId/promote
+ */
+router.post('/:id/members/:userId/promote', authenticateToken, requireLeagueAdmin, validateId, async (req, res) => {
+    try {
+        const leagueId = parseInt(req.params.id);
+        const userId = parseInt(req.params.userId);
+
+        const membership = await database.get(
+            'SELECT id, is_admin FROM league_members WHERE league_id = ? AND user_id = ?',
+            [leagueId, userId]
+        );
+        if (!membership) {
+            return res.status(404).json({ error: 'User is not a member of this league' });
+        }
+        if (membership.is_admin) {
+            return res.status(400).json({ error: 'User is already an admin' });
+        }
+
+        await database.run(
+            'UPDATE league_members SET is_admin = ? WHERE league_id = ? AND user_id = ?',
+            [true, leagueId, userId]
+        );
+
+        res.json({ message: 'Member promoted to admin' });
+    } catch (error) {
+        console.error('Promote member error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Demote a league admin to member (league admin only)
+ * POST /api/leagues/:id/members/:userId/demote
+ * Safeguard: cannot demote the last remaining admin.
+ */
+router.post('/:id/members/:userId/demote', authenticateToken, requireLeagueAdmin, validateId, async (req, res) => {
+    try {
+        const leagueId = parseInt(req.params.id);
+        const userId = parseInt(req.params.userId);
+
+        const membership = await database.get(
+            'SELECT id, is_admin FROM league_members WHERE league_id = ? AND user_id = ?',
+            [leagueId, userId]
+        );
+        if (!membership) {
+            return res.status(404).json({ error: 'User is not a member of this league' });
+        }
+        if (!membership.is_admin) {
+            return res.status(400).json({ error: 'User is not an admin' });
+        }
+
+        const adminCount = await database.get(
+            'SELECT COUNT(*) as count FROM league_members WHERE league_id = ? AND is_admin = ?',
+            [leagueId, true]
+        );
+        if (adminCount && adminCount.count <= 1) {
+            return res.status(400).json({ error: 'Cannot demote the last remaining admin' });
+        }
+
+        await database.run(
+            'UPDATE league_members SET is_admin = ? WHERE league_id = ? AND user_id = ?',
+            [false, leagueId, userId]
+        );
+
+        res.json({ message: 'Admin demoted to member' });
+    } catch (error) {
+        console.error('Demote member error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

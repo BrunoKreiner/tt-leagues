@@ -31,6 +31,147 @@ Next steps:
 
 ---
 
+Date: 2025-08-27 (later)
+
+Summary: Added Admin Pending Approvals UI under /admin to review, accept, or reject pending matches.
+
+Changes:
+- Updated `frontend/src/pages/AdminPage.jsx`:
+  - Added a "Pending Match Approvals" card that lists pending matches via `matchesAPI.getPending({ page, limit: 10 })`.
+  - Implemented Accept and Reject actions using `matchesAPI.accept(id)` and `matchesAPI.reject(id, reason)` with confirmation prompt for an optional reason.
+  - Included pagination using shared `@/components/ui/pagination` and date display via `date-fns/format`.
+  - Added loading state with `LoadingSpinner` and toasts for success/error.
+
+Result:
+- League admins can process match approvals efficiently from the Admin Panel.
+
+Notes:
+- The table shows When, League, Players, and Result for each pending item. Paging and total counts are displayed.
+
+Next steps:
+- Build Match Detail view/modal and cross-link from listings.
+
+
+Date: 2025-08-27
+
+Summary: Implemented Record Match form with ELO preview and added routing/link.
+
+Changes:
+- Created `frontend/src/pages/RecordMatchPage.jsx`:
+  - Uses `react-hook-form` + `zod` with fields matching backend validation: `league_id`, `player2_id`, `game_type`, `player1_sets_won`, `player2_sets_won`, `player1_points_total`, `player2_points_total`, optional `played_at`.
+  - League selector fetches only leagues where current user is a member (`GET /api/leagues` with `is_member` flag, filtered on FE).
+  - Opponent selector fetches members via `GET /api/leagues/:id/members` and excludes current user.
+  - Live ELO preview via `POST /api/matches/preview-elo`, debounced on relevant input changes.
+  - Submits to `POST /api/matches` and navigates to `/matches` with success/error toasts.
+- Updated `frontend/src/App.jsx` to add protected route: `/matches/record`.
+- Updated `frontend/src/pages/MatchesPage.jsx` to add a "Record Match" button linking to `/matches/record`.
+
+Result:
+- Authenticated users can record a match against a league opponent with immediate ELO change preview.
+
+Notes:
+- `played_at` is optional and may require backend persistence support in a follow-up.
+
+Next steps:
+- Build Admin Pending Approvals UI and Match Detail as tracked in `docs/match_todo.md`.
+
+Date: 2025-08-27 (later)
+
+Summary: Fixed Record Match league/members loading issues.
+
+Changes:
+- Updated `frontend/src/pages/RecordMatchPage.jsx`:
+  - Leagues fetch now uses `limit=100` (backend max per `validatePagination`) to avoid 400 Bad Request.
+  - Opponent selector and related filtering switched from `member.user_id` to `member.id` to match `GET /api/leagues/:id/members` response (`u.id AS id`).
+
+Result:
+- Record Match page loads leagues and members correctly for authenticated users. Opponent selection works with the correct IDs. No more 400 errors when listing leagues.
+
+Notes:
+- Verified `leaguesAPI.getAll({ page: 1, limit: 100 })` and `leaguesAPI.getMembers(leagueId)` in `frontend/src/services/api.js` align with backend routes.
+
+Next steps:
+- Thorough UI test of Record Match flow, then proceed with Admin Pending Approvals UI.
+
+Date: 2025-08-26 (later)
+
+Summary: Implemented full Notifications page with pagination and filters, added route, and linked it from the header dropdown.
+
+Changes:
+- Created `frontend/src/pages/NotificationsPage.jsx`:
+  - Lists notifications with unread highlighting, icons, and relative timestamps via `date-fns`.
+  - Pagination (page size 10) with previous/next controls using `@/components/ui/pagination`.
+  - Filter toggle: All vs Unread (passes `unread_only=true` to `GET /api/notifications`).
+  - Actions: mark single notification as read, mark all as read, accept/deny league invites (code-less join via `leaguesAPI.join(id)`).
+- Updated `frontend/src/App.jsx` to add route: `/notifications`.
+- Updated `frontend/src/components/layout/Layout.jsx` to include a footer "View all notifications" link in the dropdown to navigate to the page.
+
+Result:
+- Users can browse all notifications with pagination, filter by unread, take actions (read, mark-all-read, accept/deny invites), and navigate back to leagues when relevant.
+
+Notes:
+- Backend `GET /api/notifications` already supports `page`, `limit`, and `unread_only`; FE uses these params.
+
+Date: 2025-08-26
+
+Summary: Polished Notifications dropdown with relative timestamps, icons, and unread styling. Accept invite from dropdown no longer requires a code and actions are hidden after read.
+
+Changes:
+- Updated `frontend/src/components/layout/Layout.jsx`:
+  - Render relative time via date-fns `formatDistanceToNow` using `created_at`.
+  - Icons per type (`UserPlus` for `league_invite`, default `Bell`).
+  - Unread styling: background highlight and bold title; hide Accept/Deny once read; “Invite handled” label.
+- Updated `frontend/src/services/api.js`:
+  - `leaguesAPI.join` supports empty body when accepting via notification (code-less join when pending invite exists).
+- Updated `docs/TODO.md` to reflect only pagination/"View all" remains for notifications.
+
+Result:
+- Cleaner notifications UX; invitations can be accepted directly without code; read items are visually distinct and non-actionable.
+
+Next steps:
+- Add notifications pagination or create a `Notifications` page with pagination and filters.
+
+---
+
+Date: 2025-08-26
+
+Summary: Completed Members management UI and added Notifications dropdown with league invite actions.
+
+Changes:
+- Updated `frontend/src/pages/LeagueDetailPage.jsx`:
+  - Implemented comprehensive "All Members" table with columns: User (username + full name), Role (Admin/Member badges), ELO, W/L, Win%, Joined date.
+  - Kept existing preview members card; added role/permissions hints for future management.
+- Updated `frontend/src/components/layout/Layout.jsx`:
+  - Added top-bar Notifications dropdown with unread badge.
+  - Fetches `GET /api/notifications` via `notificationsAPI.getAll({ limit: 10 })` and shows list.
+  - Supports Mark as read, Mark all as read.
+  - For `league_invite` notifications: Accept via invite code (calls `POST /api/leagues/:id/join`), Deny (marks as read), and quick link to the league.
+- Updated `docs/TODO.md` to mark Members management UI as implemented and list remaining items for Notifications UI and dashboard label fix.
+
+Result:
+- Members list is now feature-complete for read-only management and stats.
+- Users can see invitation notifications in the header and accept/deny invites without navigating into the league page.
+
+Next steps:
+- Polish notifications item rendering (timestamps, icons) and add pagination or "View all" page if needed.
+- Fix Dashboard label to clearly indicate membership vs public leagues in "Your leagues" section.
+
+Date: 2025-08-26
+
+Summary: Dashboard "My Leagues" now reflects actual memberships.
+
+Changes:
+- Updated `backend/src/routes/leagues.js`:
+  - `GET /api/leagues` now includes `is_member` aggregation for authenticated users (`MAX(CASE WHEN lm.user_id = ? THEN 1 ELSE 0 END) as is_member`).
+- Updated `frontend/src/pages/DashboardPage.jsx`:
+  - "My Leagues" list now filters using `league.is_member` instead of a member count heuristic.
+
+Result:
+- The dashboard only shows leagues the user is actually a member of, not all public leagues.
+
+Next steps:
+- Polish notifications item rendering (timestamps, icons) and consider pagination or a "View all" page.
+
 Date: 2025-08-26
 
 Summary: Implemented "Leave League" action on League Detail page with confirmation dialog.
@@ -299,3 +440,74 @@ Next steps:
 - Add frontend tests for Create League form validation and success/error flows.
 
 ---
+
+Date: 2025-08-26 (later)
+
+Summary: Implemented League Admin Tools on the frontend — promote/demote admins and revoke pending invites.
+
+Changes:
+- Updated `frontend/src/services/api.js`:
+  - Added `listInvites(leagueId, { status })`, `revokeInvite(leagueId, inviteId)`,
+    `promoteMember(leagueId, userId)`, and `demoteMember(leagueId, userId)` methods.
+- Updated `frontend/src/pages/LeagueDetailPage.jsx`:
+  - Added admin-only action buttons in the Members table to Promote/Demote with confirmation and toasts.
+  - Added a "Pending Invites" card for admins listing invitee, inviter, expiry, and a Revoke button per invite.
+  - Implemented supporting state, effects, and handlers to refresh data post-action.
+
+Result:
+- League admins can manage roles (promote/demote) and clean up pending invites directly from the league detail page.
+- UI guards ensure actions only render for admins; backend enforces authorization and last-admin safeguards.
+
+Notes:
+- Used existing toast system (`sonner`) and `date-fns` formatting for timestamps.
+- Data refreshes after actions via `refreshLeagueData()` and `fetchInvites()`.
+
+Next steps:
+- Add frontend tests for admin tools flows (promote/demote, revoke invite) and access controls.
+- Continue UI polish and pagination for members/leaderboard as planned.
+
+Date: 2025-08-26 (later)
+
+Summary: Cleaned up duplicate Matches routes and implemented Matches list page with tabs and pagination.
+
+Changes:
+- Updated `backend/src/routes/matches.js`:
+  - Removed duplicate route definitions for `GET /api/matches/pending` and `POST /api/matches/preview-elo` to avoid double-registration.
+  - Left a cleanup note at the end of the file.
+- Replaced placeholder `frontend/src/pages/MatchesPage.jsx` with a functional implementation:
+  - Tabs: All, Accepted, Pending (uses `Tabs` from `@/components/ui/tabs`).
+  - Pagination: page size 10 using shared `@/components/ui/pagination`.
+  - Data: `matchesAPI.getAll({ status, page, limit })` wired up.
+  - Table columns: When, League, Players, Result, Status, Your ΔELO.
+
+Result:
+- Users can browse their matches with status filters and pagination.
+- ELO delta for the current user is displayed for accepted matches.
+
+Next steps:
+- Build Record Match form (league/opponent selectors, sets input, optional played_at, ELO preview via `matchesAPI.previewElo`).
+- Admin Pending Approvals UI using `matchesAPI.getPending` with league filter and accept/reject actions.
+- Match Detail view/modal with sets list and pre-acceptance edit via `matchesAPI.update`.
+- Cross-link match items from League Detail recent matches to Match Detail.
+
+---
+
+Date: 2025-08-27 (later)
+
+Summary: Implemented Match Detail page with pre-accept editing and added cross-linking from Matches and League pages.
+
+Changes:
+- Created `frontend/src/pages/MatchDetailPage.jsx`:
+  - Fetches full match by ID via `matchesAPI.getById(id)` and displays league, players, sets, totals, ELO before/after with delta.
+  - Allows authorized participants to edit match details (sets, scores, game type, played_at) before acceptance using `react-hook-form` + `zod`.
+  - Submits updates via `matchesAPI.update(id, payload)` with validation and toasts.
+- Updated `frontend/src/App.jsx` to add protected route: `/matches/:id` rendering `MatchDetailPage`.
+- Updated `frontend/src/pages/MatchesPage.jsx` to link When/League/Players/Result cells to `/matches/:id`.
+- Updated `frontend/src/pages/LeagueDetailPage.jsx` recent matches table to link date, players, and score cells to `/matches/:id`.
+
+Result:
+- Users can navigate to a detailed view for each match. If they are one of the participants and the match is not accepted, they can edit and resubmit before acceptance.
+
+Notes:
+- UI reuses shared components (`Card`, `Form`, `Button`, inputs) and mirrors validation used on the Record Match page.
+- Further polish and tests will follow.

@@ -11,6 +11,12 @@ import { toast } from 'sonner';
 import { Users, ListChecks, Calendar, Lock, Globe, Trophy } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '@/components/ui/form';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +28,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+
+const editSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(200, 'Max 200 characters'),
+  description: z.string().max(1000, 'Max 1000 characters').optional().or(z.literal('')),
+  is_public: z.boolean().default(true),
+  season: z.string().max(100, 'Max 100 characters').optional().or(z.literal('')),
+});
 
 const LeagueDetailPage = () => {
   const { id } = useParams();
@@ -39,6 +52,21 @@ const LeagueDetailPage = () => {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteResult, setInviteResult] = useState(null);
   const [leaveLoading, setLeaveLoading] = useState(false);
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [invites, setInvites] = useState([]);
+  const [invitesLoading, setInvitesLoading] = useState(false);
+  const [roleChanging, setRoleChanging] = useState({}); // { [userId]: true }
+  const [revokingInvite, setRevokingInvite] = useState({}); // { [inviteId]: true }
+
+  const form = useForm({
+    resolver: zodResolver(editSchema),
+    defaultValues: {
+      name: '',
+      description: '',
+      is_public: true,
+      season: '',
+    },
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -101,6 +129,19 @@ const LeagueDetailPage = () => {
     return () => { cancelled = true; };
   }, [id, isAuthenticated]);
 
+  // When league loads, populate the edit form defaults
+  useEffect(() => {
+    if (league) {
+      form.reset({
+        name: league.name || '',
+        description: league.description || '',
+        is_public: !!league.is_public,
+        season: league.season || '',
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [league]);
+
   const eloDiff = (after, before) => {
     if (after == null || before == null) return null;
     const diff = after - before;
@@ -120,6 +161,108 @@ const LeagueDetailPage = () => {
     } catch (e) {
       // Keep previous state; surface error softly
       console.error('Refresh league data failed', e);
+    }
+  };
+
+  const fetchInvites = async () => {
+    if (!isAuthenticated || !userMembership?.is_admin) return;
+    try {
+      setInvitesLoading(true);
+      const res = await leaguesAPI.listInvites(id, { status: 'pending' });
+      setInvites(res.data?.invites || []);
+    } catch (e) {
+      console.error('Failed to load invites', e);
+      setInvites([]);
+    } finally {
+      setInvitesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Load pending invites when user is an admin
+    if (isAuthenticated && userMembership?.is_admin) {
+      fetchInvites();
+    } else {
+      setInvites([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isAuthenticated, userMembership?.is_admin]);
+
+  const handlePromote = async (userId, username) => {
+    if (!window.confirm(`Promote ${username} to admin?`)) return;
+    try {
+      setRoleChanging((m) => ({ ...m, [userId]: true }));
+      const res = await leaguesAPI.promoteMember(id, userId);
+      toast.success(res.data?.message || 'Member promoted to admin');
+      await refreshLeagueData();
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Failed to promote member';
+      toast.error(msg);
+    } finally {
+      setRoleChanging((m) => ({ ...m, [userId]: false }));
+    }
+  };
+
+  const handleDemote = async (userId, username) => {
+    const adminCount = members.filter((m) => m.is_league_admin).length;
+    if (adminCount <= 1) {
+      toast.error('Cannot demote the last remaining admin');
+      return;
+    }
+    if (!window.confirm(`Demote ${username} to member?`)) return;
+    try {
+      setRoleChanging((m) => ({ ...m, [userId]: true }));
+      const res = await leaguesAPI.demoteMember(id, userId);
+      toast.success(res.data?.message || 'Admin demoted to member');
+      await refreshLeagueData();
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Failed to demote admin';
+      toast.error(msg);
+    } finally {
+      setRoleChanging((m) => ({ ...m, [userId]: false }));
+    }
+  };
+
+  const handleRevokeInvite = async (inviteId) => {
+    if (!window.confirm('Revoke this invite? Only pending invites can be revoked.')) return;
+    try {
+      setRevokingInvite((m) => ({ ...m, [inviteId]: true }));
+      const res = await leaguesAPI.revokeInvite(id, inviteId);
+      toast.success(res.data?.message || 'Invite revoked');
+      await fetchInvites();
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Failed to revoke invite';
+      toast.error(msg);
+    } finally {
+      setRevokingInvite((m) => ({ ...m, [inviteId]: false }));
+    }
+  };
+
+  const handleUpdate = async (values) => {
+    try {
+      setUpdateLoading(true);
+      const payload = {
+        name: values.name.trim(),
+        description: values.description?.trim() || undefined,
+        is_public: !!values.is_public,
+        season: values.season?.trim() || undefined,
+      };
+      await leaguesAPI.update(id, payload);
+      toast.success('League updated');
+      await refreshLeagueData();
+    } catch (err) {
+      const status = err.response?.status;
+      const msg = err.response?.data?.error || 'Failed to update league';
+      if (status === 409) {
+        toast.error('League name already exists');
+        form.setError('name', { message: 'League name already exists' });
+      } else if (status === 403) {
+        toast.error('Only league admins can edit this league');
+      } else {
+        toast.error(msg);
+      }
+    } finally {
+      setUpdateLoading(false);
     }
   };
 
@@ -345,6 +488,92 @@ const LeagueDetailPage = () => {
       {isAuthenticated && userMembership?.is_admin && (
         <Card>
           <CardHeader>
+            <CardTitle className="text-base">Edit League</CardTitle>
+            <CardDescription>Update name, description, visibility, and season</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleUpdate)} className="space-y-6">
+                <FormField
+                  name="name"
+                  control={form.control}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="League name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  name="description"
+                  control={form.control}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Optional description" rows={4} {...field} />
+                      </FormControl>
+                      <FormDescription>Up to 1000 characters.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField
+                    name="season"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Season</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., 2025 Spring" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    name="is_public"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between rounded-md border p-3">
+                        <div>
+                          <FormLabel className="mb-1">Public League</FormLabel>
+                          <FormDescription>
+                            Public leagues are visible to all users. Private leagues require membership.
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch checked={field.value} onCheckedChange={field.onChange} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <Button type="submit" disabled={updateLoading}>
+                    {updateLoading ? 'Saving…' : 'Save Changes'}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => form.reset()} disabled={updateLoading}>
+                    Reset
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      )}
+
+      {isAuthenticated && userMembership?.is_admin && (
+        <Card>
+          <CardHeader>
             <CardTitle className="text-base">Invite a user</CardTitle>
             <CardDescription>Invite by username; generates a code valid for 7 days</CardDescription>
           </CardHeader>
@@ -370,6 +599,52 @@ const LeagueDetailPage = () => {
                   </div>
                 )}
               </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {isAuthenticated && userMembership?.is_admin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Pending Invites</CardTitle>
+            <CardDescription>Revoke invites that should no longer be valid</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {invitesLoading ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : invites.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No pending invites.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Invited By</TableHead>
+                    <TableHead>Expires</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invites.map((inv) => (
+                    <TableRow key={inv.id}>
+                      <TableCell>{inv.invited_username}</TableCell>
+                      <TableCell>{inv.invited_by_username}</TableCell>
+                      <TableCell>{inv.expires_at ? format(new Date(inv.expires_at), 'PP p') : '-'}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleRevokeInvite(inv.id)}
+                          disabled={!!revokingInvite[inv.id]}
+                        >
+                          {revokingInvite[inv.id] ? 'Revoking…' : 'Revoke'}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>
@@ -434,10 +709,18 @@ const LeagueDetailPage = () => {
                 <TableBody>
                   {matches.map((m) => (
                     <TableRow key={m.id}>
-                      <TableCell>{m.played_at ? format(new Date(m.played_at), 'PP p') : '-'}</TableCell>
-                      <TableCell>{m.player1_username}</TableCell>
-                      <TableCell>{m.player2_username}</TableCell>
-                      <TableCell>{m.player1_sets_won} - {m.player2_sets_won}</TableCell>
+                      <TableCell>
+                        <Link to={`/matches/${m.id}`}>{m.played_at ? format(new Date(m.played_at), 'PP p') : '-'}</Link>
+                      </TableCell>
+                      <TableCell>
+                        <Link to={`/matches/${m.id}`}>{m.player1_username}</Link>
+                      </TableCell>
+                      <TableCell>
+                        <Link to={`/matches/${m.id}`}>{m.player2_username}</Link>
+                      </TableCell>
+                      <TableCell>
+                        <Link to={`/matches/${m.id}`}>{m.player1_sets_won} - {m.player2_sets_won}</Link>
+                      </TableCell>
                       <TableCell>
                         P1 {eloDiff(m.player1_elo_after, m.player1_elo_before)} / P2 {eloDiff(m.player2_elo_after, m.player2_elo_before)}
                       </TableCell>
@@ -471,6 +754,7 @@ const LeagueDetailPage = () => {
                   <TableHead>W/L</TableHead>
                   <TableHead>Win%</TableHead>
                   <TableHead>Joined</TableHead>
+                  {userMembership?.is_admin && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -495,6 +779,29 @@ const LeagueDetailPage = () => {
                     <TableCell>{m.matches_won}/{m.matches_played - m.matches_won}</TableCell>
                     <TableCell>{m.win_rate}%</TableCell>
                     <TableCell>{m.joined_at ? format(new Date(m.joined_at), 'PP') : '-'}</TableCell>
+                    {userMembership?.is_admin && (
+                      <TableCell className="text-right">
+                        {m.is_league_admin ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDemote(m.id, m.username)}
+                            disabled={!!roleChanging[m.id] || members.filter((x) => x.is_league_admin).length <= 1}
+                          >
+                            {roleChanging[m.id] ? 'Updating…' : 'Demote'}
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handlePromote(m.id, m.username)}
+                            disabled={!!roleChanging[m.id]}
+                          >
+                            {roleChanging[m.id] ? 'Updating…' : 'Promote'}
+                          </Button>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
