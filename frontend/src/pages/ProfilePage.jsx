@@ -273,7 +273,7 @@ const ProfilePage = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
@@ -297,16 +297,16 @@ const ProfilePage = () => {
         )}
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3">
         {/* Profile Info */}
         <Card className="md:col-span-1">
-          <CardHeader>
+          <CardHeader className="py-3">
             <CardTitle className="flex items-center">
               <User className="h-5 w-5 mr-2" />
               Profile Information
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 pt-0">
             <div>
               <label className="text-sm font-medium text-muted-foreground">Name</label>
               <p className="text-lg">
@@ -342,25 +342,25 @@ const ProfilePage = () => {
 
         {/* Overall Stats */}
         <Card className="md:col-span-2">
-          <CardHeader>
+          <CardHeader className="py-3">
             <CardTitle className="flex items-center">
               <Trophy className="h-5 w-5 mr-2" />
               Overall Statistics
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="text-center">
-                <div className="text-2xl font-bold">{stats?.overall?.leagues_count || 0}</div>
-                <p className="text-sm text-muted-foreground">Leagues</p>
+          <CardContent className="pt-0">
+            <div className="flex flex-wrap gap-2">
+              <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm bg-muted/40">
+                <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="font-medium">{stats?.overall?.leagues_count || 0} Leagues</span>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold">{stats?.overall?.matches_played || 0}</div>
-                <p className="text-sm text-muted-foreground">Matches Played</p>
+              <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm bg-muted/40">
+                <Swords className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="font-medium">{stats?.overall?.matches_played || 0} Matches</span>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold">{stats?.overall?.win_rate || 0}%</div>
-                <p className="text-sm text-muted-foreground">Win Rate</p>
+              <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm bg-muted/40">
+                <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="font-medium">{stats?.overall?.win_rate || 0}% Win Rate</span>
               </div>
             </div>
           </CardContent>
@@ -370,7 +370,7 @@ const ProfilePage = () => {
       {/* ELO History Chart - Only for own profile */}
       {isOwnProfile && (
         <Card>
-          <CardHeader>
+          <CardHeader className="py-3">
             <CardTitle className="flex items-center">
               <TrendingUp className="h-5 w-5 mr-2" />
               ELO History
@@ -379,9 +379,9 @@ const ProfilePage = () => {
               Track your ELO progression over time
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
+          <CardContent className="pt-0">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   <label className="text-sm font-medium">League:</label>
                   {userLeagues.length === 0 ? (
@@ -390,7 +390,7 @@ const ProfilePage = () => {
                     </div>
                   ) : (
                     <Select value={selectedLeague} onValueChange={setSelectedLeague}>
-                      <SelectTrigger className="w-48">
+                      <SelectTrigger className="w-48 h-8">
                         <SelectValue placeholder="Select a league" />
                       </SelectTrigger>
                       <SelectContent>
@@ -407,7 +407,7 @@ const ProfilePage = () => {
                 <div className="flex items-center gap-2">
                   <label className="text-sm font-medium">Time Window:</label>
                   <Select value={timeWindow} onValueChange={setTimeWindow}>
-                    <SelectTrigger className="w-24">
+                    <SelectTrigger className="w-24 h-8">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -428,17 +428,17 @@ const ProfilePage = () => {
              {/* League-specific Stats */}
        {stats?.by_league && stats.by_league.length > 0 && (
          <Card>
-           <CardHeader>
+           <CardHeader className="py-3">
              <CardTitle className="flex items-center">
                <Users className="h-5 w-5 mr-2" />
                League Performance
              </CardTitle>
            </CardHeader>
            <CardContent>
-             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                {stats.by_league.map(league => (
-                 <Card key={league.id} className="p-4">
-                   <div className="space-y-2">
+                 <Card key={league.id} className="p-3">
+                   <div className="space-y-1.5">
                      <h3 className="font-semibold">{league.name}</h3>
                      <div className="flex items-center justify-between">
                        <span className="text-sm text-muted-foreground">ELO</span>
@@ -462,7 +462,7 @@ const ProfilePage = () => {
 
        {/* Badges Section */}
        <Card>
-         <CardHeader>
+         <CardHeader className="py-3">
            <CardTitle className="flex items-center">
              <Award className="h-5 w-5 mr-2" />
              Badges & Achievements
@@ -474,7 +474,7 @@ const ProfilePage = () => {
              }
            </CardDescription>
          </CardHeader>
-         <CardContent>
+         <CardContent className="pt-0">
            <BadgeGrid 
              badges={stats?.badges || []}
              showDate={true}
