@@ -13,6 +13,8 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { BadgeGrid } from '@/components/BadgeDisplay';
 import { useTranslation } from 'react-i18next';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 const ProfilePage = () => {
   const { t } = useTranslation();
@@ -30,6 +32,16 @@ const ProfilePage = () => {
   const [eloLoading, setEloLoading] = useState(false);
   const [eloError, setEloError] = useState(null);
   const [timeWindow, setTimeWindow] = useState('all'); // 30, 90, all
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileFields, setProfileFields] = useState({
+    forehand_rubber: '',
+    backhand_rubber: '',
+    blade_wood: '',
+    playstyle: '',
+    strengths: '',
+    weaknesses: '',
+    goals: ''
+  });
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -44,6 +56,15 @@ const ProfilePage = () => {
           ]);
 
           setStats(statsRes.data);
+          setProfileFields({
+            forehand_rubber: statsRes.data?.user?.forehand_rubber || '',
+            backhand_rubber: statsRes.data?.user?.backhand_rubber || '',
+            blade_wood: statsRes.data?.user?.blade_wood || '',
+            playstyle: statsRes.data?.user?.playstyle || '',
+            strengths: statsRes.data?.user?.strengths || '',
+            weaknesses: statsRes.data?.user?.weaknesses || '',
+            goals: statsRes.data?.user?.goals || ''
+          });
           // Filter to user's leagues only
           const userLeaguesData = leaguesRes.data.leagues?.filter(league => league.is_member) || [];
           setUserLeagues(userLeaguesData);
@@ -57,6 +78,15 @@ const ProfilePage = () => {
           const publicProfileRes = await usersAPI.getPublicProfile(username);
           setStats(publicProfileRes.data);
           setUserLeagues(publicProfileRes.data.league_rankings || []);
+          setProfileFields({
+            forehand_rubber: publicProfileRes.data?.profile?.forehand_rubber || '',
+            backhand_rubber: publicProfileRes.data?.profile?.backhand_rubber || '',
+            blade_wood: publicProfileRes.data?.profile?.blade_wood || '',
+            playstyle: publicProfileRes.data?.profile?.playstyle || '',
+            strengths: publicProfileRes.data?.profile?.strengths || '',
+            weaknesses: publicProfileRes.data?.profile?.weaknesses || '',
+            goals: publicProfileRes.data?.profile?.goals || ''
+          });
         }
       } catch (error) {
         console.error('Failed to fetch profile data:', error);
@@ -264,6 +294,18 @@ const ProfilePage = () => {
         </svg>
       </div>
     );
+  };
+
+  const handleProfileSave = async () => {
+    try {
+      setSavingProfile(true);
+      await usersAPI.update(currentUser.id, profileFields);
+      toast.success(t('profile.saved'));
+    } catch (e) {
+      toast.error(e?.response?.data?.error || t('profile.saveError'));
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   if (loading) {
@@ -481,6 +523,67 @@ const ProfilePage = () => {
            />
          </CardContent>
        </Card>
+
+      {/* Equipment & Playstyle */}
+      <Card>
+        <CardHeader className="py-3">
+          <CardTitle className="flex items-center">
+            <Award className="h-5 w-5 mr-2" />
+            {t('profile.equipmentPlaystyle')}
+          </CardTitle>
+          <CardDescription>
+            {t('profile.equipmentPlaystyleDesc')}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {isOwnProfile ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">{t('profile.forehandRubber')}</label>
+                <Input value={profileFields.forehand_rubber} onChange={(e) => setProfileFields((s) => ({ ...s, forehand_rubber: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">{t('profile.backhandRubber')}</label>
+                <Input value={profileFields.backhand_rubber} onChange={(e) => setProfileFields((s) => ({ ...s, backhand_rubber: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">{t('profile.bladeWood')}</label>
+                <Input value={profileFields.blade_wood} onChange={(e) => setProfileFields((s) => ({ ...s, blade_wood: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">{t('profile.playstyle')}</label>
+                <Input value={profileFields.playstyle} onChange={(e) => setProfileFields((s) => ({ ...s, playstyle: e.target.value }))} />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-sm font-medium text-muted-foreground">{t('profile.strengths')}</label>
+                <Textarea rows={3} value={profileFields.strengths} onChange={(e) => setProfileFields((s) => ({ ...s, strengths: e.target.value }))} />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-sm font-medium text-muted-foreground">{t('profile.weaknesses')}</label>
+                <Textarea rows={3} value={profileFields.weaknesses} onChange={(e) => setProfileFields((s) => ({ ...s, weaknesses: e.target.value }))} />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-sm font-medium text-muted-foreground">{t('profile.goals')}</label>
+                <Textarea rows={3} value={profileFields.goals} onChange={(e) => setProfileFields((s) => ({ ...s, goals: e.target.value }))} />
+              </div>
+              <div className="md:col-span-2 flex gap-2">
+                <Button onClick={handleProfileSave} disabled={savingProfile}>{savingProfile ? t('status.saving') : t('actions.saveChanges')}</Button>
+                <Button variant="outline" onClick={() => window.location.reload()} disabled={savingProfile}>{t('actions.reset')}</Button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2 text-sm">
+              <div><span className="text-muted-foreground">{t('profile.forehandRubber')}:</span> {profileFields.forehand_rubber || '-'}</div>
+              <div><span className="text-muted-foreground">{t('profile.backhandRubber')}:</span> {profileFields.backhand_rubber || '-'}</div>
+              <div><span className="text-muted-foreground">{t('profile.bladeWood')}:</span> {profileFields.blade_wood || '-'}</div>
+              <div><span className="text-muted-foreground">{t('profile.playstyle')}:</span> {profileFields.playstyle || '-'}</div>
+              <div className="md:col-span-2"><span className="text-muted-foreground">{t('profile.strengths')}:</span> {profileFields.strengths || '-'}</div>
+              <div className="md:col-span-2"><span className="text-muted-foreground">{t('profile.weaknesses')}:</span> {profileFields.weaknesses || '-'}</div>
+              <div className="md:col-span-2"><span className="text-muted-foreground">{t('profile.goals')}:</span> {profileFields.goals || '-'}</div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

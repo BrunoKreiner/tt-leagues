@@ -13,6 +13,15 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Optional public profile fields (add columns if they do not exist)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS forehand_rubber TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS backhand_rubber TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS blade_wood TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS playstyle VARCHAR(100);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS strengths TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS weaknesses TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS goals TEXT;
+
 -- Leagues table
 CREATE TABLE IF NOT EXISTS leagues (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
