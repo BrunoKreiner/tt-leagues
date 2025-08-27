@@ -199,7 +199,7 @@ const LeagueDetailPage = () => {
       setLeaderboardPagination(res.data.pagination || { page: 1, pages: 1, total: 0, limit: 20 });
     } catch (e) {
       console.error('Failed to load leaderboard', e);
-      toast.error('Failed to load leaderboard');
+      toast.error(t('leagues.leaderboardError'));
     }
   };
 
@@ -232,10 +232,10 @@ const LeagueDetailPage = () => {
     try {
       setRoleChanging((m) => ({ ...m, [userId]: true }));
       const res = await leaguesAPI.promoteMember(id, userId);
-      toast.success(res.data?.message || 'Member promoted to admin');
+      toast.success(res.data?.message || t('leagues.promoted'));
       await refreshLeagueData();
     } catch (err) {
-      const msg = err.response?.data?.error || 'Failed to promote member';
+      const msg = err.response?.data?.error || t('leagues.promoteError');
       toast.error(msg);
     } finally {
       setRoleChanging((m) => ({ ...m, [userId]: false }));
@@ -263,14 +263,14 @@ const LeagueDetailPage = () => {
   };
 
   const handleRevokeInvite = async (inviteId) => {
-    if (!window.confirm('Revoke this invite? Only pending invites can be revoked.')) return;
+    if (!window.confirm(t('leagues.revokeConfirm'))) return;
     try {
       setRevokingInvite((m) => ({ ...m, [inviteId]: true }));
       const res = await leaguesAPI.revokeInvite(id, inviteId);
-      toast.success(res.data?.message || 'Invite revoked');
+      toast.success(res.data?.message || t('leagues.inviteRevoked'));
       await fetchInvites();
     } catch (err) {
-      const msg = err.response?.data?.error || 'Failed to revoke invite';
+      const msg = err.response?.data?.error || t('leagues.revokeError');
       toast.error(msg);
     } finally {
       setRevokingInvite((m) => ({ ...m, [inviteId]: false }));
@@ -290,7 +290,7 @@ const LeagueDetailPage = () => {
       console.log('Updating league with payload:', payload);
       console.log('Current eloMode state:', eloMode);
       await leaguesAPI.update(id, payload);
-      toast.success('League updated');
+      toast.success(t('leagues.updated'));
       // Add a small delay to prevent rate limiting
       await new Promise(resolve => setTimeout(resolve, 100));
       await refreshLeagueData();
@@ -298,12 +298,12 @@ const LeagueDetailPage = () => {
       console.error('League update error:', err);
       console.error('Error response:', err.response);
       const status = err.response?.status;
-      const msg = err.response?.data?.error || 'Failed to update league';
+      const msg = err.response?.data?.error || t('leagues.updateError');
       if (status === 409) {
-        toast.error('League name already exists');
-        form.setError('name', { message: 'League name already exists' });
+        toast.error(t('admin.nameExists'));
+        form.setError('name', { message: t('admin.nameExists') });
       } else if (status === 403) {
-        toast.error('Only league admins can edit this league');
+        toast.error(t('leagues.onlyAdminsEdit'));
       } else {
         toast.error(msg);
       }
@@ -316,10 +316,10 @@ const LeagueDetailPage = () => {
     try {
       setLeaveLoading(true);
       const res = await leaguesAPI.leave(id);
-      toast.success(res.data?.message || 'Left league');
+      toast.success(res.data?.message || t('leagues.left'));
       await refreshLeagueData();
     } catch (err) {
-      const msg = err.response?.data?.error || 'Failed to leave league';
+      const msg = err.response?.data?.error || t('leagues.leaveError');
       toast.error(msg);
     } finally {
       setLeaveLoading(false);
@@ -329,24 +329,24 @@ const LeagueDetailPage = () => {
   const handleJoin = async (e) => {
     e.preventDefault();
     if (!inviteCode.trim()) {
-      toast.error('Invite code is required');
+      toast.error(t('leagues.inviteCodeRequired'));
       return;
     }
     try {
       setJoinLoading(true);
       const res = await leaguesAPI.join(id, inviteCode.trim());
-      toast.success(res.data?.message || 'Joined league');
+      toast.success(res.data?.message || t('notifications.joinedLeague'));
       setInviteCode('');
       await refreshLeagueData();
     } catch (err) {
       const status = err.response?.status;
-      const msg = err.response?.data?.error || 'Failed to join league';
+      const msg = err.response?.data?.error || t('leagues.joinError');
       if (status === 404) {
-        toast.error('Invalid or expired invite code');
+        toast.error(t('leagues.inviteInvalid'));
       } else if (status === 400) {
-        toast.error('Invite code required');
+        toast.error(t('leagues.inviteCodeRequired'));
       } else if (status === 409) {
-        toast.error('You are already a member of this league');
+        toast.error(t('leagues.alreadyMember'));
         // Still refresh in case membership changed concurrently
         await refreshLeagueData();
       } else {
@@ -360,7 +360,7 @@ const LeagueDetailPage = () => {
   const handleInvite = async (e) => {
     e.preventDefault();
     if (!inviteUsername.trim()) {
-      toast.error('Username is required');
+      toast.error(t('leagues.usernameRequired'));
       return;
     }
     try {
@@ -368,18 +368,18 @@ const LeagueDetailPage = () => {
       setInviteResult(null);
       const res = await leaguesAPI.invite(id, { username: inviteUsername.trim() });
       const { message, invite_code, expires_at } = res.data || {};
-      toast.success(message || 'Invitation sent');
+      toast.success(message || t('leagues.inviteSent'));
       setInviteResult({ invite_code, expires_at });
       setInviteUsername('');
     } catch (err) {
       const status = err.response?.status;
-      const msg = err.response?.data?.error || 'Failed to send invite';
+      const msg = err.response?.data?.error || t('leagues.inviteError');
       if (status === 404) {
-        toast.error('User not found');
+        toast.error(t('leagues.userNotFound'));
       } else if (status === 409) {
-        toast.error('User is already a member or has a pending invite');
+        toast.error(t('leagues.userAlreadyMember'));
       } else if (status === 403) {
-        toast.error('Only league admins can invite users');
+        toast.error(t('leagues.onlyAdminsInvite'));
       } else {
         toast.error(msg);
       }
@@ -407,14 +407,14 @@ const LeagueDetailPage = () => {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{league.name}</h1>
-          <p className="text-muted-foreground">Created by {league.created_by_username} • {format(new Date(league.created_at), 'PPP')}</p>
+          <p className="text-muted-foreground">{t('leagues.createdBy', { user: league.created_by_username })} • {format(new Date(league.created_at), 'PPP')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="flex items-center gap-1">
             {league.is_public ? <Globe className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
-            {league.is_public ? 'Public' : 'Private'}
+            {league.is_public ? t('leagues.public') : t('leagues.private')}
           </Badge>
-          {league.season && <Badge variant="outline">Season: {league.season}</Badge>}
+          {league.season && <Badge variant="outline">{t('admin.season')}: {league.season}</Badge>}
         </div>
       </div>
 
@@ -430,12 +430,12 @@ const LeagueDetailPage = () => {
         {/* Leaderboard first */}
         <Card className="md:col-span-2">
           <CardHeader className="py-3">
-            <CardTitle className="text-base">Leaderboard</CardTitle>
+            <CardTitle className="text-base">{t('leagues.leaderboard')}</CardTitle>
             <CardDescription>Ranked by current ELO • {leaderboardPagination.total} players</CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
             {leaderboard.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No players yet.</p>
+              <p className="text-sm text-muted-foreground">{t('leagues.noPlayers')}</p>
             ) : (
               <>
                 <Table>
@@ -511,12 +511,12 @@ const LeagueDetailPage = () => {
         {/* Compact overview beside leaderboard */}
         <Card>
           <CardHeader className="py-3">
-            <CardTitle className="text-base">Overview</CardTitle>
+            <CardTitle className="text-base">{t('common.overview')}</CardTitle>
             <CardDescription>Key stats</CardDescription>
           </CardHeader>
           <CardContent className="pt-0 text-sm text-muted-foreground space-y-2">
-            <div className="flex items-center gap-2"><Users className="h-4 w-4" /> Members: {league.member_count}</div>
-            <div className="flex items-center gap-2"><ListChecks className="h-4 w-4" /> Matches: {league.match_count}</div>
+            <div className="flex items-center gap-2"><Users className="h-4 w-4" /> {t('leagues.membersLabel')}: {league.member_count}</div>
+            <div className="flex items-center gap-2"><ListChecks className="h-4 w-4" /> {t('leagues.matchesLabel')}: {league.match_count}</div>
             {userMembership && (
               <div className="flex items-center gap-2"><Trophy className="h-4 w-4" /> Your ELO: {userMembership.current_elo}</div>
             )}
@@ -527,19 +527,19 @@ const LeagueDetailPage = () => {
       {isAuthenticated && !userMembership && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Join this league</CardTitle>
+            <CardTitle className="text-base">{t('leagues.joinThisLeague')}</CardTitle>
             <CardDescription>Enter your invite code to join</CardDescription>
           </CardHeader>
           <CardContent>
             <form className="flex flex-col sm:flex-row gap-3" onSubmit={handleJoin}>
               <Input
-                placeholder="Invite code"
+                placeholder={t('leagues.inviteCodePlaceholder')}
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value)}
                 disabled={joinLoading}
               />
               <Button type="submit" disabled={joinLoading}>
-                {joinLoading ? 'Joining…' : 'Join'}
+                {joinLoading ? t('status.joining') : t('actions.join')}
               </Button>
             </form>
           </CardContent>
@@ -549,14 +549,14 @@ const LeagueDetailPage = () => {
       {isAuthenticated && userMembership && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Leave this league</CardTitle>
+            <CardTitle className="text-base">{t('leagues.leaveThisLeague')}</CardTitle>
             <CardDescription>You will lose access to members-only data</CardDescription>
           </CardHeader>
           <CardContent>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" disabled={leaveLoading}>
-                  {leaveLoading ? 'Leaving…' : 'Leave League'}
+                  {leaveLoading ? t('status.leaving') : t('leagues.leaveLeague')}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -581,7 +581,7 @@ const LeagueDetailPage = () => {
       {isAuthenticated && userMembership?.is_admin && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Edit League</CardTitle>
+            <CardTitle className="text-base">{t('leagues.editLeague')}</CardTitle>
             <CardDescription>Update name, description, visibility, season, and ELO update mode</CardDescription>
           </CardHeader>
           <CardContent>
@@ -594,7 +594,7 @@ const LeagueDetailPage = () => {
                     <FormItem>
                       <FormLabel>Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="League name" {...field} />
+                        <Input placeholder={t('admin.leagueNamePlaceholder')} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -608,7 +608,7 @@ const LeagueDetailPage = () => {
                     <FormItem>
                       <FormLabel>Description</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Optional description" rows={4} {...field} />
+                        <Textarea placeholder={t('admin.descriptionPlaceholder')} rows={4} {...field} />
                       </FormControl>
                       <FormDescription>Up to 1000 characters.</FormDescription>
                       <FormMessage />
@@ -624,7 +624,7 @@ const LeagueDetailPage = () => {
                       <FormItem>
                         <FormLabel>Season</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g., 2025 Spring" {...field} />
+                          <Input placeholder={t('admin.seasonPlaceholder')} {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -637,7 +637,7 @@ const LeagueDetailPage = () => {
                     render={({ field }) => (
                       <FormItem className="flex items-center justify-between rounded-md border p-3">
                         <div>
-                          <FormLabel className="mb-1">Public League</FormLabel>
+                          <FormLabel className="mb-1">{t('admin.publicLeague')}</FormLabel>
                           <FormDescription>
                             Public leagues are visible to all users. Private leagues require membership.
                           </FormDescription>
@@ -654,30 +654,30 @@ const LeagueDetailPage = () => {
                   <div className="flex flex-col gap-2">
                     <FormLabel>ELO Update Mode</FormLabel>
                     <div className="text-xs text-muted-foreground mb-2">
-                      Current value: {eloMode} (Debug)
+                      {t('leagues.eloModeHelp')}
                     </div>
-                    <Select value={eloMode} onValueChange={setEloMode} key={eloMode}>
+                    <Select onValueChange={(v) => setEloMode(v)} value={eloMode}>
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select ELO mode" />
+                        <SelectValue placeholder={t('leagues.selectEloMode')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="immediate">Immediate</SelectItem>
-                        <SelectItem value="weekly">Weekly consolidation</SelectItem>
-                        <SelectItem value="monthly">Monthly consolidation</SelectItem>
+                        <SelectItem value="immediate">{t('leagues.eloImmediate')}</SelectItem>
+                        <SelectItem value="weekly">{t('leagues.eloWeekly')}</SelectItem>
+                        <SelectItem value="monthly">{t('leagues.eloMonthly')}</SelectItem>
                       </SelectContent>
                     </Select>
                     <div className="text-xs text-muted-foreground">
-                      Deferred modes reduce volatility by batching ELO updates.
+                      {t('leagues.eloModeDesc')}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex gap-2">
                   <Button type="submit" disabled={updateLoading}>
-                    {updateLoading ? 'Saving…' : 'Save Changes'}
+                    {updateLoading ? t('status.saving') : t('actions.saveChanges')}
                   </Button>
                   <Button type="button" variant="outline" onClick={() => form.reset()} disabled={updateLoading}>
-                    Reset
+                    {t('actions.reset')}
                   </Button>
                 </div>
               </form>
@@ -689,28 +689,28 @@ const LeagueDetailPage = () => {
       {isAuthenticated && userMembership?.is_admin && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Invite a user</CardTitle>
+            <CardTitle className="text-base">{t('leagues.inviteUser')}</CardTitle>
             <CardDescription>Invite by username; generates a code valid for 7 days</CardDescription>
           </CardHeader>
           <CardContent>
             <form className="flex flex-col sm:flex-row gap-3" onSubmit={handleInvite}>
               <Input
-                placeholder="Username"
+                placeholder={t('profile.username')}
                 value={inviteUsername}
                 onChange={(e) => setInviteUsername(e.target.value)}
                 disabled={inviteLoading}
               />
               <Button type="submit" disabled={inviteLoading}>
-                {inviteLoading ? 'Inviting…' : 'Send Invite'}
+                {inviteLoading ? t('status.inviting') : t('leagues.sendInvite')}
               </Button>
             </form>
             {inviteResult?.invite_code && (
               <div className="mt-3 text-sm">
-                <div className="text-muted-foreground">Invite code:</div>
+                <div className="text-muted-foreground">{t('leagues.inviteCodeLabel')}:</div>
                 <div className="font-mono text-base">{inviteResult.invite_code}</div>
                 {inviteResult.expires_at && (
                   <div className="text-muted-foreground">
-                    Expires: {format(new Date(inviteResult.expires_at), 'PP p')}
+                    {t('leagues.expires')}: {format(new Date(inviteResult.expires_at), 'PP p')}
                   </div>
                 )}
               </div>
@@ -722,7 +722,7 @@ const LeagueDetailPage = () => {
       {isAuthenticated && userMembership?.is_admin && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">ELO Consolidation</CardTitle>
+            <CardTitle className="text-base">{t('leagues.eloConsolidation')}</CardTitle>
             <CardDescription>
               Apply deferred ELO updates for accepted matches. Only available for leagues with weekly/monthly consolidation mode.
             </CardDescription>
@@ -738,13 +738,13 @@ const LeagueDetailPage = () => {
                   console.log('Making consolidation API call...');
                   const res = await matchesAPI.consolidateLeague(id);
                   console.log('Consolidation response:', res);
-                  toast.success(res.data?.message || 'Consolidation complete');
+                  toast.success(res.data?.message || t('leagues.consolidationComplete'));
                   await refreshLeagueData();
                 } catch (e) {
                   console.error('Consolidation error:', e);
                   console.error('Error response:', e?.response);
                   console.error('Error data:', e?.response?.data);
-                  toast.error(e?.response?.data?.error || 'Failed to consolidate');
+                  toast.error(e?.response?.data?.error || t('leagues.consolidationError'));
                 } finally {
                   setConsolidating(false);
                 }
