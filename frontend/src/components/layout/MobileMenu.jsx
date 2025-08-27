@@ -34,10 +34,9 @@ const MobileMenu = ({
 
   // Close menu on route change
   useEffect(() => {
-    if (isOpen) {
-      onClose();
-    }
-  }, [location.pathname, isOpen, onClose]);
+    onClose();
+    // Intentionally only depend on pathname to avoid closing immediately on open
+  }, [location.pathname]);
 
   // Handle escape key
   useEffect(() => {

@@ -165,6 +165,9 @@ const Layout = () => {
             })}
           </nav>
 
+          {/* Spacer pushes right-side content (incl. hamburger on mobile) */}
+          <div className="flex-1" />
+
           {/* Mobile Menu Button */}
           <HamburgerButton isOpen={mobileMenuOpen} onClick={toggleMobileMenu} />
 
