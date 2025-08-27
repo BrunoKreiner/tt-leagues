@@ -7,9 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Trophy, Users, Swords, TrendingUp, Plus, Calendar } from 'lucide-react';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { leaguesAPI, matchesAPI, authAPI } from '../services/api';
+import { useTranslation } from 'react-i18next';
 
 const DashboardPage = () => {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [recentMatches, setRecentMatches] = useState([]);
@@ -62,10 +64,10 @@ const DashboardPage = () => {
       {/* Welcome Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">
-          Welcome back, {user?.first_name}!
+          {t('welcome', { name: user?.first_name })}
         </h1>
         <p className="text-muted-foreground">
-          Here's what's happening in your table tennis leagues.
+          {t('dashboard.subtitle')}
         </p>
       </div>
 
@@ -73,15 +75,15 @@ const DashboardPage = () => {
       <div className="flex flex-wrap gap-2">
         <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm bg-muted/40">
           <Trophy className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="font-medium">{stats?.leagues_count || 0} Leagues</span>
+          <span className="font-medium">{t('stats.leagues', { count: stats?.leagues_count || 0 })}</span>
         </div>
         <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm bg-muted/40">
           <Swords className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="font-medium">{stats?.matches_played || 0} Matches</span>
+          <span className="font-medium">{t('stats.matches', { count: stats?.matches_played || 0 })}</span>
         </div>
         <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm bg-muted/40">
           <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="font-medium">{stats?.matches_won || 0} Wins • {stats?.win_rate || 0}%</span>
+          <span className="font-medium">{t('stats.wins', { wins: stats?.matches_won || 0, rate: stats?.win_rate || 0 })}</span>
         </div>
         <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm bg-muted/40">
           <Users className="h-3.5 w-3.5 text-muted-foreground" />
@@ -93,8 +95,8 @@ const DashboardPage = () => {
         {/* Recent Matches */}
         <section>
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-base font-semibold">Recent Matches</h2>
-            <Link to="/matches" className="text-xs text-primary underline">All matches</Link>
+            <h2 className="text-base font-semibold">{t('nav.matches')}</h2>
+            <Link to="/matches" className="text-xs text-primary underline">{t('nav.matches')}</Link>
           </div>
           {recentMatches.length > 0 ? (
             <div className="space-y-2">
@@ -124,11 +126,11 @@ const DashboardPage = () => {
           ) : (
             <div className="text-center py-6">
               <Swords className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-              <p className="text-muted-foreground text-sm">No matches played yet</p>
+              <p className="text-muted-foreground text-sm">{t('notifications.none')}</p>
               <Button asChild size="sm" className="mt-3">
                 <Link to="/matches">
                   <Plus className="h-4 w-4 mr-2" />
-                  Record a Match
+                  {t('cta.recordMatch')}
                 </Link>
               </Button>
             </div>
@@ -138,8 +140,8 @@ const DashboardPage = () => {
         {/* My Leagues */}
         <section>
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-base font-semibold">My Leagues</h2>
-            <Link to="/leagues" className="text-xs text-primary underline">All leagues</Link>
+            <h2 className="text-base font-semibold">{t('nav.leagues')}</h2>
+            <Link to="/leagues" className="text-xs text-primary underline">{t('nav.leagues')}</Link>
           </div>
           {userLeagues.length > 0 ? (
             <div className="space-y-2">
@@ -155,7 +157,7 @@ const DashboardPage = () => {
                     </div>
                   </div>
                   <Button variant="outline" size="sm" asChild>
-                    <Link to={`/leagues/${league.id}`}>View</Link>
+                    <Link to={`/leagues/${league.id}`}>{t('cta.viewProfile')}</Link>
                   </Button>
                 </div>
               ))}
@@ -163,11 +165,11 @@ const DashboardPage = () => {
           ) : (
             <div className="text-center py-6">
               <Trophy className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-              <p className="text-muted-foreground text-sm">No leagues joined yet</p>
+              <p className="text-muted-foreground text-sm">{t('notifications.none')}</p>
               <Button asChild size="sm" className="mt-3">
                 <Link to="/leagues">
                   <Plus className="h-4 w-4 mr-2" />
-                  Browse Leagues
+                  {t('cta.browseLeagues')}
                 </Link>
               </Button>
             </div>
@@ -180,19 +182,19 @@ const DashboardPage = () => {
         <Button asChild variant="outline" size="sm">
           <Link to="/matches">
             <Swords className="h-4 w-4 mr-2" />
-            Record Match
+            {t('cta.recordMatch')}
           </Link>
         </Button>
         <Button asChild variant="outline" size="sm">
           <Link to="/leagues">
             <Trophy className="h-4 w-4 mr-2" />
-            Browse Leagues
+            {t('cta.browseLeagues')}
           </Link>
         </Button>
         <Button asChild variant="outline" size="sm">
           <Link to="/profile">
             <Users className="h-4 w-4 mr-2" />
-            View Profile
+            {t('cta.viewProfile')}
           </Link>
         </Button>
       </div>
