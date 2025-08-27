@@ -1,0 +1,80 @@
+{
+  "app": {
+    "title": "Table Tennis League"
+  },
+  "language": {
+    "english": "English",
+    "german": "German"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "leagues": "Leagues",
+    "matches": "Matches",
+    "admin": "Admin",
+    "notifications": "Notifications",
+    "profile": "Profile",
+    "settings": "Settings",
+    "logout": "Log out"
+  },
+  "welcome": "Welcome, {{name}}!",
+  "dashboard": {
+    "subtitle": "Track your matches, leagues, and rating at a glance."
+  },
+  "stats": {
+    "leagues": "Leagues: {{count}}",
+    "matches": "Matches: {{count}}",
+    "wins": "Wins: {{wins}} ({{rate}}%)"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "none": "Nothing here yet",
+    "counts": "{{unread}} unread of {{total}} total",
+    "loadError": "Failed to load notifications",
+    "markReadError": "Failed to mark as read",
+    "markAllError": "Failed to mark all as read",
+    "missingLeague": "Missing league reference",
+    "joinedLeague": "Joined league",
+    "acceptError": "Failed to accept invite",
+    "denyError": "Failed to deny invite",
+    "deleted": "Notification deleted",
+    "deleteError": "Failed to delete notification",
+    "inviteHandled": "Invite handled"
+  },
+  "cta": {
+    "recordMatch": "Record match",
+    "browseLeagues": "Browse leagues",
+    "viewProfile": "View profile"
+  },
+  "actions": {
+    "markAllRead": "Mark all read",
+    "read": "Read",
+    "delete": "Delete",
+    "accept": "Accept",
+    "reject": "Reject"
+  },
+  "common": {
+    "all": "All",
+    "unread": "Unread",
+    "loading": "Loading…",
+    "submitting": "Submitting…",
+    "reset": "Reset"
+  },
+  "table": {
+    "when": "When",
+    "league": "League",
+    "players": "Players",
+    "result": "Result",
+    "actions": "Actions"
+  },
+  "status": {
+    "marking": "Marking…",
+    "deleting": "Deleting…",
+    "joining": "Joining…",
+    "creating": "Creating…"
+  },
+  "matchDetail": {
+    "viewLeague": "View league",
+    "gameType": "Game type"
+  }
+}
+

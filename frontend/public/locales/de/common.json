@@ -1,0 +1,80 @@
+{
+  "app": {
+    "title": "Tischtennis Liga"
+  },
+  "language": {
+    "english": "Englisch",
+    "german": "Deutsch"
+  },
+  "nav": {
+    "dashboard": "Übersicht",
+    "leagues": "Ligen",
+    "matches": "Spiele",
+    "admin": "Admin",
+    "notifications": "Benachrichtigungen",
+    "profile": "Profil",
+    "settings": "Einstellungen",
+    "logout": "Abmelden"
+  },
+  "welcome": "Willkommen, {{name}}!",
+  "dashboard": {
+    "subtitle": "Behalte Spiele, Ligen und Wertung im Blick."
+  },
+  "stats": {
+    "leagues": "Ligen: {{count}}",
+    "matches": "Spiele: {{count}}",
+    "wins": "Siege: {{wins}} ({{rate}}%)"
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "none": "Noch nichts hier",
+    "counts": "{{unread}} ungelesen von {{total}} insgesamt",
+    "loadError": "Benachrichtigungen konnten nicht geladen werden",
+    "markReadError": "Konnte nicht als gelesen markieren",
+    "markAllError": "Konnte nicht alle als gelesen markieren",
+    "missingLeague": "Fehlender Liga‑Verweis",
+    "joinedLeague": "Liga beigetreten",
+    "acceptError": "Einladung konnte nicht angenommen werden",
+    "denyError": "Einladung konnte nicht abgelehnt werden",
+    "deleted": "Benachrichtigung gelöscht",
+    "deleteError": "Benachrichtigung konnte nicht gelöscht werden",
+    "inviteHandled": "Einladung erledigt"
+  },
+  "cta": {
+    "recordMatch": "Spiel eintragen",
+    "browseLeagues": "Ligen durchsuchen",
+    "viewProfile": "Profil ansehen"
+  },
+  "actions": {
+    "markAllRead": "Alle als gelesen markieren",
+    "read": "Lesen",
+    "delete": "Löschen",
+    "accept": "Annehmen",
+    "reject": "Ablehnen"
+  },
+  "common": {
+    "all": "Alle",
+    "unread": "Ungelesen",
+    "loading": "Lädt…",
+    "submitting": "Senden…",
+    "reset": "Zurücksetzen"
+  },
+  "table": {
+    "when": "Wann",
+    "league": "Liga",
+    "players": "Spieler",
+    "result": "Ergebnis",
+    "actions": "Aktionen"
+  },
+  "status": {
+    "marking": "Markiere…",
+    "deleting": "Lösche…",
+    "joining": "Beitreten…",
+    "creating": "Erstelle…"
+  },
+  "matchDetail": {
+    "viewLeague": "Liga anzeigen",
+    "gameType": "Spieltyp"
+  }
+}
+
