@@ -55,7 +55,8 @@ export const usersAPI = {
   getStats: (id) => api.get(`/users/${id}/stats`),
   getBadges: (id) => api.get(`/users/${id}/badges`),
   getEloHistory: (id, params) => api.get(`/users/${id}/elo-history`, { params }),
-  getPublicProfile: (username) => api.get(`/users/profile/${username}`),
+      getPublicProfile: (username) => api.get(`/users/profile/${username}`),
+    checkBadgesTables: () => api.post('/users/check-badges-tables'),
 };
 
 // Leagues API

@@ -500,17 +500,23 @@ router.get('/profile/:username', async (req, res) => {
             LIMIT 10
         `, [user.id, user.id, user.id, user.id, user.id, true]);
         
-        // Get user's badges
-        const badges = await database.all(`
-            SELECT 
-                b.id, b.name, b.description, b.icon, ub.earned_at, ub.league_id,
-                l.name as league_name
-            FROM user_badges ub
-            JOIN badges b ON ub.badge_id = b.id
-            LEFT JOIN leagues l ON ub.league_id = l.id
-            WHERE ub.user_id = ?
-            ORDER BY ub.earned_at DESC
-        `, [user.id]);
+        // Get user's badges (with error handling for missing tables)
+        let badges = [];
+        try {
+            badges = await database.all(`
+                SELECT 
+                    b.id, b.name, b.description, b.icon, ub.earned_at, ub.league_id,
+                    l.name as league_name
+                FROM user_badges ub
+                JOIN badges b ON ub.badge_id = b.id
+                LEFT JOIN leagues l ON ub.league_id = l.id
+                WHERE ub.user_id = ?
+                ORDER BY ub.earned_at DESC
+            `, [user.id]);
+        } catch (badgeError) {
+            console.warn('Badges table might not exist yet:', badgeError.message);
+            // Continue without badges if table doesn't exist
+        }
         
         // Calculate overall stats
         const overallStats = await database.get(`
@@ -548,6 +554,73 @@ router.get('/profile/:username', async (req, res) => {
         });
     } catch (error) {
         console.error('Get public profile error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Check and create badges tables if they don't exist (admin only)
+ * POST /api/users/check-badges-tables
+ */
+router.post('/check-badges-tables', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        console.log('Checking if badges tables exist...');
+        
+        // Check if badges table exists
+        const badgesTableExists = await database.get(`
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'badges'
+            ) as exists
+        `);
+        
+        if (!badgesTableExists.exists) {
+            console.log('Creating badges table...');
+            await database.run(`
+                CREATE TABLE badges (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(100) NOT NULL,
+                    description TEXT,
+                    icon VARCHAR(100),
+                    badge_type VARCHAR(50) NOT NULL,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            `);
+            console.log('✅ Badges table created successfully');
+        }
+        
+        // Check if user_badges table exists
+        const userBadgesTableExists = await database.get(`
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'user_badges'
+            ) as exists
+        `);
+        
+        if (!userBadgesTableExists.exists) {
+            console.log('Creating user_badges table...');
+            await database.run(`
+                CREATE TABLE user_badges (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    badge_id INTEGER NOT NULL REFERENCES badges(id),
+                    league_id INTEGER,
+                    earned_at TIMESTAMP DEFAULT NOW(),
+                    season VARCHAR(100)
+                )
+            `);
+            console.log('✅ User badges table created successfully');
+        }
+        
+        res.json({ 
+            message: 'Badges tables check completed',
+            badges_table_exists: badgesTableExists.exists,
+            user_badges_table_exists: userBadgesTableExists.exists
+        });
+    } catch (error) {
+        console.error('Check badges tables error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
