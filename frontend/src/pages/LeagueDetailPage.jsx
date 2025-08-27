@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { leaguesAPI } from '@/services/api';
+import { leaguesAPI, matchesAPI } from '@/services/api';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Users, ListChecks, Calendar, Lock, Globe, Trophy } from 'lucide-react';
 import { format } from 'date-fns';
@@ -17,6 +18,15 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '@/components/ui/form';
+import EloSparkline from '@/components/EloSparkline';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationPrevious,
+  PaginationNext,
+} from '@/components/ui/pagination';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,6 +53,7 @@ const LeagueDetailPage = () => {
   const [league, setLeague] = useState(null);
   const [userMembership, setUserMembership] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [leaderboardPagination, setLeaderboardPagination] = useState({ page: 1, pages: 1, total: 0, limit: 20 });
   const [members, setMembers] = useState([]);
   const [matches, setMatches] = useState([]);
   const { isAuthenticated } = useAuth();
@@ -57,6 +68,9 @@ const LeagueDetailPage = () => {
   const [invitesLoading, setInvitesLoading] = useState(false);
   const [roleChanging, setRoleChanging] = useState({}); // { [userId]: true }
   const [revokingInvite, setRevokingInvite] = useState({}); // { [inviteId]: true }
+  const [eloMode, setEloMode] = useState('immediate');
+
+  const [consolidating, setConsolidating] = useState(false);
 
   const form = useForm({
     resolver: zodResolver(editSchema),
@@ -76,7 +90,7 @@ const LeagueDetailPage = () => {
         setError(null);
 
         const leagueP = leaguesAPI.getById(id);
-        const leaderboardP = leaguesAPI.getLeaderboard(id);
+        const leaderboardP = leaguesAPI.getLeaderboard(id, { page: 1, limit: 20 });
         const matchesP = leaguesAPI.getMatches(id, { page: 1, limit: 10 });
         const membersP = isAuthenticated
           ? leaguesAPI.getMembers(id)
@@ -103,8 +117,10 @@ const LeagueDetailPage = () => {
 
         if (leaderboardRes.status === 'fulfilled') {
           setLeaderboard(leaderboardRes.value.data.leaderboard || []);
+          setLeaderboardPagination(leaderboardRes.value.data.pagination || { page: 1, pages: 1, total: 0, limit: 20 });
         } else {
           setLeaderboard([]);
+          setLeaderboardPagination({ page: 1, pages: 1, total: 0, limit: 20 });
         }
 
         if (membersRes.status === 'fulfilled') {
@@ -132,12 +148,16 @@ const LeagueDetailPage = () => {
   // When league loads, populate the edit form defaults
   useEffect(() => {
     if (league) {
+      console.log('League data loaded:', league);
+      console.log('Current elo_update_mode:', league.elo_update_mode);
       form.reset({
         name: league.name || '',
         description: league.description || '',
         is_public: !!league.is_public,
         season: league.season || '',
       });
+      setEloMode(league.elo_update_mode || 'immediate');
+      console.log('Set eloMode to:', league.elo_update_mode || 'immediate');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [league]);
@@ -151,16 +171,33 @@ const LeagueDetailPage = () => {
 
   const refreshLeagueData = async () => {
     try {
+      console.log('Refreshing league data...');
       const [leagueRes, membersRes] = await Promise.all([
         leaguesAPI.getById(id),
         isAuthenticated ? leaguesAPI.getMembers(id) : Promise.resolve({ data: { members: [] } }),
       ]);
+      console.log('Refreshed league data:', leagueRes.data.league);
       setLeague(leagueRes.data.league);
       setUserMembership(leagueRes.data.user_membership);
       setMembers(membersRes.data.members || []);
+      // Update eloMode state to match the refreshed league data
+      const newEloMode = leagueRes.data.league.elo_update_mode || 'immediate';
+      console.log('Setting eloMode to:', newEloMode);
+      setEloMode(newEloMode);
     } catch (e) {
       // Keep previous state; surface error softly
       console.error('Refresh league data failed', e);
+    }
+  };
+
+  const fetchLeaderboard = async (page = 1) => {
+    try {
+      const res = await leaguesAPI.getLeaderboard(id, { page, limit: 20 });
+      setLeaderboard(res.data.leaderboard || []);
+      setLeaderboardPagination(res.data.pagination || { page: 1, pages: 1, total: 0, limit: 20 });
+    } catch (e) {
+      console.error('Failed to load leaderboard', e);
+      toast.error('Failed to load leaderboard');
     }
   };
 
@@ -246,11 +283,18 @@ const LeagueDetailPage = () => {
         description: values.description?.trim() || undefined,
         is_public: !!values.is_public,
         season: values.season?.trim() || undefined,
+        elo_update_mode: eloMode,
       };
+      console.log('Updating league with payload:', payload);
+      console.log('Current eloMode state:', eloMode);
       await leaguesAPI.update(id, payload);
       toast.success('League updated');
+      // Add a small delay to prevent rate limiting
+      await new Promise(resolve => setTimeout(resolve, 100));
       await refreshLeagueData();
     } catch (err) {
+      console.error('League update error:', err);
+      console.error('Error response:', err.response);
       const status = err.response?.status;
       const msg = err.response?.data?.error || 'Failed to update league';
       if (status === 409) {
@@ -397,35 +441,80 @@ const LeagueDetailPage = () => {
 
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base">Leaderboard (Top {Math.min(10, leaderboard.length)})</CardTitle>
-            <CardDescription>Ranked by current ELO</CardDescription>
+            <CardTitle className="text-base">Leaderboard</CardTitle>
+            <CardDescription>Ranked by current ELO • {leaderboardPagination.total} players</CardDescription>
           </CardHeader>
           <CardContent>
             {leaderboard.length === 0 ? (
               <p className="text-sm text-muted-foreground">No players yet.</p>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Rank</TableHead>
-                    <TableHead>Player</TableHead>
-                    <TableHead>ELO</TableHead>
-                    <TableHead>W/L</TableHead>
-                    <TableHead>Win%</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {leaderboard.slice(0, 10).map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell>{p.rank}</TableCell>
-                      <TableCell>{p.username}</TableCell>
-                      <TableCell>{p.current_elo}</TableCell>
-                      <TableCell>{p.matches_won}/{p.matches_played - p.matches_won}</TableCell>
-                      <TableCell>{p.win_rate}%</TableCell>
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Rank</TableHead>
+                      <TableHead>Player</TableHead>
+                      <TableHead>ELO</TableHead>
+                      <TableHead>Trend</TableHead>
+                      <TableHead>W/L</TableHead>
+                      <TableHead>Win%</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {leaderboard.map((p) => (
+                      <TableRow key={p.id}>
+                        <TableCell>{p.rank}</TableCell>
+                        <TableCell>{p.username}</TableCell>
+                        <TableCell>{p.current_elo}</TableCell>
+                        <TableCell>
+                          <EloSparkline userId={p.id} leagueId={id} width={50} height={16} points={15} />
+                        </TableCell>
+                        <TableCell>{p.matches_won}/{p.matches_played - p.matches_won}</TableCell>
+                        <TableCell>{p.win_rate}%</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                
+                {leaderboardPagination.pages > 1 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
+                      <span>Showing {((leaderboardPagination.page - 1) * leaderboardPagination.limit) + 1} - {Math.min(leaderboardPagination.page * leaderboardPagination.limit, leaderboardPagination.total)} of {leaderboardPagination.total}</span>
+                      <span>Page {leaderboardPagination.page} / {leaderboardPagination.pages}</span>
+                    </div>
+                    <Pagination>
+                      <PaginationContent>
+                        {leaderboardPagination.page > 1 && (
+                          <PaginationItem>
+                            <PaginationPrevious 
+                              href="#" 
+                              onClick={(e) => { 
+                                e.preventDefault(); 
+                                fetchLeaderboard(leaderboardPagination.page - 1); 
+                              }} 
+                            />
+                          </PaginationItem>
+                        )}
+                        <PaginationItem>
+                          <PaginationLink isActive>{leaderboardPagination.page}</PaginationLink>
+                        </PaginationItem>
+                        <span className="px-1 self-center text-sm text-muted-foreground">/ {leaderboardPagination.pages}</span>
+                        {leaderboardPagination.page < leaderboardPagination.pages && (
+                          <PaginationItem>
+                            <PaginationNext 
+                              href="#" 
+                              onClick={(e) => { 
+                                e.preventDefault(); 
+                                fetchLeaderboard(leaderboardPagination.page + 1); 
+                              }} 
+                            />
+                          </PaginationItem>
+                        )}
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
@@ -489,7 +578,7 @@ const LeagueDetailPage = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Edit League</CardTitle>
-            <CardDescription>Update name, description, visibility, and season</CardDescription>
+            <CardDescription>Update name, description, visibility, season, and ELO update mode</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -557,6 +646,28 @@ const LeagueDetailPage = () => {
                   />
                 </div>
 
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="flex flex-col gap-2">
+                    <FormLabel>ELO Update Mode</FormLabel>
+                    <div className="text-xs text-muted-foreground mb-2">
+                      Current value: {eloMode} (Debug)
+                    </div>
+                    <Select value={eloMode} onValueChange={setEloMode} key={eloMode}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select ELO mode" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="immediate">Immediate</SelectItem>
+                        <SelectItem value="weekly">Weekly consolidation</SelectItem>
+                        <SelectItem value="monthly">Monthly consolidation</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="text-xs text-muted-foreground">
+                      Deferred modes reduce volatility by batching ELO updates.
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex gap-2">
                   <Button type="submit" disabled={updateLoading}>
                     {updateLoading ? 'Saving…' : 'Save Changes'}
@@ -600,6 +711,61 @@ const LeagueDetailPage = () => {
                 )}
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {isAuthenticated && userMembership?.is_admin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">ELO Consolidation</CardTitle>
+            <CardDescription>
+              Apply deferred ELO updates for accepted matches. Only available for leagues with weekly/monthly consolidation mode.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              disabled={consolidating}
+              onClick={async () => {
+                console.log('Consolidation button clicked for league:', id);
+                try {
+                  setConsolidating(true);
+                  console.log('Making consolidation API call...');
+                  const res = await matchesAPI.consolidateLeague(id);
+                  console.log('Consolidation response:', res);
+                  toast.success(res.data?.message || 'Consolidation complete');
+                  await refreshLeagueData();
+                } catch (e) {
+                  console.error('Consolidation error:', e);
+                  console.error('Error response:', e?.response);
+                  console.error('Error data:', e?.response?.data);
+                  toast.error(e?.response?.data?.error || 'Failed to consolidate');
+                } finally {
+                  setConsolidating(false);
+                }
+              }}
+            >
+              {consolidating ? 'Consolidating…' : 'Consolidate ELO'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                try {
+                  console.log('Testing debug endpoint for league:', id);
+                  const res = await matchesAPI.debugConsolidation(id);
+                  console.log('Debug endpoint response:', res);
+                  console.log('Debug data:', res.data);
+                  toast.success(`Debug: ${res.data.matchesToConsolidate} matches to consolidate`);
+                } catch (e) {
+                  console.error('Debug endpoint error:', e);
+                  console.error('Debug error response:', e?.response?.data);
+                  toast.error(`Debug endpoint failed: ${e.message}`);
+                }
+              }}
+            >
+              Debug
+            </Button>
           </CardContent>
         </Card>
       )}

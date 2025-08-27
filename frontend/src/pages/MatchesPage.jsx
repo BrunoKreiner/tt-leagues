@@ -125,6 +125,7 @@ export default function MatchesPage() {
                     <th className="text-left font-medium px-3 py-2">Players</th>
                     <th className="text-left font-medium px-3 py-2">Result</th>
                     <th className="text-left font-medium px-3 py-2">Status</th>
+                    <th className="text-left font-medium px-3 py-2">ELO</th>
                     <th className="text-left font-medium px-3 py-2">Your ΔELO</th>
                   </tr>
                 </thead>
@@ -139,6 +140,17 @@ export default function MatchesPage() {
                         <td className="px-3 py-2"><Link to={`/matches/${m.id}`}>{youVsLabel(m)}</Link></td>
                         <td className="px-3 py-2"><Link to={`/matches/${m.id}`}>{m.player1_sets_won}-{m.player2_sets_won}</Link></td>
                         <td className="px-3 py-2">{m.is_accepted ? 'Accepted' : 'Pending'}</td>
+                        <td className="px-3 py-2">
+                          {m.is_accepted ? (
+                            m.elo_applied ? (
+                              <span className="inline-flex items-center rounded border px-2 py-0.5 text-xs">Applied</span>
+                            ) : (
+                              <span className="inline-flex items-center rounded border px-2 py-0.5 text-xs bg-amber-50">Deferred</span>
+                            )
+                          ) : (
+                            <span className="text-muted-foreground text-xs">-</span>
+                          )}
+                        </td>
                         <td className={`px-3 py-2 ${delta > 0 ? 'text-green-600' : delta < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>{deltaFmt}</td>
                       </tr>
                     );

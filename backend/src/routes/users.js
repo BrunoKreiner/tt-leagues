@@ -314,5 +314,243 @@ router.get('/:id/badges', authenticateToken, validateId, async (req, res) => {
     }
 });
 
+/**
+ * Get user ELO history
+ * GET /api/users/:id/elo-history
+ */
+router.get('/:id/elo-history', authenticateToken, validateId, validatePagination, async (req, res) => {
+    try {
+        const userId = parseInt(req.params.id);
+        const { league_id } = req.query;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50;
+        const offset = (page - 1) * limit;
+        
+        // Users can only view their own ELO history unless they're admin
+        if (userId !== req.user.id && !req.user.is_admin) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+        
+        // league_id is required
+        if (!league_id) {
+            return res.status(400).json({ error: 'league_id parameter is required' });
+        }
+        
+        // Check if user is a member of the specified league
+        const membership = await database.get(
+            'SELECT id FROM league_members WHERE user_id = ? AND league_id = ?',
+            [userId, league_id]
+        );
+        
+        if (!membership && !req.user.is_admin) {
+            return res.status(403).json({ error: 'Access denied to league data' });
+        }
+        
+        // Build query for ELO history
+        let query = `
+            SELECT 
+                eh.recorded_at, eh.elo_before, eh.elo_after, 
+                (eh.elo_after - eh.elo_before) as elo_change,
+                eh.match_id, m.played_at,
+                p1.username as opponent_username,
+                CASE 
+                    WHEN m.player1_id = ? THEN m.player1_sets_won
+                    ELSE m.player2_sets_won
+                END as user_sets_won,
+                CASE 
+                    WHEN m.player1_id = ? THEN m.player2_sets_won
+                    ELSE m.player1_sets_won
+                END as opponent_sets_won,
+                CASE 
+                    WHEN m.winner_id = ? THEN 'W'
+                    WHEN m.winner_id IS NOT NULL THEN 'L'
+                    ELSE 'D'
+                END as result
+            FROM elo_history eh
+            JOIN matches m ON eh.match_id = m.id
+            JOIN users p1 ON (
+                CASE 
+                    WHEN m.player1_id = ? THEN m.player2_id
+                    ELSE m.player1_id
+                END = p1.id
+            )
+            WHERE eh.user_id = ? AND eh.league_id = ?
+        `;
+        
+        const params = [userId, userId, userId, userId, userId, league_id];
+        
+        // Get total count for pagination
+        const countQuery = `
+            SELECT COUNT(*) as count
+            FROM elo_history eh
+            WHERE eh.user_id = ? AND eh.league_id = ?
+        `;
+        
+        const totalCount = await database.get(countQuery, [userId, league_id]);
+        
+        // Get paginated results
+        query += ` ORDER BY eh.recorded_at DESC LIMIT ? OFFSET ?`;
+        params.push(limit, offset);
+        
+        const items = await database.all(query, params);
+        
+        res.json({
+            items: items.map(item => ({
+                recorded_at: item.recorded_at,
+                elo_before: item.elo_before,
+                elo_after: item.elo_after,
+                elo_change: item.elo_change,
+                match_id: item.match_id,
+                played_at: item.played_at,
+                opponent_username: item.opponent_username,
+                user_sets_won: item.user_sets_won,
+                opponent_sets_won: item.opponent_sets_won,
+                result: item.result
+            })),
+            pagination: {
+                page,
+                limit,
+                total: totalCount.count,
+                pages: Math.ceil(totalCount.count / limit)
+            }
+        });
+    } catch (error) {
+        console.error('Get user ELO history error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Get public profile by username (no auth required)
+ * GET /api/users/profile/:username
+ */
+router.get('/profile/:username', async (req, res) => {
+    try {
+        const { username } = req.params;
+        
+        // Get user basic info
+        const user = await database.get(`
+            SELECT 
+                u.id, u.username, u.first_name, u.last_name, u.created_at
+            FROM users u
+            WHERE u.username = ?
+        `, [username]);
+        
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        // Get user's league rankings
+        const leagueRankings = await database.all(`
+            SELECT 
+                l.id as league_id, l.name as league_name, lm.current_elo,
+                COUNT(CASE WHEN m.player1_id = ? OR m.player2_id = ? THEN m.id END) as matches_played,
+                COUNT(CASE WHEN m.winner_id = ? THEN m.id END) as matches_won
+            FROM leagues l
+            JOIN league_members lm ON l.id = lm.league_id
+            LEFT JOIN matches m ON m.league_id = l.id AND (m.player1_id = ? OR m.player2_id = ?) AND m.is_accepted = ?
+            WHERE lm.user_id = ? AND l.is_active = ?
+            GROUP BY l.id, l.name, lm.current_elo
+            ORDER BY lm.current_elo DESC
+        `, [user.id, user.id, user.id, user.id, user.id, true, user.id, true]);
+        
+        // Calculate rank for each league
+        const rankingsWithRank = await Promise.all(leagueRankings.map(async (league) => {
+            const rankResult = await database.get(`
+                SELECT COUNT(*) + 1 as rank
+                FROM league_members lm2
+                WHERE lm2.league_id = ? AND lm2.current_elo > ?
+            `, [league.league_id, league.current_elo]);
+            
+            const winRate = league.matches_played > 0 
+                ? Math.round((league.matches_won * 100) / league.matches_played)
+                : 0;
+            
+            return {
+                ...league,
+                rank: rankResult.rank,
+                win_rate: winRate
+            };
+        }));
+        
+        // Get recent matches (last 10)
+        const recentMatches = await database.all(`
+            SELECT 
+                m.id, l.name as league_name,
+                CASE 
+                    WHEN m.player1_id = ? THEN p2.username
+                    ELSE p1.username
+                END as opponent_username,
+                CASE 
+                    WHEN m.winner_id = ? THEN 'W'
+                    WHEN m.winner_id IS NOT NULL THEN 'L'
+                    ELSE 'D'
+                END as result,
+                m.played_at,
+                CASE 
+                    WHEN m.player1_id = ? THEN (m.player1_elo_after - m.player1_elo_before)
+                    ELSE (m.player2_elo_after - m.player2_elo_before)
+                END as elo_change
+            FROM matches m
+            JOIN leagues l ON m.league_id = l.id
+            JOIN users p1 ON m.player1_id = p1.id
+            JOIN users p2 ON m.player2_id = p2.id
+            WHERE (m.player1_id = ? OR m.player2_id = ?) AND m.is_accepted = ?
+            ORDER BY m.played_at DESC
+            LIMIT 10
+        `, [user.id, user.id, user.id, user.id, user.id, true]);
+        
+        // Get user's badges
+        const badges = await database.all(`
+            SELECT 
+                b.id, b.name, b.description, b.icon, ub.earned_at, ub.league_id,
+                l.name as league_name
+            FROM user_badges ub
+            JOIN badges b ON ub.badge_id = b.id
+            LEFT JOIN leagues l ON ub.league_id = l.id
+            WHERE ub.user_id = ?
+            ORDER BY ub.earned_at DESC
+        `, [user.id]);
+        
+        // Calculate overall stats
+        const overallStats = await database.get(`
+            SELECT 
+                COUNT(DISTINCT lm.league_id) as leagues_count,
+                COUNT(DISTINCT CASE WHEN m.player1_id = ? OR m.player2_id = ? THEN m.id END) as matches_played,
+                COUNT(DISTINCT CASE WHEN m.winner_id = ? THEN m.id END) as matches_won
+            FROM users u
+            LEFT JOIN league_members lm ON u.id = lm.user_id
+            LEFT JOIN matches m ON (m.player1_id = ? OR m.player2_id = ?) AND m.is_accepted = ?
+            WHERE u.id = ?
+        `, [user.id, user.id, user.id, user.id, user.id, true, user.id]);
+        
+        const winRate = overallStats.matches_played > 0 
+            ? Math.round((overallStats.matches_won * 100) / overallStats.matches_played)
+            : 0;
+        
+        res.json({
+            user: {
+                id: user.id,
+                username: user.username,
+                first_name: user.first_name,
+                last_name: user.last_name,
+                created_at: user.created_at
+            },
+            league_rankings: rankingsWithRank,
+            recent_matches: recentMatches,
+            badges: badges,
+            overall: {
+                leagues_count: overallStats.leagues_count,
+                matches_played: overallStats.matches_played,
+                matches_won: overallStats.matches_won,
+                win_rate: winRate
+            }
+        });
+    } catch (error) {
+        console.error('Get public profile error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 module.exports = router;
 

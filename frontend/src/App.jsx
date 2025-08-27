@@ -88,6 +88,7 @@ function AppRoutes() {
           <Route path="matches/:id" element={<MatchDetailPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="profile" element={<ProfilePage />} />
+          <Route path="profile/:username" element={<ProfilePage />} />
           <Route path="admin" element={
             <ProtectedRoute adminOnly>
               <AdminPage />

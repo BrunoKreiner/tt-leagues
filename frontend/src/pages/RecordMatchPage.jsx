@@ -243,6 +243,12 @@ export default function RecordMatchPage() {
         game_type: values.game_type,
         ...(values.played_at ? { played_at: values.played_at } : {}),
       };
+      const nonEmptySets = setScores
+        .filter((s) => Number(s.p1) > 0 || Number(s.p2) > 0)
+        .map((s) => ({ player1_score: Number(s.p1) || 0, player2_score: Number(s.p2) || 0 }));
+      if (nonEmptySets.length > 0) {
+        payload.sets = nonEmptySets;
+      }
       await matchesAPI.create(payload);
       toast.success('Match recorded (pending opponent approval)');
       navigate('/matches');

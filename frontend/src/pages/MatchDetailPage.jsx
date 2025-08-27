@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/contexts/AuthContext';
 import { matchesAPI } from '@/services/api';
+import { leaguesAPI } from '@/services/api';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
@@ -55,6 +56,11 @@ export default function MatchDetailPage() {
   const [error, setError] = useState(null);
   const [match, setMatch] = useState(null);
   const [sets, setSets] = useState([]); // [{ set_number, player1_score, player2_score }]
+  const [isLeagueAdmin, setIsLeagueAdmin] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [eloPreview, setEloPreview] = useState(null);
+  const previewTimer = useRef(null);
 
   const form = useForm({
     resolver: zodResolver(schema),
@@ -132,6 +138,14 @@ export default function MatchDetailPage() {
       const s = res.data?.sets || [];
       setMatch(m);
       setSets(s);
+      // Check if current user is league admin (for accept/reject)
+      try {
+        const league = await leaguesAPI.getById(m.league_id);
+        const mem = league.data?.user_membership;
+        setIsLeagueAdmin(!!mem?.is_admin);
+      } catch {
+        setIsLeagueAdmin(false);
+      }
       form.reset({
         game_type: m.game_type,
         player1_sets_won: m.player1_sets_won,
@@ -142,8 +156,8 @@ export default function MatchDetailPage() {
       if (s.length > 0) {
         setSetScores(s.map((it) => ({ p1: it.player1_score ?? 0, p2: it.player2_score ?? 0 })));
       } else {
-        const sum = (m.player1_sets_won || 0) + (m.player2_sets_won || 0);
-        const initial = Array.from({ length: Math.max(0, Math.min(MAX_SETS_BY_TYPE[m.game_type] ?? 3, sum)) }, () => ({ p1: 0, p2: 0 }));
+        const setCount = Math.max(0, Math.min(MAX_SETS_BY_TYPE[m.game_type] ?? 3, Math.max(m.player1_sets_won || 0, m.player2_sets_won || 0) * 2 - 1));
+        const initial = Array.from({ length: setCount }, () => ({ p1: 0, p2: 0 }));
         setSetScores(initial);
       }
     } catch (e) {
@@ -158,6 +172,45 @@ export default function MatchDetailPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Debounced ELO preview when participants edit pre-accept
+  useEffect(() => {
+    if (!match || !canEdit) return;
+    const subscription = form.watch((values) => {
+      if (previewTimer.current) clearTimeout(previewTimer.current);
+      previewTimer.current = setTimeout(async () => {
+        try {
+          const meId = me?.id;
+          if (!meId) return setEloPreview(null);
+          const otherId = meId === match.player1_id ? match.player2_id : match.player1_id;
+          const payload = {
+            league_id: match.league_id,
+            player2_id: otherId,
+            player1_sets_won: values.player1_sets_won,
+            player2_sets_won: values.player2_sets_won,
+            player1_points_total: Number.isFinite(+values.player1_points_total) ? +values.player1_points_total : 0,
+            player2_points_total: Number.isFinite(+values.player2_points_total) ? +values.player2_points_total : 0,
+          };
+          if (
+            payload.league_id && payload.player2_id &&
+            payload.player1_sets_won != null && payload.player2_sets_won != null
+          ) {
+            const { data } = await matchesAPI.previewElo(payload);
+            setEloPreview(data);
+          } else {
+            setEloPreview(null);
+          }
+        } catch (e) {
+          setEloPreview(null);
+        }
+      }, 300);
+    });
+    return () => {
+      if (previewTimer.current) clearTimeout(previewTimer.current);
+      subscription.unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [match, canEdit]);
 
   const onSubmit = async (values) => {
     try {
@@ -211,6 +264,15 @@ export default function MatchDetailPage() {
         </CardHeader>
         <CardContent className="text-sm space-y-2">
           <div>Status: {match.is_accepted ? 'Accepted' : 'Pending'}</div>
+          {match.is_accepted && (
+            <div>
+              ELO: {match.elo_applied ? (
+                <span className="inline-flex items-center rounded border px-2 py-0.5 text-xs">Applied{match.elo_applied_at ? ` (${format(new Date(match.elo_applied_at), 'PP p')})` : ''}</span>
+              ) : (
+                <span className="inline-flex items-center rounded border px-2 py-0.5 text-xs bg-amber-50">Deferred</span>
+              )}
+            </div>
+          )}
           {match.is_accepted && match.accepted_by_username && (
             <div>Accepted by: {match.accepted_by_username}</div>
           )}
@@ -304,41 +366,53 @@ export default function MatchDetailPage() {
               </div>
 
               <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Sets:</span>
-                  {setScores.map((s, idx) => (
-                    <div key={idx} className="flex items-center gap-1 basis-full">
-                      <span className="text-sm">{idx + 1}:</span>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={s.p1}
-                        onChange={(e) => {
-                          const v = Number(e.target.value);
-                          setSetScores((arr) => arr.map((it, i) => (i === idx ? { ...it, p1: Number.isFinite(v) ? v : 0 } : it)));
-                        }}
-                        className="w-14 h-8 px-2 text-sm"
-                        aria-label={`${match.player1_username} points in set ${idx + 1}`}
-                        disabled={!canEdit}
-                        style={getSetClosenessStyle(s.p1, s.p2)}
-                      />
-                      <span className="text-sm">:</span>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={s.p2}
-                        onChange={(e) => {
-                          const v = Number(e.target.value);
-                          setSetScores((arr) => arr.map((it, i) => (i === idx ? { ...it, p2: Number.isFinite(v) ? v : 0 } : it)));
-                        }}
-                        className="w-14 h-8 px-2 text-sm"
-                        aria-label={`${match.player2_username} points in set ${idx + 1}`}
-                        disabled={!canEdit}
-                        style={getSetClosenessStyle(s.p1, s.p2)}
-                      />
-                    </div>
-                  ))}
-                </div>
+                <span className="text-sm text-muted-foreground">Sets:</span>
+                {canEdit ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {setScores.map((s, idx) => (
+                      <div key={idx} className="flex items-center gap-1 basis-full">
+                        <span className="text-sm">{idx + 1}:</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={s.p1}
+                          onChange={(e) => {
+                            const v = Number(e.target.value);
+                            setSetScores((arr) => arr.map((it, i) => (i === idx ? { ...it, p1: Number.isFinite(v) ? v : 0 } : it)));
+                          }}
+                          className="w-14 h-8 px-2 text-sm"
+                          aria-label={`${match.player1_username} points in set ${idx + 1}`}
+                          style={getSetClosenessStyle(s.p1, s.p2)}
+                        />
+                        <span className="text-sm">:</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={s.p2}
+                          onChange={(e) => {
+                            const v = Number(e.target.value);
+                            setSetScores((arr) => arr.map((it, i) => (i === idx ? { ...it, p2: Number.isFinite(v) ? v : 0 } : it)));
+                          }}
+                          className="w-14 h-8 px-2 text-sm"
+                          aria-label={`${match.player2_username} points in set ${idx + 1}`}
+                          style={getSetClosenessStyle(s.p1, s.p2)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    {sets && sets.length > 0 ? (
+                      sets.map((s, idx) => (
+                        <div key={idx} className="text-sm">
+                          Set {s.set_number ?? idx + 1}: {s.player1_score} : {s.player2_score}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-sm text-muted-foreground">No per-set scores provided.</div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -372,7 +446,43 @@ export default function MatchDetailPage() {
                 />
               </div>
 
-              <div className="flex gap-2">
+              {canEdit && (
+                <div className="rounded-md border p-3 text-sm">
+                  <div className="font-medium mb-2">ELO Preview</div>
+                  {!eloPreview ? (
+                    <div className="text-muted-foreground">Adjust sets to preview rating change.</div>
+                  ) : (
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <div>
+                        <div className="text-muted-foreground">{match.player1_username}</div>
+                        <div>
+                          {eloPreview.current_elos?.player1} → {eloPreview.new_elos?.player1}{' '}
+                          <span className={(() => {
+                            const d = (eloPreview.changes?.player1 ?? 0);
+                            return d > 0 ? 'text-green-600' : d < 0 ? 'text-red-600' : 'text-muted-foreground';
+                          })()}>
+                            ({eloPreview.changes?.player1 >= 0 ? '+' : ''}{eloPreview.changes?.player1})
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">{match.player2_username}</div>
+                        <div>
+                          {eloPreview.current_elos?.player2} → {eloPreview.new_elos?.player2}{' '}
+                          <span className={(() => {
+                            const d = (eloPreview.changes?.player2 ?? 0);
+                            return d > 0 ? 'text-green-600' : d < 0 ? 'text-red-600' : 'text-muted-foreground';
+                          })()}>
+                            ({eloPreview.changes?.player2 >= 0 ? '+' : ''}{eloPreview.changes?.player2})
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2">
                 {canEdit ? (
                   <Button type="submit" disabled={saving}>
                     {saving ? 'Saving…' : 'Save Changes'}
@@ -386,6 +496,48 @@ export default function MatchDetailPage() {
                   <Button type="button" variant="secondary" asChild>
                     <Link to={`/leagues/${match.league_id}`}>View League</Link>
                   </Button>
+                )}
+                {!match.is_accepted && isLeagueAdmin && (
+                  <>
+                    <Button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          setAccepting(true);
+                          const r = await matchesAPI.accept(id);
+                          toast.success(r.data?.message || 'Match accepted');
+                          await load();
+                        } catch (e) {
+                          toast.error(e?.response?.data?.error || 'Failed to accept match');
+                        } finally {
+                          setAccepting(false);
+                        }
+                      }}
+                      disabled={accepting}
+                    >
+                      {accepting ? 'Accepting…' : 'Accept Match'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      onClick={async () => {
+                        const reason = window.prompt('Optional reason for rejection:') || '';
+                        try {
+                          setRejecting(true);
+                          const r = await matchesAPI.reject(id, reason);
+                          toast.success(r.data?.message || 'Match rejected');
+                          navigate('/matches');
+                        } catch (e) {
+                          toast.error(e?.response?.data?.error || 'Failed to reject match');
+                        } finally {
+                          setRejecting(false);
+                        }
+                      }}
+                      disabled={rejecting}
+                    >
+                      {rejecting ? 'Rejecting…' : 'Reject Match'}
+                    </Button>
+                  </>
                 )}
               </div>
             </form>

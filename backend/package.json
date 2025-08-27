@@ -7,7 +7,9 @@
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
     "init-db": "node src/models/database.js",
-    "db:smoke": "node scripts/db-smoke.js"
+    "db:smoke": "node scripts/db-smoke.js",
+    "test": "jest --runInBand",
+    "test:watch": "jest --watchAll"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -23,6 +25,8 @@
     "sqlite3": "^5.1.6"
   },
   "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.4",
     "nodemon": "^3.0.2"
   },
   "keywords": [

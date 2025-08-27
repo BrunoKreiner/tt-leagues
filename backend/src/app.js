@@ -13,6 +13,7 @@ const userRoutes = require('./routes/users');
 const leagueRoutes = require('./routes/leagues');
 const matchRoutes = require('./routes/matches');
 const notificationRoutes = require('./routes/notifications');
+const badgeRoutes = require('./routes/badges');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -103,6 +104,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/leagues', leagueRoutes);
 app.use('/api/matches', matchRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/badges', badgeRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -174,9 +176,10 @@ process.on('SIGINT', async () => {
 });
 
 // Start the server
-// Only start the HTTP server when not running on Vercel serverless
+// Only start the HTTP server when not running on Vercel serverless and not in test mode
 // Vercel sets VERCEL=1 in the environment; in that case we export the app and let the platform handle requests
-if (!process.env.VERCEL) {
+// Jest tests set NODE_ENV=test, so we avoid starting the long-running server in tests
+if (!process.env.VERCEL && process.env.NODE_ENV !== 'test') {
     startServer();
 }
 

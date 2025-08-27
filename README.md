@@ -130,29 +130,53 @@ The app implements a sophisticated ELO rating system that considers:
 
 ### Build and run:
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 ### Run in background:
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 ### Stop services:
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ### View logs:
 ```bash
-docker-compose logs -f
+docker compose logs -f
 ```
 
 ### Rebuild specific service:
 ```bash
-docker-compose build backend
-docker-compose build frontend
+docker compose build backend
+docker compose build frontend
 ```
+
+## Running Tests
+
+### Backend (local)
+```bash
+cd backend
+npm install
+npm test
+```
+
+### Backend (Docker)
+Run the test service using the test profile:
+```bash
+docker compose --profile test up --build backend-tests
+```
+
+Or a one-off run:
+```bash
+docker compose --profile test run --rm backend-tests
+```
+
+Notes:
+- The test container uses `backend/Dockerfile.test`, installs dev dependencies, and runs `npm test` against a SQLite test DB at `/app/data/test.db`.
+- App containers are separate; tests do not require bringing up the full stack.
 
 ## Environment Variables
 

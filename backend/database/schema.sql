@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS leagues (
     description TEXT,
     is_public BOOLEAN DEFAULT FALSE,
     is_active BOOLEAN DEFAULT TRUE,
+    -- ELO update mode: 'immediate' | 'weekly' | 'monthly'
+    elo_update_mode VARCHAR(20) DEFAULT 'immediate',
     season VARCHAR(100),
     created_by INTEGER NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -59,6 +61,9 @@ CREATE TABLE IF NOT EXISTS matches (
     is_accepted BOOLEAN DEFAULT FALSE,
     accepted_by INTEGER,
     accepted_at DATETIME,
+    -- Consolidation tracking: when ELO updates are applied (for deferred modes)
+    elo_applied BOOLEAN DEFAULT FALSE,
+    elo_applied_at DATETIME,
     played_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE,

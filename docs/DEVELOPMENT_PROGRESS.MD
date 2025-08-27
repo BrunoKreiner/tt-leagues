@@ -1,5 +1,33 @@
 # Development Progress Log
 
+Date: 2025-08-27 (later)
+
+Summary: Added ELO consolidation setting per league with deferred application and consolidation endpoint.
+
+Changes:
+- Updated `backend/database/schema.sql` and `backend/database/schema.pg.sql`:
+  - Added `leagues.elo_update_mode` (immediate|weekly|monthly, default `immediate`).
+  - Added `matches.elo_applied` and `matches.elo_applied_at` to track when deferred ELO is applied.
+- Updated `backend/src/routes/leagues.js`:
+  - List and details now include `elo_update_mode`.
+  - `PUT /api/leagues/:id` allows updating `elo_update_mode` with validation.
+- Updated `backend/src/routes/matches.js`:
+  - `POST /api/matches/:id/accept`: respects league `elo_update_mode`.
+    - Immediate: applies ELO, records history, marks `elo_applied=true`.
+    - Weekly/Monthly: marks accepted but defers ELO, notifies players of deferral.
+  - Added consolidation endpoint: `POST /api/matches/leagues/:leagueId/consolidate?force=true` to apply deferred ELO updates in chronological order.
+
+Result:
+- Leagues can choose immediate ELO updates or deferred weekly/monthly consolidation to reduce volatility.
+
+Notes:
+- Frontend admin UI to expose `elo_update_mode` and a "Run consolidation now" action is pending.
+- Endpoint path for consolidation is under matches router as noted above; can be aliased under leagues later if preferred.
+
+Next steps:
+- Add admin UI on `LeagueDetailPage` to configure `elo_update_mode` and trigger consolidation.
+- Add schedule/CRON (out-of-scope for serverless) or operational docs for running consolidation periodically.
+
 Date: 2025-08-20
 
 Summary: Completed database boolean portability refactor across backend routes to ensure cross-database compatibility (SQLite ↔ Postgres/Neon). Replaced integer-based boolean literals (0/1) with parameterized booleans and corrected parameter ordering where needed. Verified via repo-wide scan.

@@ -1,0 +1,26 @@
+# Node 18 with git (some deps may require it)
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install curl (optional) and bash
+RUN apk add --no-cache curl bash
+
+# Copy package files and install ALL deps (including dev)
+COPY package*.json ./
+RUN npm install
+
+# Copy source
+COPY . .
+
+# Default test env
+ENV NODE_ENV=test
+ENV DATABASE_PATH=/app/data/test.db
+
+# Create test db directory
+RUN mkdir -p /app/data
+
+# Run tests
+CMD ["npm", "test"]
+
+

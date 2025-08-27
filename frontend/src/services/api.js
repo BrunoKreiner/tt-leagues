@@ -54,6 +54,8 @@ export const usersAPI = {
   delete: (id) => api.delete(`/users/${id}`),
   getStats: (id) => api.get(`/users/${id}/stats`),
   getBadges: (id) => api.get(`/users/${id}/badges`),
+  getEloHistory: (id, params) => api.get(`/users/${id}/elo-history`, { params }),
+  getPublicProfile: (username) => api.get(`/users/profile/${username}`),
 };
 
 // Leagues API
@@ -87,6 +89,8 @@ export const matchesAPI = {
   reject: (id, reason) => api.post(`/matches/${id}/reject`, { reason }),
   getPending: (params) => api.get('/matches/pending', { params }),
   previewElo: (matchData) => api.post('/matches/preview-elo', matchData),
+  consolidateLeague: (leagueId) => api.post(`/matches/leagues/${leagueId}/consolidate`),
+  debugConsolidation: (leagueId) => api.get(`/matches/debug/consolidation/${leagueId}`),
 };
 
 // Notifications API
@@ -96,6 +100,16 @@ export const notificationsAPI = {
   delete: (id) => api.delete(`/notifications/${id}`),
   markAllAsRead: () => api.post('/notifications/mark-all-read'),
   getStats: () => api.get('/notifications/stats'),
+};
+
+// Badges API
+export const badgesAPI = {
+  getAll: (params) => api.get('/badges', { params }),
+  create: (badgeData) => api.post('/badges', badgeData),
+  update: (id, badgeData) => api.put(`/badges/${id}`, badgeData),
+  delete: (id) => api.delete(`/badges/${id}`),
+  awardToUser: (userId, badgeData) => api.post(`/badges/users/${userId}/badges`, badgeData),
+  removeFromUser: (userId, badgeId) => api.delete(`/badges/users/${userId}/badges/${badgeId}`),
 };
 
 export default api;

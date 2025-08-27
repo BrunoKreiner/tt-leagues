@@ -18,7 +18,7 @@ router.get('/', optionalAuth, validatePagination, async (req, res) => {
         
         let query = `
             SELECT 
-                l.id, l.name, l.description, l.is_public, l.season, l.created_at,
+                l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at,
                 u.username as created_by_username,
                 COUNT(DISTINCT lm.user_id) as member_count,
                 COUNT(DISTINCT m.id) as match_count,
@@ -52,7 +52,7 @@ router.get('/', optionalAuth, validatePagination, async (req, res) => {
         }
         
         query += `
-            GROUP BY l.id, l.name, l.description, l.is_public, l.season, l.created_at, u.username
+            GROUP BY l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at, u.username
             ORDER BY l.created_at DESC
             LIMIT ? OFFSET ?
         `;
@@ -156,7 +156,7 @@ router.get('/:id', optionalAuth, validateId, async (req, res) => {
         
         const league = await database.get(`
             SELECT 
-                l.id, l.name, l.description, l.is_public, l.season, l.created_at,
+                l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at,
                 u.username as created_by_username,
                 COUNT(DISTINCT lm.user_id) as member_count,
                 COUNT(DISTINCT m.id) as match_count
@@ -165,7 +165,7 @@ router.get('/:id', optionalAuth, validateId, async (req, res) => {
             LEFT JOIN league_members lm ON l.id = lm.league_id
             LEFT JOIN matches m ON l.id = m.league_id AND m.is_accepted = ?
             WHERE l.id = ? AND l.is_active = ?
-            GROUP BY l.id, l.name, l.description, l.is_public, l.season, l.created_at, u.username
+            GROUP BY l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at, u.username
         `, [true, leagueId, true]);
         
         if (!league) {
@@ -212,7 +212,7 @@ router.get('/:id', optionalAuth, validateId, async (req, res) => {
 router.put('/:id', authenticateToken, requireLeagueAdmin, validateId, async (req, res) => {
     try {
         const leagueId = parseInt(req.params.id);
-        const { name, description, is_public, season } = req.body;
+        const { name, description, is_public, season, elo_update_mode } = req.body;
         
         const updates = [];
         const values = [];
@@ -247,6 +247,17 @@ router.put('/:id', authenticateToken, requireLeagueAdmin, validateId, async (req
             values.push(season ? season.trim() : null);
         }
         
+        if (elo_update_mode !== undefined) {
+            console.log(`Updating elo_update_mode to: ${elo_update_mode}`);
+            const allowed = ['immediate', 'weekly', 'monthly'];
+            if (!allowed.includes(elo_update_mode)) {
+                console.log(`Invalid elo_update_mode: ${elo_update_mode}`);
+                return res.status(400).json({ error: 'elo_update_mode must be one of: immediate, weekly, monthly' });
+            }
+            updates.push('elo_update_mode = ?');
+            values.push(elo_update_mode);
+        }
+        
         if (updates.length === 0) {
             return res.status(400).json({ error: 'No valid fields to update' });
         }
@@ -254,6 +265,7 @@ router.put('/:id', authenticateToken, requireLeagueAdmin, validateId, async (req
         updates.push('updated_at = CURRENT_TIMESTAMP');
         values.push(leagueId);
         
+        console.log(`Executing UPDATE: ${updates.join(', ')} with values:`, values);
         await database.run(
             `UPDATE leagues SET ${updates.join(', ')} WHERE id = ?`,
             values
@@ -262,7 +274,7 @@ router.put('/:id', authenticateToken, requireLeagueAdmin, validateId, async (req
         // Get updated league
         const updatedLeague = await database.get(`
             SELECT 
-                l.id, l.name, l.description, l.is_public, l.season, l.created_at, l.updated_at,
+                l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at, l.updated_at,
                 u.username as created_by_username
             FROM leagues l
             JOIN users u ON l.created_by = u.id
@@ -539,9 +551,12 @@ router.delete('/:id/leave', authenticateToken, validateId, async (req, res) => {
  * Get league leaderboard
  * GET /api/leagues/:id/leaderboard
  */
-router.get('/:id/leaderboard', optionalAuth, validateId, async (req, res) => {
+router.get('/:id/leaderboard', optionalAuth, validateId, validatePagination, async (req, res) => {
     try {
         const leagueId = parseInt(req.params.id);
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const offset = (page - 1) * limit;
         
         // Check if user has access to this league
         const league = await database.get('SELECT is_public FROM leagues WHERE id = ? AND is_active = ?', [leagueId, true]);
@@ -576,14 +591,26 @@ router.get('/:id/leaderboard', optionalAuth, validateId, async (req, res) => {
             WHERE lm.league_id = ?
             GROUP BY u.id, u.username, u.first_name, u.last_name, lm.current_elo, lm.joined_at
             ORDER BY lm.current_elo DESC
-        `, [true, leagueId]);
+            LIMIT ? OFFSET ?
+        `, [true, leagueId, limit, offset]);
+
+        // Total members for pagination
+        const totalRow = await database.get(
+            'SELECT COUNT(*) as count FROM league_members WHERE league_id = ?'
+        , [leagueId]);
         
         res.json({
             leaderboard: leaderboard.map(player => ({
                 ...player,
                 win_rate: player.matches_played > 0 ? 
                     Math.round((player.matches_won / player.matches_played) * 100) : 0
-            }))
+            })),
+            pagination: {
+                page,
+                limit,
+                total: totalRow?.count || 0,
+                pages: Math.ceil((totalRow?.count || 0) / limit)
+            }
         });
     } catch (error) {
         console.error('Get leaderboard error:', error);

@@ -25,16 +25,27 @@ Quick facts (current state):
   - Progress: FE Leagues list page implemented and wired to `GET /api/leagues` with pagination; detail page implemented (overview, leaderboard, members preview, recent matches). Members fetch is auth-aware and page uses resilient parallel loading. Create League form on `/admin` uses `react-hook-form` + `zod`, posts to `POST /api/leagues`, handles 409 duplicate name, and navigates to the new league. Added `backend/scripts/quick-api-tests.ps1` to exercise auth and league creation (health, login, unauthorized create, authorized create, duplicate check, fetch by id, list). Implemented Join with invite code on `LeagueDetailPage` calling `POST /api/leagues/:id/join` with proper error handling and success refresh. Implemented Invite by username on `LeagueDetailPage` calling `POST /api/leagues/:id/invite` with toasts and showing `invite_code` and `expires_at`. Implemented Leave League on `LeagueDetailPage` calling `DELETE /api/leagues/:id/leave` with a confirmation `AlertDialog` and success/error toasts. Implemented full Members table with roles (admin/member), W/L, Win%, and Joined date using `GET /api/leagues/:id/members`. Implemented Dashboard "My Leagues" fix by adding `is_member` in `GET /api/leagues` and filtering on FE `DashboardPage.jsx`.
   - Status: Notifications page with pagination and filters implemented at `/notifications` and linked from the header dropdown.
 
-- [ ] Matches (record/approve/history)
+- [x] Matches (record/approve/history)
   - Files: `backend/src/routes/matches.js`, FE match forms/history
   - Actions: Record match with set scores; pending/approve/reject admin flow; history list with filters
   - Acceptance: Recording and approvals update ELO; audit trail visible; UX validated
-  - Status: Backend endpoints implemented; duplicate `/pending` and `/preview-elo` routes deduplicated in `backend/src/routes/matches.js`. FE Matches list page implemented at `frontend/src/pages/MatchesPage.jsx` with tabs (All/Accepted/Pending) and pagination using `matchesAPI.getAll({ status, page, limit })`. Record Match form implemented at `frontend/src/pages/RecordMatchPage.jsx` with league/opponent selectors (filtered by membership), game type, sets/points inputs, optional `played_at`, and live ELO preview via `matchesAPI.previewElo`. Protected route added at `/matches/record` in `frontend/src/App.jsx` and linked from `MatchesPage` ("Record Match" button). Bugfixes: leagues fetch now uses `limit=100` (backend max) to avoid 400 responses; opponent selector uses `member.id` as returned by `GET /api/leagues/:id/members`. Admin Pending Approvals UI implemented in `frontend/src/pages/AdminPage.jsx` under `/admin` with pending list, Accept/Reject actions, and pagination using `matchesAPI.getPending`, `matchesAPI.accept`, and `matchesAPI.reject`. Match Detail page implemented at `/matches/:id` in `frontend/src/pages/MatchDetailPage.jsx` with full match fetch, per-set display, and pre-acceptance edit (participants only) wired to `matchesAPI.update`; route added in `frontend/src/App.jsx`. Cross-linking added from `MatchesPage` rows and recent matches in `frontend/src/pages/LeagueDetailPage.jsx` to `/matches/:id`. Next: polish UI/error states and add tests.
+  - Status: Backend endpoints implemented; duplicate `/pending` and `/preview-elo` routes deduplicated in `backend/src/routes/matches.js`. Added league ELO consolidation feature: schema fields `leagues.elo_update_mode` and `matches.elo_applied(_at)`; `POST /api/matches/:id/accept` now respects `elo_update_mode` (immediate vs deferred weekly/monthly); added `POST /api/matches/leagues/:leagueId/consolidate?force=true`. FE: Matches list with tabs/pagination; Record Match form with live ELO preview; Admin Pending Approvals UI; Match Detail view with pre-accept editing + inline ELO preview; cross-linking from lists; ELO Applied/Deferred badges surfaced. Admin UI added on League Detail to set `elo_update_mode` and run consolidation. Dockerized tests added (Jest + supertest), CI workflow created.
 
-- [ ] Leaderboards & ELO history
+- [x] Leaderboards & ELO history
   - Files: `backend/src/routes/leagues.js` (leaderboard endpoint), ELO history endpoint; FE leaderboard + chart
-  - Actions: Add top-N leaderboard with pagination; per-user ELO history endpoint; FE table and sparkline
-  - Acceptance: Leaderboard reflects latest accepted matches; ELO timeline renders correctly
+  - Actions: Add top-N leaderboard with pagination; per-user ELO history endpoint (from `elo_history`); FE: league leaderboard table (paginate), per-user ELO timeline chart (sparklines on leaderboard + full chart on profile)
+  - Acceptance: Leaderboard reflects latest accepted matches (and deferred applied only after consolidation); ELO timeline renders correctly with tooltips
+  - Status: ✅ **COMPLETED** - Paginated leaderboards, ELO history API, sparklines, full ELO charts, and consolidation system all implemented and working
+
+- [ ] Public profiles
+  - Files: `backend/src/routes/users.js` (new/profile endpoints), FE profile pages
+  - Actions: Public profile route shows user overview, per-league ranks, recent matches, badges; add public profile routes and navigation from leaderboard/matches
+  - Acceptance: Any user can view others’ profiles with non-sensitive info; their ranks and badges visible
+
+- [ ] Badges & medals
+  - Files: schema updates (badges/user_badges if needed), routes to award/revoke/list badges; FE profile and leaderboard badge display
+  - Actions: Support admin-awarded badges; upload/display rank medal PNGs on leaderboard rows; show earned badges on profile
+  - Acceptance: Admin can award/revoke; users see badges on profile; leaderboard shows medal icons for top ranks
 
 - [ ] Notifications UX
   - Files: `backend/src/routes/notifications.js`, FE notifications components
