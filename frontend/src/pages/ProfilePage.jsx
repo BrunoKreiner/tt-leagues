@@ -12,8 +12,10 @@ import { usersAPI, leaguesAPI } from '@/services/api';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { BadgeGrid } from '@/components/BadgeDisplay';
+import { useTranslation } from 'react-i18next';
 
 const ProfilePage = () => {
+  const { t } = useTranslation();
   const { username } = useParams(); // Get username from URL if provided
   const { user: currentUser, isAuthenticated } = useAuth();
   
@@ -277,12 +279,12 @@ const ProfilePage = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            {isOwnProfile ? 'Profile' : `${targetUser?.first_name || username}'s Profile`}
+            {isOwnProfile ? t('nav.profile') : t('profile.titleOf', { name: targetUser?.first_name || username })}
           </h1>
           <p className="text-muted-foreground">
             {isOwnProfile 
-              ? 'Manage your account settings and view your statistics.'
-              : 'View player statistics and achievements.'
+              ? t('profile.subtitleOwn')
+              : t('profile.subtitlePublic')
             }
           </p>
         </div>
@@ -292,7 +294,7 @@ const ProfilePage = () => {
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
           >
             <ExternalLink className="h-4 w-4" />
-            My Profile
+            {t('profile.myProfile')}
           </Link>
         )}
       </div>
@@ -303,7 +305,7 @@ const ProfilePage = () => {
           <CardHeader className="py-3">
             <CardTitle className="flex items-center">
               <User className="h-5 w-5 mr-2" />
-              Profile Information
+              {t('profile.info')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 pt-0">
@@ -345,22 +347,22 @@ const ProfilePage = () => {
           <CardHeader className="py-3">
             <CardTitle className="flex items-center">
               <Trophy className="h-5 w-5 mr-2" />
-              Overall Statistics
+              {t('profile.overallStats')}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
             <div className="flex flex-wrap gap-2">
               <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm bg-muted/40">
                 <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="font-medium">{stats?.overall?.leagues_count || 0} Leagues</span>
+                <span className="font-medium">{t('stats.leagues', { count: stats?.overall?.leagues_count || 0 })}</span>
               </div>
               <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm bg-muted/40">
                 <Swords className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="font-medium">{stats?.overall?.matches_played || 0} Matches</span>
+                <span className="font-medium">{t('stats.matches', { count: stats?.overall?.matches_played || 0 })}</span>
               </div>
               <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm bg-muted/40">
                 <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="font-medium">{stats?.overall?.win_rate || 0}% Win Rate</span>
+                <span className="font-medium">{t('profile.winRate', { rate: stats?.overall?.win_rate || 0 })}</span>
               </div>
             </div>
           </CardContent>
@@ -373,25 +375,23 @@ const ProfilePage = () => {
           <CardHeader className="py-3">
             <CardTitle className="flex items-center">
               <TrendingUp className="h-5 w-5 mr-2" />
-              ELO History
+              {t('profile.eloHistory')}
             </CardTitle>
             <CardDescription>
-              Track your ELO progression over time
+              {t('profile.eloHistoryDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
             <div className="space-y-3">
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium">League:</label>
+                  <label className="text-sm font-medium">{t('recordMatch.leagueLabel')}:</label>
                   {userLeagues.length === 0 ? (
-                    <div className="text-sm text-muted-foreground">
-                      No leagues joined yet
-                    </div>
+                    <div className="text-sm text-muted-foreground">{t('profile.noLeaguesYet')}</div>
                   ) : (
                     <Select value={selectedLeague} onValueChange={setSelectedLeague}>
                       <SelectTrigger className="w-48 h-8">
-                        <SelectValue placeholder="Select a league" />
+                        <SelectValue placeholder={t('recordMatch.selectLeague')} />
                       </SelectTrigger>
                       <SelectContent>
                         {userLeagues.map(league => (
@@ -405,15 +405,15 @@ const ProfilePage = () => {
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium">Time Window:</label>
+                  <label className="text-sm font-medium">{t('profile.timeWindow')}:</label>
                   <Select value={timeWindow} onValueChange={setTimeWindow}>
                     <SelectTrigger className="w-24 h-8">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="30">30 days</SelectItem>
-                      <SelectItem value="90">90 days</SelectItem>
-                      <SelectItem value="all">All time</SelectItem>
+                      <SelectItem value="30">30 {t('profile.days')}</SelectItem>
+                      <SelectItem value="90">90 {t('profile.days')}</SelectItem>
+                      <SelectItem value="all">{t('profile.allTime')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -431,7 +431,7 @@ const ProfilePage = () => {
            <CardHeader className="py-3">
              <CardTitle className="flex items-center">
                <Users className="h-5 w-5 mr-2" />
-               League Performance
+               {t('profile.leaguePerformance')}
              </CardTitle>
            </CardHeader>
            <CardContent>
@@ -445,11 +445,11 @@ const ProfilePage = () => {
                        <Badge variant="secondary">{league.current_elo}</Badge>
                      </div>
                      <div className="flex items-center justify-between">
-                       <span className="text-sm text-muted-foreground">Matches</span>
+                       <span className="text-sm text-muted-foreground">{t('nav.matches')}</span>
                        <span>{league.matches_played}</span>
                      </div>
                      <div className="flex items-center justify-between">
-                       <span className="text-sm text-muted-foreground">Win Rate</span>
+                       <span className="text-sm text-muted-foreground">{t('profile.winRateLabel')}</span>
                        <span>{league.win_rate}%</span>
                      </div>
                    </div>
@@ -465,13 +465,10 @@ const ProfilePage = () => {
          <CardHeader className="py-3">
            <CardTitle className="flex items-center">
              <Award className="h-5 w-5 mr-2" />
-             Badges & Achievements
+             {t('profile.badgesTitle')}
            </CardTitle>
            <CardDescription>
-             {isOwnProfile 
-               ? 'Your earned badges and achievements'
-               : 'Badges and achievements earned'
-             }
+             {isOwnProfile ? t('profile.badgesSubtitleOwn') : t('profile.badgesSubtitlePublic')}
            </CardDescription>
          </CardHeader>
          <CardContent className="pt-0">
@@ -480,11 +477,7 @@ const ProfilePage = () => {
              showDate={true}
              showLeague={true}
              size="default"
-             emptyMessage={
-               isOwnProfile 
-                 ? "You haven't earned any badges yet. Keep playing to unlock achievements!"
-                 : "No badges earned yet"
-             }
+             emptyMessage={isOwnProfile ? t('profile.noBadgesOwn') : t('profile.noBadgesPublic')}
            />
          </CardContent>
        </Card>

@@ -19,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '@/components/ui/form';
 import EloSparkline from '@/components/EloSparkline';
+import { useTranslation } from 'react-i18next';
 import {
   Pagination,
   PaginationContent,
@@ -47,6 +48,7 @@ const editSchema = z.object({
 });
 
 const LeagueDetailPage = () => {
+  const { t } = useTranslation();
   const { id } = useParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -107,7 +109,7 @@ const LeagueDetailPage = () => {
 
         if (leagueRes.status === 'rejected') {
           const err = leagueRes.reason;
-          setError(err?.response?.data?.error || 'Failed to load league');
+          setError(err?.response?.data?.error || t('leagues.loadError'));
           return;
         }
 
