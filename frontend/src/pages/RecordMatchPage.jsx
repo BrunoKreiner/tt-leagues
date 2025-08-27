@@ -14,12 +14,13 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { useTranslation } from 'react-i18next';
 
 const GAME_TYPES = [
-  { value: 'best_of_1', label: 'Best of 1' },
-  { value: 'best_of_3', label: 'Best of 3' },
-  { value: 'best_of_5', label: 'Best of 5' },
-  { value: 'best_of_7', label: 'Best of 7' },
+  { value: 'best_of_1', label: 'best_of_1', labelKey: 'recordMatch.gameTypeBestOf1' },
+  { value: 'best_of_3', label: 'best_of_3', labelKey: 'recordMatch.gameTypeBestOf3' },
+  { value: 'best_of_5', label: 'best_of_5', labelKey: 'recordMatch.gameTypeBestOf5' },
+  { value: 'best_of_7', label: 'best_of_7', labelKey: 'recordMatch.gameTypeBestOf7' },
 ];
 
 const MAX_SETS_BY_TYPE = {
@@ -44,6 +45,7 @@ const schema = z.object({
 });
 
 export default function RecordMatchPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -108,12 +110,12 @@ export default function RecordMatchPage() {
     if (totalSets > maxSets) {
       form.setError('player1_sets_won', {
         type: 'manual',
-        message: `Total sets (${totalSets}) exceeds maximum ${maxSets} for ${gameType.replaceAll('_', ' ')}`,
+        message: `${t('recordMatch.totalSetsExceedsMax', { max: maxSets, gameType: gameType.replaceAll('_', ' ') })}`,
       });
     } else {
       form.clearErrors('player1_sets_won');
     }
-  }, [p1SetsWon, p2SetsWon, maxSets, gameType, form]);
+  }, [p1SetsWon, p2SetsWon, maxSets, gameType, form, t]);
 
   // Auto-calc totals from per-set scores and update form values (totals are read-only in UI)
   useEffect(() => {
@@ -160,13 +162,13 @@ export default function RecordMatchPage() {
         setLeagues(mine);
       } catch (e) {
         console.error('Failed to load leagues', e);
-        toast.error('Failed to load leagues');
+        toast.error(t('recordMatch.failedToLoadLeagues'));
       } finally {
         setLoadingLeagues(false);
       }
     };
     loadLeagues();
-  }, []);
+  }, [t]);
 
   // Load members when league changes
   useEffect(() => {
@@ -191,14 +193,14 @@ export default function RecordMatchPage() {
           }
         } catch (e) {
           console.error('Failed to load members', e);
-          toast.error('Failed to load league members');
+          toast.error(t('recordMatch.failedToLoadLeagueMembers'));
         } finally {
           setLoadingMembers(false);
         }
       }
     });
     return () => subscription.unsubscribe();
-  }, [form, me?.id]);
+  }, [form, me?.id, t]);
 
   // Debounced ELO preview when relevant fields change
   useEffect(() => {
@@ -250,10 +252,10 @@ export default function RecordMatchPage() {
         payload.sets = nonEmptySets;
       }
       await matchesAPI.create(payload);
-      toast.success('Match recorded (pending opponent approval)');
+      toast.success(t('recordMatch.matchRecordedSuccess'));
       navigate('/matches');
     } catch (err) {
-      const msg = err.response?.data?.error || 'Failed to record match';
+      const msg = err.response?.data?.error || t('recordMatch.failedToRecordMatch');
       toast.error(msg);
     } finally {
       setSubmitting(false);
@@ -263,14 +265,14 @@ export default function RecordMatchPage() {
   return (
     <div className="px-4 py-6 mx-auto w-full max-w-3xl">
       <div className="mb-4">
-        <h1 className="text-2xl font-semibold">Record Match</h1>
-        <p className="text-sm text-muted-foreground">Submit a match for your league. Your opponent must approve.</p>
+        <h1 className="text-2xl font-semibold">{t('recordMatch.title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('recordMatch.subtitle')}</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Match Details</CardTitle>
-          <CardDescription>Choose league and opponent, enter the result, and optionally set the played time.</CardDescription>
+          <CardTitle>{t('recordMatch.detailsTitle')}</CardTitle>
+          <CardDescription>{t('recordMatch.detailsDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -281,13 +283,13 @@ export default function RecordMatchPage() {
                 control={form.control}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>League</FormLabel>
+                    <FormLabel>{t('recordMatch.leagueLabel')}</FormLabel>
                     <FormControl>
                       <Select value={field.value?.toString()}
                               onValueChange={(v) => field.onChange(Number(v))}
                               disabled={loadingLeagues}>
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder={loadingLeagues ? 'Loading…' : 'Select a league'} />
+                          <SelectValue placeholder={loadingLeagues ? t('common.loading') : t('recordMatch.selectLeague')} />
                         </SelectTrigger>
                         <SelectContent>
                           {leagues.map((l) => (
@@ -309,17 +311,17 @@ export default function RecordMatchPage() {
                 control={form.control}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Opponent</FormLabel>
+                    <FormLabel>{t('recordMatch.opponentLabel')}</FormLabel>
                     <FormControl>
                       <Select value={field.value?.toString()}
                               onValueChange={(v) => field.onChange(Number(v))}
                               disabled={!form.getValues('league_id') || loadingMembers}>
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder={!form.getValues('league_id') ? 'Select a league first' : (loadingMembers ? 'Loading…' : 'Select opponent')} />
+                          <SelectValue placeholder={!form.getValues('league_id') ? t('recordMatch.selectLeagueFirst') : (loadingMembers ? t('common.loading') : t('recordMatch.selectOpponent'))} />
                         </SelectTrigger>
                         <SelectContent>
                           {members.length === 0 ? (
-                            <SelectItem disabled value="0">No members</SelectItem>
+                            <SelectItem disabled value="0">{t('recordMatch.noMembers')}</SelectItem>
                           ) : members.map((m) => (
                             <SelectItem key={m.id} value={String(m.id)}>
                               {m.username} {typeof m.current_elo === 'number' ? `(ELO ${m.current_elo})` : ''}
@@ -328,7 +330,7 @@ export default function RecordMatchPage() {
                         </SelectContent>
                       </Select>
                     </FormControl>
-                    <FormDescription>Your account will be recorded as Player 1.</FormDescription>
+                    <FormDescription>{t('recordMatch.player1Note')}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -340,14 +342,14 @@ export default function RecordMatchPage() {
                 control={form.control}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Game Type</FormLabel>
+                    <FormLabel>{t('matchDetail.gameType')}</FormLabel>
                     <FormControl>
                       <RadioGroup value={field.value} onValueChange={field.onChange} className="grid gap-2 md:grid-cols-2">
                         {GAME_TYPES.map((gt) => (
                           <div key={gt.value} className="flex items-center space-x-2 rounded-md border p-3">
                             <RadioGroupItem id={gt.value} value={gt.value} />
                             <label htmlFor={gt.value} className="text-sm leading-none cursor-pointer">
-                              {gt.label}
+                              {t(gt.labelKey)}
                             </label>
                           </div>
                         ))}
@@ -475,11 +477,11 @@ export default function RecordMatchPage() {
               <div className="rounded-md border p-3 text-sm">
                 <div className="font-medium mb-2">ELO Preview</div>
                 {!eloPreview ? (
-                  <div className="text-muted-foreground">Select league, opponent, and sets to preview rating change.</div>
+                  <div className="text-muted-foreground">{t('recordMatch.selectLeagueOpponentSetsToPreview')}</div>
                 ) : (
                   <div className="grid gap-2 md:grid-cols-2">
                     <div>
-                      <div className="text-muted-foreground">You{me?.username ? ` (${me.username})` : ''}</div>
+                      <div className="text-muted-foreground">{t('recordMatch.you')}{me?.username ? ` (${me.username})` : ''}</div>
                       <div>
                         {eloPreview.current_elos?.player1} → {eloPreview.new_elos?.player1}{' '}
                         <span className={(() => {
@@ -491,7 +493,7 @@ export default function RecordMatchPage() {
                       </div>
                     </div>
                     <div>
-                      <div className="text-muted-foreground">Opponent</div>
+                      <div className="text-muted-foreground">{t('recordMatch.opponent')}</div>
                       <div>
                         {eloPreview.current_elos?.player2} → {eloPreview.new_elos?.player2}{' '}
                         <span className={(() => {
@@ -508,10 +510,10 @@ export default function RecordMatchPage() {
 
               <div className="flex gap-2">
                 <Button type="submit" disabled={submitting}>
-                  {submitting ? 'Submitting…' : 'Submit Match'}
+                  {submitting ? t('common.submitting') : t('recordMatch.submitMatch')}
                 </Button>
                 <Button type="button" variant="outline" onClick={() => form.reset()} disabled={submitting}>
-                  Reset
+                  {t('common.reset')}
                 </Button>
               </div>
             </form>

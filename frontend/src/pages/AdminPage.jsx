@@ -22,6 +22,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
+import { useTranslation } from 'react-i18next';
 
 const schema = z.object({
   name: z.string().min(1, 'Name is required').max(200, 'Max 200 characters'),
@@ -31,6 +32,7 @@ const schema = z.object({
 });
 
 const AdminPage = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
 
@@ -107,14 +109,14 @@ const AdminPage = () => {
         season: values.season?.trim() || undefined,
       };
       const { data } = await leaguesAPI.create(payload);
-      toast.success('League created');
+      toast.success(t('admin.created'));
       navigate(`/leagues/${data.league.id}`);
     } catch (err) {
       const status = err.response?.status;
-      const msg = err.response?.data?.error || 'Failed to create league';
+      const msg = err.response?.data?.error || t('admin.createError');
       if (status === 409) {
-        toast.error('League name already exists');
-        form.setError('name', { message: 'League name already exists' });
+        toast.error(t('admin.nameExists'));
+        form.setError('name', { message: t('admin.nameExists') });
       } else {
         toast.error(msg);
       }
@@ -126,17 +128,17 @@ const AdminPage = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Admin Panel</h1>
-        <p className="text-muted-foreground">Manage users, leagues, and system settings.</p>
+        <h1 className="text-3xl font-bold tracking-tight">{t('admin.panelTitle')}</h1>
+        <p className="text-muted-foreground">{t('admin.panelSubtitle')}</p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
             <PlusCircle className="h-5 w-5 mr-2" />
-            Create League
+            {t('admin.createLeague')}
           </CardTitle>
-          <CardDescription>Create a new league. You will be added as league admin.</CardDescription>
+          <CardDescription>{t('admin.createLeagueDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -146,9 +148,9 @@ const AdminPage = () => {
                 control={form.control}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Name</FormLabel>
+                    <FormLabel>{t('common.name')}</FormLabel>
                     <FormControl>
-                      <Input placeholder="League name" {...field} />
+                      <Input placeholder={t('admin.leagueNamePlaceholder')} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -160,11 +162,11 @@ const AdminPage = () => {
                 control={form.control}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description</FormLabel>
+                    <FormLabel>{t('common.description')}</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Optional description" rows={4} {...field} />
+                      <Textarea placeholder={t('admin.descriptionPlaceholder')} rows={4} {...field} />
                     </FormControl>
-                    <FormDescription>Up to 1000 characters.</FormDescription>
+                    <FormDescription>{t('admin.descriptionHint')}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -176,9 +178,9 @@ const AdminPage = () => {
                   control={form.control}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Season</FormLabel>
+                      <FormLabel>{t('admin.season')}</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., 2025 Spring" {...field} />
+                        <Input placeholder={t('admin.seasonPlaceholder')} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -191,9 +193,9 @@ const AdminPage = () => {
                   render={({ field }) => (
                     <FormItem className="flex items-center justify-between rounded-md border p-3">
                       <div>
-                        <FormLabel className="mb-1">Public League</FormLabel>
+                        <FormLabel className="mb-1">{t('admin.publicLeague')}</FormLabel>
                         <FormDescription>
-                          Public leagues are visible to all users. Private leagues require membership.
+                          {t('admin.publicLeagueHint')}
                         </FormDescription>
                       </div>
                       <FormControl>
@@ -206,10 +208,10 @@ const AdminPage = () => {
 
               <div className="flex gap-2">
                 <Button type="submit" disabled={submitting}>
-                  {submitting ? 'Creating…' : 'Create League'}
+                  {submitting ? t('status.creating') : t('admin.createLeague')}
                 </Button>
                 <Button type="button" variant="outline" onClick={() => form.reset()} disabled={submitting}>
-                  Reset
+                  {t('actions.reset')}
                 </Button>
               </div>
             </form>
@@ -219,24 +221,24 @@ const AdminPage = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Pending Match Approvals</CardTitle>
-          <CardDescription>Approve or reject matches awaiting admin action.</CardDescription>
+          <CardTitle>{t('admin.pendingApprovals')}</CardTitle>
+          <CardDescription>{t('admin.pendingApprovalsDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
           {loadingPending ? (
             <div className="py-8"><LoadingSpinner /></div>
           ) : pending.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No pending matches</div>
+            <div className="text-sm text-muted-foreground">{t('admin.noPending')}</div>
           ) : (
             <div className="overflow-x-auto rounded-md border">
               <table className="min-w-full text-sm">
                 <thead className="bg-muted/40 text-muted-foreground">
                   <tr>
-                    <th className="text-left font-medium px-3 py-2">When</th>
-                    <th className="text-left font-medium px-3 py-2">League</th>
-                    <th className="text-left font-medium px-3 py-2">Players</th>
-                    <th className="text-left font-medium px-3 py-2">Result</th>
-                    <th className="text-left font-medium px-3 py-2">Actions</th>
+                    <th className="text-left font-medium px-3 py-2">{t('table.when')}</th>
+                    <th className="text-left font-medium px-3 py-2">{t('table.league')}</th>
+                    <th className="text-left font-medium px-3 py-2">{t('table.players')}</th>
+                    <th className="text-left font-medium px-3 py-2">{t('table.result')}</th>
+                    <th className="text-left font-medium px-3 py-2">{t('table.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -248,8 +250,8 @@ const AdminPage = () => {
                       <td className="px-3 py-2">{m.player1_sets_won}-{m.player2_sets_won}</td>
                       <td className="px-3 py-2">
                         <div className="flex gap-2">
-                          <Button size="sm" onClick={() => acceptMatch(m.id)}>Accept</Button>
-                          <Button size="sm" variant="outline" onClick={() => rejectMatch(m.id)}>Reject</Button>
+                          <Button size="sm" onClick={() => acceptMatch(m.id)}>{t('actions.accept')}</Button>
+                          <Button size="sm" variant="outline" onClick={() => rejectMatch(m.id)}>{t('actions.reject')}</Button>
                         </div>
                       </td>
                     </tr>
@@ -261,8 +263,8 @@ const AdminPage = () => {
 
           <div className="mt-4">
             <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
-              <span>Total: {total}</span>
-              <span>Page {page} / {pages}</span>
+              <span>{t('common.totalN', { count: total })}</span>
+              <span>{t('common.pageOf', { page, pages })}</span>
             </div>
             <Pagination>
               <PaginationContent>
@@ -290,14 +292,12 @@ const AdminPage = () => {
         <CardHeader>
           <CardTitle className="flex items-center">
             <Shield className="h-5 w-5 mr-2" />
-            Coming Soon
+            {t('admin.comingSoon')}
           </CardTitle>
-          <CardDescription>More admin features will be added here.</CardDescription>
+          <CardDescription>{t('admin.comingSoonDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">
-            This page will provide admin tools for managing users, approving matches, and monitoring system activity.
-          </p>
+          <p className="text-muted-foreground">{t('admin.moreAdminCopy')}</p>
         </CardContent>
       </Card>
     </div>
