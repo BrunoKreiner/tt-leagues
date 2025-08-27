@@ -407,7 +407,7 @@ const LeagueDetailPage = () => {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{league.name}</h1>
-          <p className="text-muted-foreground">{t('leagues.createdBy', { user: league.created_by_username })} • {format(new Date(league.created_at), 'PPP')}</p>
+          <p className="text-muted-foreground">{t('leagues.createdBy', { user: '' })}<Link to={`/profile/${league.created_by_username}`} className="underline">{league.created_by_username}</Link> • {format(new Date(league.created_at), 'PPP')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="flex items-center gap-1">
@@ -453,7 +453,7 @@ const LeagueDetailPage = () => {
                     {leaderboard.map((p) => (
                       <TableRow key={p.id}>
                         <TableCell>{p.rank}</TableCell>
-                        <TableCell>{p.username}</TableCell>
+                        <TableCell><Link to={`/profile/${p.username}`} className="underline hover:no-underline">{p.username}</Link></TableCell>
                         <TableCell>{p.current_elo}</TableCell>
                         <TableCell>
                           <EloSparkline userId={p.id} leagueId={id} width={50} height={16} points={15} />
@@ -896,7 +896,7 @@ const LeagueDetailPage = () => {
                     <TableRow key={m.id}>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="font-medium">{m.username}</span>
+                          <span className="font-medium"><Link to={`/profile/${m.username}`} className="underline hover:no-underline">{m.username}</Link></span>
                           {(m.first_name || m.last_name) && (
                             <span className="text-xs text-muted-foreground">{[m.first_name, m.last_name].filter(Boolean).join(' ')}</span>
                           )}

@@ -139,7 +139,13 @@ export default function MatchesPage() {
                       <tr key={m.id} className="border-t">
                         <td className="px-3 py-2"><Link to={`/matches/${m.id}`}>{formatWhen(m)}</Link></td>
                         <td className="px-3 py-2"><Link to={`/matches/${m.id}`}>{m.league_name}</Link></td>
-                        <td className="px-3 py-2"><Link to={`/matches/${m.id}`}>{youVsLabel(m)}</Link></td>
+                        <td className="px-3 py-2">
+                          <Link to={`/profile/${m.player1_username}`} className="underline hover:no-underline">{m.player1_username}</Link>
+                          {' '}
+                          {t('common.vs') || 'vs'}
+                          {' '}
+                          <Link to={`/profile/${m.player2_username}`} className="underline hover:no-underline">{m.player2_username}</Link>
+                        </td>
                         <td className="px-3 py-2"><Link to={`/matches/${m.id}`}>{m.player1_sets_won}-{m.player2_sets_won}</Link></td>
                         <td className="px-3 py-2">{m.is_accepted ? t('status.accepted') : t('status.pending')}</td>
                         <td className="px-3 py-2">

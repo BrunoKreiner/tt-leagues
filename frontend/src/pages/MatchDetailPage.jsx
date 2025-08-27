@@ -259,7 +259,7 @@ export default function MatchDetailPage() {
 
       <Card className="mb-4">
         <CardHeader>
-          <CardTitle>{match.player1_username} vs {match.player2_username}</CardTitle>
+          <CardTitle><Link to={`/profile/${match.player1_username}`} className="underline hover:no-underline">{match.player1_username}</Link> {t('common.vs')} <Link to={`/profile/${match.player2_username}`} className="underline hover:no-underline">{match.player2_username}</Link></CardTitle>
           <CardDescription>
             {match.played_at ? `${t('matchDetail.played')}: ${format(new Date(match.played_at), 'PP p')}` : `${t('matchDetail.created')}: ${format(new Date(match.created_at), 'PP p')}`}
           </CardDescription>
@@ -276,7 +276,7 @@ export default function MatchDetailPage() {
             </div>
           )}
           {match.is_accepted && match.accepted_by_username && (
-            <div>{t('matchDetail.acceptedBy')}: {match.accepted_by_username}</div>
+            <div>{t('matchDetail.acceptedBy')}: <Link to={`/profile/${match.accepted_by_username}`} className="underline hover:no-underline">{match.accepted_by_username}</Link></div>
           )}
           <div>{t('matchDetail.gameType')}: {GAME_TYPES.find((g) => g.value === match.game_type)?.label || match.game_type}</div>
           <div>{t('matchDetail.result')}: {match.player1_sets_won} - {match.player2_sets_won}</div>
