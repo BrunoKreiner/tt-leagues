@@ -74,6 +74,12 @@ jspm_packages/
 .cache/
 public
 
+# Allow locale assets under frontend/public while keeping other public content ignored
+!frontend/public/
+frontend/public/*
+!frontend/public/locales/
+!frontend/public/locales/**
+
 # Vuepress build output
 .vuepress/dist
 
