@@ -26,10 +26,12 @@ import { toast } from 'sonner';
 import { notificationsAPI, leaguesAPI } from '@/services/api';
 import MobileMenu from './MobileMenu';
 import HamburgerButton from './HamburgerButton';
+import { useTranslation } from 'react-i18next';
 
 const Layout = () => {
   const { user, logout, isAdmin } = useAuth();
   const location = useLocation();
+  const { t, i18n } = useTranslation();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifLoading, setNotifLoading] = useState(false);
@@ -37,13 +39,13 @@ const Layout = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: Home },
-    { name: 'Leagues', href: '/leagues', icon: Trophy },
-    { name: 'Matches', href: '/matches', icon: Swords },
+    { name: t('nav.dashboard'), href: '/dashboard', icon: Home },
+    { name: t('nav.leagues'), href: '/leagues', icon: Trophy },
+    { name: t('nav.matches'), href: '/matches', icon: Swords },
   ];
 
   if (isAdmin) {
-    navigation.push({ name: 'Admin', href: '/admin', icon: Shield });
+    navigation.push({ name: t('nav.admin'), href: '/admin', icon: Shield });
   }
 
   const handleLogout = async () => {
@@ -138,7 +140,7 @@ const Layout = () => {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <Trophy className="h-4 w-4" />
             </div>
-            <span className="font-bold text-lg">Table Tennis League</span>
+            <span className="font-bold text-lg">{t('app.title')}</span>
           </Link>
 
           {/* Navigation */}
@@ -173,6 +175,18 @@ const Layout = () => {
 
           {/* Right side */}
           <div className="hidden md:flex items-center space-x-4">
+            {/* Language switcher */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  {i18n.language === 'de' ? 'DE' : 'EN'}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => i18n.changeLanguage('en')}>{t('language.english')}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => i18n.changeLanguage('de')}>{t('language.german')}</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {/* Notifications */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -187,9 +201,9 @@ const Layout = () => {
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-96" align="end" forceMount>
                 <div className="px-2 py-2 flex items-center justify-between">
-                  <span className="text-sm font-medium">Notifications</span>
+                  <span className="text-sm font-medium">{t('notifications.title')}</span>
                   <Button variant="ghost" size="sm" onClick={markAllAsRead} disabled={notifLoading || unreadCount === 0}>
-                    Mark all as read
+                    {t('actions.markAllRead')}
                   </Button>
                 </div>
                 <DropdownMenuSeparator />
@@ -197,7 +211,7 @@ const Layout = () => {
                   {notifLoading ? (
                     <div className="p-4 text-sm text-muted-foreground">Loading…</div>
                   ) : notifications.length === 0 ? (
-                    <div className="p-4 text-sm text-muted-foreground">No notifications</div>
+                    <div className="p-4 text-sm text-muted-foreground">{t('notifications.none')}</div>
                   ) : (
                     notifications.map((n) => (
                       <div key={n.id} className={`px-3 py-2 border-b last:border-b-0 ${!n.is_read ? 'bg-muted/40' : ''}`}>
@@ -223,7 +237,7 @@ const Layout = () => {
                                 )}
                               </div>
                               {!n.is_read && (
-                                <Button variant="ghost" size="sm" onClick={() => markAsRead(n.id)}>Read</Button>
+                                <Button variant="ghost" size="sm" onClick={() => markAsRead(n.id)}>{t('actions.read')}</Button>
                               )}
                             </div>
                           </div>
@@ -256,7 +270,7 @@ const Layout = () => {
                 <DropdownMenuSeparator />
                 <div className="p-2">
                   <Link to="/notifications" className="w-full inline-flex items-center justify-center text-sm underline text-primary">
-                    View all notifications
+                    {t('nav.notifications')}
                   </Link>
                 </div>
               </DropdownMenuContent>
@@ -286,19 +300,19 @@ const Layout = () => {
                 <DropdownMenuItem asChild>
                   <Link to="/profile" className="flex items-center">
                     <User className="mr-2 h-4 w-4" />
-                    <span>Profile</span>
+                    <span>{t('nav.profile')}</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to="/settings" className="flex items-center">
                     <Settings className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
+                    <span>{t('nav.settings')}</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="text-red-600">
                   <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
+                  <span>{t('nav.logout')}</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

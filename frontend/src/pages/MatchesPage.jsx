@@ -14,10 +14,12 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
 
 const PAGE_SIZE = 10;
 
 export default function MatchesPage() {
+  const { t } = useTranslation();
   const [items, setItems] = useState([]);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
@@ -44,7 +46,7 @@ export default function MatchesPage() {
       setTotal(res.data.pagination?.total || 0);
     } catch (e) {
       console.error('Failed to load matches', e);
-      toast.error('Failed to load matches');
+      toast.error(t('matches.loadError'));
     } finally {
       setLoading(false);
     }
@@ -93,40 +95,40 @@ export default function MatchesPage() {
     <div className="px-4 py-6 mx-auto w-full max-w-5xl">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Matches</h1>
-          <p className="text-sm text-muted-foreground">{total} total</p>
+          <h1 className="text-2xl font-semibold">{t('nav.matches')}</h1>
+          <p className="text-sm text-muted-foreground">{t('common.totalN', { count: total })}</p>
         </div>
         <div>
           <Button asChild>
-            <Link to="/matches/record">Record Match</Link>
+            <Link to="/matches/record">{t('cta.recordMatch')}</Link>
           </Button>
         </div>
       </div>
 
       <Tabs value={status} onValueChange={(v) => { setPage(1); setStatus(v); }}>
         <TabsList>
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="accepted">Accepted</TabsTrigger>
-          <TabsTrigger value="pending">Pending</TabsTrigger>
+          <TabsTrigger value="all">{t('common.all')}</TabsTrigger>
+          <TabsTrigger value="accepted">{t('status.accepted')}</TabsTrigger>
+          <TabsTrigger value="pending">{t('status.pending')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value={status} className="mt-4">
           {loading ? (
             <div className="py-10"><LoadingSpinner /></div>
           ) : items.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No matches</div>
+            <div className="text-sm text-muted-foreground">{t('matches.empty')}</div>
           ) : (
             <div className="overflow-x-auto rounded-md border">
               <table className="min-w-full text-sm">
                 <thead className="bg-muted/40 text-muted-foreground">
                   <tr>
-                    <th className="text-left font-medium px-3 py-2">When</th>
-                    <th className="text-left font-medium px-3 py-2">League</th>
-                    <th className="text-left font-medium px-3 py-2">Players</th>
-                    <th className="text-left font-medium px-3 py-2">Result</th>
-                    <th className="text-left font-medium px-3 py-2">Status</th>
-                    <th className="text-left font-medium px-3 py-2">ELO</th>
-                    <th className="text-left font-medium px-3 py-2">Your ΔELO</th>
+                    <th className="text-left font-medium px-3 py-2">{t('table.when')}</th>
+                    <th className="text-left font-medium px-3 py-2">{t('table.league')}</th>
+                    <th className="text-left font-medium px-3 py-2">{t('table.players')}</th>
+                    <th className="text-left font-medium px-3 py-2">{t('table.result')}</th>
+                    <th className="text-left font-medium px-3 py-2">{t('table.status')}</th>
+                    <th className="text-left font-medium px-3 py-2">{t('table.elo')}</th>
+                    <th className="text-left font-medium px-3 py-2">{t('table.yourDeltaElo')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -137,15 +139,21 @@ export default function MatchesPage() {
                       <tr key={m.id} className="border-t">
                         <td className="px-3 py-2"><Link to={`/matches/${m.id}`}>{formatWhen(m)}</Link></td>
                         <td className="px-3 py-2"><Link to={`/matches/${m.id}`}>{m.league_name}</Link></td>
-                        <td className="px-3 py-2"><Link to={`/matches/${m.id}`}>{youVsLabel(m)}</Link></td>
+                        <td className="px-3 py-2">
+                          <Link to={`/profile/${m.player1_username}`} className="underline hover:no-underline">{m.player1_username}</Link>
+                          {' '}
+                          {t('common.vs') || 'vs'}
+                          {' '}
+                          <Link to={`/profile/${m.player2_username}`} className="underline hover:no-underline">{m.player2_username}</Link>
+                        </td>
                         <td className="px-3 py-2"><Link to={`/matches/${m.id}`}>{m.player1_sets_won}-{m.player2_sets_won}</Link></td>
-                        <td className="px-3 py-2">{m.is_accepted ? 'Accepted' : 'Pending'}</td>
+                        <td className="px-3 py-2">{m.is_accepted ? t('status.accepted') : t('status.pending')}</td>
                         <td className="px-3 py-2">
                           {m.is_accepted ? (
                             m.elo_applied ? (
-                              <span className="inline-flex items-center rounded border px-2 py-0.5 text-xs">Applied</span>
+                              <span className="inline-flex items-center rounded border px-2 py-0.5 text-xs">{t('elo.applied')}</span>
                             ) : (
-                              <span className="inline-flex items-center rounded border px-2 py-0.5 text-xs bg-amber-50">Deferred</span>
+                              <span className="inline-flex items-center rounded border px-2 py-0.5 text-xs bg-amber-50">{t('elo.deferred')}</span>
                             )
                           ) : (
                             <span className="text-muted-foreground text-xs">-</span>

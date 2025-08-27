@@ -15,9 +15,11 @@ import {
   PaginationNext,
 } from '@/components/ui/pagination';
 import { Trophy, Users, ListChecks, Calendar, Lock, Globe } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const LeaguesPage = () => {
   const { isAdmin } = useAuth();
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -56,12 +58,12 @@ const LeaguesPage = () => {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Leagues</h1>
-          <p className="text-muted-foreground">Browse and join table tennis leagues.</p>
+          <h1 className="text-3xl font-bold tracking-tight">{t('nav.leagues')}</h1>
+          <p className="text-muted-foreground">{t('leagues.subtitle')}</p>
         </div>
         {isAdmin && (
           <Button asChild>
-            <Link to="/admin">Create League</Link>
+            <Link to="/admin">{t('admin.createLeague')}</Link>
           </Button>
         )}
       </div>
@@ -71,7 +73,7 @@ const LeaguesPage = () => {
       ) : error ? (
         <Card>
           <CardHeader>
-            <CardTitle>Error</CardTitle>
+            <CardTitle>{t('common.error')}</CardTitle>
             <CardDescription className="text-red-500">{error}</CardDescription>
           </CardHeader>
         </Card>
@@ -80,9 +82,9 @@ const LeaguesPage = () => {
           <CardHeader>
             <CardTitle className="flex items-center">
               <Trophy className="h-5 w-5 mr-2" />
-              No leagues yet
+              {t('leagues.empty')}
             </CardTitle>
-            <CardDescription>Check back later or create one if you're an admin.</CardDescription>
+            <CardDescription>{t('leagues.emptyHint')}</CardDescription>
           </CardHeader>
         </Card>
       ) : (
@@ -96,7 +98,7 @@ const LeaguesPage = () => {
                   </CardTitle>
                   <Badge variant="secondary" className="ml-2 flex items-center gap-1">
                     {l.is_public ? <Globe className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
-                    {l.is_public ? 'Public' : 'Private'}
+                    {l.is_public ? t('leagues.public') : t('leagues.private')}
                   </Badge>
                 </div>
                 {l.description && (
@@ -105,15 +107,15 @@ const LeaguesPage = () => {
               </CardHeader>
               <CardContent className="mt-auto">
                 <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1"><Users className="h-4 w-4" /> {l.member_count} members</span>
-                  <span className="flex items-center gap-1"><ListChecks className="h-4 w-4" /> {l.match_count} matches</span>
+                  <span className="flex items-center gap-1"><Users className="h-4 w-4" /> {l.member_count} {t('leagues.members')}</span>
+                  <span className="flex items-center gap-1"><ListChecks className="h-4 w-4" /> {l.match_count} {t('leagues.matches')}</span>
                   {l.season && (
                     <span className="flex items-center gap-1"><Calendar className="h-4 w-4" /> {l.season}</span>
                   )}
                 </div>
                 <div className="pt-4">
                   <Button asChild variant="outline" size="sm">
-                    <Link to={`/leagues/${l.id}`}>View details</Link>
+                    <Link to={`/leagues/${l.id}`}>{t('actions.viewDetails')}</Link>
                   </Button>
                 </div>
               </CardContent>

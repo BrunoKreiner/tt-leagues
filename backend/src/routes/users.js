@@ -61,6 +61,7 @@ router.get('/:id', authenticateToken, validateId, async (req, res) => {
         const user = await database.get(`
             SELECT 
                 u.id, u.username, u.first_name, u.last_name, u.email, u.is_admin, u.created_at,
+                u.forehand_rubber, u.backhand_rubber, u.blade_wood, u.playstyle, u.strengths, u.weaknesses, u.goals,
                 COUNT(DISTINCT lm.league_id) as leagues_count,
                 COUNT(DISTINCT CASE WHEN m.player1_id = u.id OR m.player2_id = u.id THEN m.id END) as matches_played,
                 COUNT(DISTINCT CASE WHEN m.winner_id = u.id THEN m.id END) as matches_won
@@ -124,7 +125,7 @@ router.get('/:id', authenticateToken, validateId, async (req, res) => {
 router.put('/:id', authenticateToken, validateId, async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
-        const { first_name, last_name, email, is_admin } = req.body;
+        const { first_name, last_name, email, is_admin, forehand_rubber, backhand_rubber, blade_wood, playstyle, strengths, weaknesses, goals } = req.body;
         
         // Users can only update their own profile unless they're admin
         if (userId !== req.user.id && !req.user.is_admin) {
@@ -170,6 +171,15 @@ router.put('/:id', authenticateToken, validateId, async (req, res) => {
             updates.push('is_admin = ?');
             values.push(is_admin);
         }
+
+        // Optional public profile fields
+        if (forehand_rubber !== undefined) { updates.push('forehand_rubber = ?'); values.push(forehand_rubber || null); }
+        if (backhand_rubber !== undefined) { updates.push('backhand_rubber = ?'); values.push(backhand_rubber || null); }
+        if (blade_wood !== undefined) { updates.push('blade_wood = ?'); values.push(blade_wood || null); }
+        if (playstyle !== undefined) { updates.push('playstyle = ?'); values.push(playstyle || null); }
+        if (strengths !== undefined) { updates.push('strengths = ?'); values.push(strengths || null); }
+        if (weaknesses !== undefined) { updates.push('weaknesses = ?'); values.push(weaknesses || null); }
+        if (goals !== undefined) { updates.push('goals = ?'); values.push(goals || null); }
         
         if (updates.length === 0) {
             return res.status(400).json({ error: 'No valid fields to update' });
@@ -185,7 +195,7 @@ router.put('/:id', authenticateToken, validateId, async (req, res) => {
         
         // Get updated user
         const updatedUser = await database.get(
-            'SELECT id, username, first_name, last_name, email, is_admin FROM users WHERE id = ?',
+            'SELECT id, username, first_name, last_name, email, is_admin, forehand_rubber, backhand_rubber, blade_wood, playstyle, strengths, weaknesses, goals FROM users WHERE id = ?',
             [userId]
         );
         
@@ -431,7 +441,8 @@ router.get('/profile/:username', async (req, res) => {
         // Get user basic info
         const user = await database.get(`
             SELECT 
-                u.id, u.username, u.first_name, u.last_name, u.created_at
+                u.id, u.username, u.first_name, u.last_name, u.created_at,
+                u.forehand_rubber, u.backhand_rubber, u.blade_wood, u.playstyle, u.strengths, u.weaknesses, u.goals
             FROM users u
             WHERE u.username = ?
         `, [username]);
@@ -541,6 +552,15 @@ router.get('/profile/:username', async (req, res) => {
                 first_name: user.first_name,
                 last_name: user.last_name,
                 created_at: user.created_at
+            },
+            profile: {
+                forehand_rubber: user.forehand_rubber,
+                backhand_rubber: user.backhand_rubber,
+                blade_wood: user.blade_wood,
+                playstyle: user.playstyle,
+                strengths: user.strengths,
+                weaknesses: user.weaknesses,
+                goals: user.goals
             },
             league_rankings: rankingsWithRank,
             recent_matches: recentMatches,

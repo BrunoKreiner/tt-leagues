@@ -6,6 +6,7 @@ import { notificationsAPI, leaguesAPI } from '@/services/api';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { Bell, UserPlus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
   Pagination,
   PaginationContent,
@@ -18,6 +19,7 @@ import {
 const PAGE_SIZE = 10;
 
 export default function NotificationsPage() {
+  const { t } = useTranslation();
   const [items, setItems] = useState([]);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
@@ -45,7 +47,7 @@ export default function NotificationsPage() {
       setUnreadCount(res.data.unread_count || 0);
     } catch (e) {
       console.error('Failed to load notifications', e);
-      toast.error('Failed to load notifications');
+      toast.error(t('notifications.loadError'));
     } finally {
       setLoading(false);
     }
@@ -61,7 +63,7 @@ export default function NotificationsPage() {
       await notificationsAPI.markAsRead(id);
       await fetchData();
     } catch (e) {
-      toast.error('Failed to mark as read');
+      toast.error(t('notifications.markReadError'));
     }
   };
 
@@ -73,7 +75,7 @@ export default function NotificationsPage() {
       setPage(1);
       await fetchData({ page: 1 });
     } catch (e) {
-      toast.error('Failed to mark all as read');
+      toast.error(t('notifications.markAllError'));
     } finally {
       setMarkingAll(false);
     }
@@ -82,17 +84,17 @@ export default function NotificationsPage() {
   const handleAcceptInvite = async (n) => {
     const leagueId = n.related_id;
     if (!leagueId) {
-      toast.error('Missing league reference');
+      toast.error(t('notifications.missingLeague'));
       return;
     }
     try {
       setAcceptLoading((s) => ({ ...s, [n.id]: true }));
       const res = await leaguesAPI.join(leagueId);
-      toast.success(res.data?.message || 'Joined league');
+      toast.success(res.data?.message || t('notifications.joinedLeague'));
       await notificationsAPI.markAsRead(n.id);
       await fetchData();
     } catch (err) {
-      const msg = err.response?.data?.error || 'Failed to accept invite';
+      const msg = err.response?.data?.error || t('notifications.acceptError');
       toast.error(msg);
     } finally {
       setAcceptLoading((s) => ({ ...s, [n.id]: false }));
@@ -104,7 +106,7 @@ export default function NotificationsPage() {
       await notificationsAPI.markAsRead(n.id);
       await fetchData();
     } catch (e) {
-      toast.error('Failed to deny (mark as read)');
+      toast.error(t('notifications.denyError'));
     }
   };
 
@@ -112,10 +114,10 @@ export default function NotificationsPage() {
     try {
       setDeleteLoading((s) => ({ ...s, [id]: true }));
       await notificationsAPI.delete(id);
-      toast.success('Notification deleted');
+      toast.success(t('notifications.deleted'));
       await fetchData();
     } catch (e) {
-      toast.error('Failed to delete notification');
+      toast.error(t('notifications.deleteError'));
     } finally {
       setDeleteLoading((s) => ({ ...s, [id]: false }));
     }
@@ -128,24 +130,24 @@ export default function NotificationsPage() {
     <div className="px-4 py-6 mx-auto w-full max-w-4xl">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Notifications</h1>
-          <p className="text-sm text-muted-foreground">{unreadCount} unread • {total} total</p>
+          <h1 className="text-2xl font-semibold">{t('notifications.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('notifications.counts', { unread: unreadCount, total })}</p>
         </div>
         <div className="flex gap-2">
           <Button
             variant={filter === 'all' ? 'default' : 'outline'}
             onClick={() => { setPage(1); setFilter('all'); }}
           >
-            All
+            {t('common.all')}
           </Button>
           <Button
             variant={filter === 'unread' ? 'default' : 'outline'}
             onClick={() => { setPage(1); setFilter('unread'); }}
           >
-            Unread
+            {t('common.unread')}
           </Button>
           <Button variant="secondary" onClick={handleMarkAllRead} disabled={markingAll || unreadCount === 0}>
-            {markingAll ? 'Marking…' : 'Mark all as read'}
+            {markingAll ? t('status.marking') : t('actions.markAllRead')}
           </Button>
         </div>
       </div>
@@ -153,7 +155,7 @@ export default function NotificationsPage() {
       {loading ? (
         <div className="py-10"><LoadingSpinner /></div>
       ) : items.length === 0 ? (
-        <div className="text-sm text-muted-foreground">No notifications</div>
+        <div className="text-sm text-muted-foreground">{t('notifications.none')}</div>
       ) : (
         <div className="space-y-3">
           {items.map((n) => (
@@ -179,7 +181,7 @@ export default function NotificationsPage() {
                     </div>
                     <div className="flex items-center gap-1">
                       {!n.is_read && (
-                        <Button variant="ghost" size="sm" onClick={() => handleMarkRead(n.id)}>Read</Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleMarkRead(n.id)}>{t('actions.read')}</Button>
                       )}
                       <Button
                         variant="ghost"
@@ -187,7 +189,7 @@ export default function NotificationsPage() {
                         onClick={() => handleDelete(n.id)}
                         disabled={!!deleteLoading[n.id]}
                       >
-                        {deleteLoading[n.id] ? 'Deleting…' : 'Delete'}
+                        {deleteLoading[n.id] ? t('status.deleting') : t('actions.delete')}
                       </Button>
                     </div>
                   </div>
@@ -197,18 +199,18 @@ export default function NotificationsPage() {
                       {!n.is_read ? (
                         <>
                           <Button size="sm" onClick={() => handleAcceptInvite(n)} disabled={!!acceptLoading[n.id]}>
-                            {acceptLoading[n.id] ? 'Joining…' : 'Accept'}
+                            {acceptLoading[n.id] ? t('status.joining') : t('actions.accept')}
                           </Button>
                           <Button size="sm" variant="outline" onClick={() => handleDenyInvite(n)}>
-                            Deny
+                            {t('actions.reject')}
                           </Button>
                         </>
                       ) : (
-                        <div className="text-xs text-muted-foreground">Invite handled</div>
+                        <div className="text-xs text-muted-foreground">{t('notifications.inviteHandled')}</div>
                       )}
                       {n.related_id && (
                         <Link to={`/leagues/${n.related_id}`} className="text-xs text-primary underline">
-                          View league
+                          {t('matchDetail.viewLeague')}
                         </Link>
                       )}
                     </div>

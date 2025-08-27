@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { useTranslation } from 'react-i18next';
 
 const GAME_TYPES = [
   { value: 'best_of_1', label: 'Best of 1' },
@@ -42,6 +43,7 @@ const schema = z.object({
 });
 
 export default function MatchDetailPage() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -251,33 +253,33 @@ export default function MatchDetailPage() {
   return (
     <div className="px-4 py-6 mx-auto w-full max-w-3xl">
       <div className="mb-4">
-        <h1 className="text-2xl font-semibold">Match Detail</h1>
-        <p className="text-sm text-muted-foreground">League: {match.league_name}</p>
+        <h1 className="text-2xl font-semibold">{t('matchDetail.title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('matchDetail.leagueLabel')}: {match.league_name}</p>
       </div>
 
       <Card className="mb-4">
         <CardHeader>
-          <CardTitle>{match.player1_username} vs {match.player2_username}</CardTitle>
+          <CardTitle><Link to={`/profile/${match.player1_username}`} className="underline hover:no-underline">{match.player1_username}</Link> {t('common.vs')} <Link to={`/profile/${match.player2_username}`} className="underline hover:no-underline">{match.player2_username}</Link></CardTitle>
           <CardDescription>
-            {match.played_at ? `Played: ${format(new Date(match.played_at), 'PP p')}` : `Created: ${format(new Date(match.created_at), 'PP p')}`}
+            {match.played_at ? `${t('matchDetail.played')}: ${format(new Date(match.played_at), 'PP p')}` : `${t('matchDetail.created')}: ${format(new Date(match.created_at), 'PP p')}`}
           </CardDescription>
         </CardHeader>
         <CardContent className="text-sm space-y-2">
-          <div>Status: {match.is_accepted ? 'Accepted' : 'Pending'}</div>
+          <div>{t('matchDetail.statusLabel')}: {match.is_accepted ? t('status.accepted') : t('status.pending')}</div>
           {match.is_accepted && (
             <div>
               ELO: {match.elo_applied ? (
-                <span className="inline-flex items-center rounded border px-2 py-0.5 text-xs">Applied{match.elo_applied_at ? ` (${format(new Date(match.elo_applied_at), 'PP p')})` : ''}</span>
+                <span className="inline-flex items-center rounded border px-2 py-0.5 text-xs">{t('elo.applied')}{match.elo_applied_at ? ` (${format(new Date(match.elo_applied_at), 'PP p')})` : ''}</span>
               ) : (
-                <span className="inline-flex items-center rounded border px-2 py-0.5 text-xs bg-amber-50">Deferred</span>
+                <span className="inline-flex items-center rounded border px-2 py-0.5 text-xs bg-amber-50">{t('elo.deferred')}</span>
               )}
             </div>
           )}
           {match.is_accepted && match.accepted_by_username && (
-            <div>Accepted by: {match.accepted_by_username}</div>
+            <div>{t('matchDetail.acceptedBy')}: <Link to={`/profile/${match.accepted_by_username}`} className="underline hover:no-underline">{match.accepted_by_username}</Link></div>
           )}
-          <div>Game type: {GAME_TYPES.find((g) => g.value === match.game_type)?.label || match.game_type}</div>
-          <div>Result: {match.player1_sets_won} - {match.player2_sets_won}</div>
+          <div>{t('matchDetail.gameType')}: {GAME_TYPES.find((g) => g.value === match.game_type)?.label || match.game_type}</div>
+          <div>{t('matchDetail.result')}: {match.player1_sets_won} - {match.player2_sets_won}</div>
           {match.is_accepted && (
             <div className="grid gap-1 md:grid-cols-2">
               <div>
@@ -307,8 +309,8 @@ export default function MatchDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{canEdit ? 'Edit Match' : 'Match Details'}</CardTitle>
-          <CardDescription>{canEdit ? 'You can edit before the match is accepted.' : 'Only participants can edit before acceptance.'}</CardDescription>
+          <CardTitle>{canEdit ? t('matchDetail.editTitle') : t('matchDetail.detailsTitle')}</CardTitle>
+          <CardDescription>{canEdit ? t('matchDetail.editHint') : t('matchDetail.detailsHint')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -318,7 +320,7 @@ export default function MatchDetailPage() {
                 control={form.control}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Game Type</FormLabel>
+                    <FormLabel>{t('matchDetail.gameType')}</FormLabel>
                     <FormControl>
                       <RadioGroup value={field.value} onValueChange={field.onChange} className="grid gap-2 md:grid-cols-2">
                         {GAME_TYPES.map((gt) => (

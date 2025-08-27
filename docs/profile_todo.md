@@ -1,7 +1,7 @@
 # Public Profiles & Badges/Medals — Implementation Plan
 
 ## Status
-- 🔄 **Planning Phase** - Creating implementation plan for public profiles and badge system
+- ✅ **Implemented** - Public profiles and core badge system completed; remaining: medals on leaderboards and admin badge UI
 
 ## Goals
 - Public profile pages accessible to all users
@@ -44,11 +44,33 @@
 - **Medal Assets**: Gold/Silver/Bronze medal icons for ranks 1-3
 - **Leaderboard Integration**: Show medals next to usernames in top ranks
 - **Responsive**: Ensure medals work on mobile and desktop
+- **Status**: 🔄 Pending (UI task; API and badge display components exist)
 
 ### 6) Frontend: Admin Badge Management
 - **Badge Creation**: Admin form to create new badges
 - **Badge Awarding**: Admin interface to award badges to users
 - **Badge Management**: List, edit, and delete badges (admin only)
+- **Status**: 🔄 Pending (backend endpoints completed at `/api/badges` and `/api/users/:id/badges`)
+
+### 7) Frontend: Clickable Profile Links
+- **Scope**: Make usernames in league members tables, leaderboards, and match lists link to `/profile/:username`
+- **Status**: 🔄 Pending (public route exists; add links in UI)
+
+### 8) Editable Profile Details (Equipment & Playstyle)
+- **Fields**: forehand_rubber, backhand_rubber, blade_wood, playstyle, strengths, weaknesses, goals
+- **Backend**:
+  - Schema: add nullable columns to `users` (both `schema.sql` and `schema.pg.sql`) or create `user_profiles` table
+  - API: extend `PUT /api/users/:id` to accept these fields; surface in `GET /api/users/:id` (self) and `GET /api/users/profile/:username` (public subset)
+- **Frontend**:
+  - Add editable section on `/profile` (own profile) with form + validation
+  - Display these fields on public profiles (read-only)
+- **Acceptance**: Users can update/save equipment and playstyle; public profiles show them
+
+### 9) German Language Support (i18n)
+- **Library**: i18next + react-i18next
+- **Setup**: i18n provider, translation resources for `en` and `de`, language switcher in header
+- **Scope**: Layout, dashboard, leagues, matches, profile, notifications
+- **Acceptance**: UI fully usable in German with English fallback
 
 ## API Shapes (Draft)
 
