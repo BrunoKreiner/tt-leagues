@@ -1,7 +1,7 @@
 # Public Profiles & Badges/Medals — Implementation Plan
 
 ## Status
-- 🔄 **Planning Phase** - Creating implementation plan for public profiles and badge system
+- ✅ **Implemented** - Public profiles and core badge system completed; remaining: medals on leaderboards and admin badge UI
 
 ## Goals
 - Public profile pages accessible to all users
@@ -44,11 +44,13 @@
 - **Medal Assets**: Gold/Silver/Bronze medal icons for ranks 1-3
 - **Leaderboard Integration**: Show medals next to usernames in top ranks
 - **Responsive**: Ensure medals work on mobile and desktop
+- **Status**: 🔄 Pending (UI task; API and badge display components exist)
 
 ### 6) Frontend: Admin Badge Management
 - **Badge Creation**: Admin form to create new badges
 - **Badge Awarding**: Admin interface to award badges to users
 - **Badge Management**: List, edit, and delete badges (admin only)
+- **Status**: 🔄 Pending (backend endpoints completed at `/api/badges` and `/api/users/:id/badges`)
 
 ## API Shapes (Draft)
 

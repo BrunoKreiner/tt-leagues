@@ -37,20 +37,27 @@ Quick facts (current state):
   - Acceptance: Leaderboard reflects latest accepted matches (and deferred applied only after consolidation); ELO timeline renders correctly with tooltips
   - Status: ✅ **COMPLETED** - Paginated leaderboards, ELO history API, sparklines, full ELO charts, and consolidation system all implemented and working
 
-- [ ] Public profiles
+- [x] Public profiles
   - Files: `backend/src/routes/users.js` (new/profile endpoints), FE profile pages
   - Actions: Public profile route shows user overview, per-league ranks, recent matches, badges; add public profile routes and navigation from leaderboard/matches
   - Acceptance: Any user can view others’ profiles with non-sensitive info; their ranks and badges visible
+  - Status: Backend public profile endpoint implemented (`GET /api/users/profile/:username`); FE routes `/profile` and `/profile/:username` render public profiles with league rankings, recent matches, and badges.
 
 - [ ] Badges & medals
   - Files: schema updates (badges/user_badges if needed), routes to award/revoke/list badges; FE profile and leaderboard badge display
   - Actions: Support admin-awarded badges; upload/display rank medal PNGs on leaderboard rows; show earned badges on profile
   - Acceptance: Admin can award/revoke; users see badges on profile; leaderboard shows medal icons for top ranks
+  - Progress:
+    - [x] Backend badge CRUD and awarding/revoking endpoints implemented (`backend/src/routes/badges.js`)
+    - [x] Profile badge display implemented (`frontend/src/components/BadgeDisplay.jsx`, `ProfilePage.jsx`)
+    - [ ] Medal icons on leaderboard rows (frontend)
+    - [ ] Admin badge management UI (frontend)
 
-- [ ] Notifications UX
+- [x] Notifications UX
   - Files: `backend/src/routes/notifications.js`, FE notifications components
   - Actions: Wire list/mark-as-read/delete; toast for key events; unread count in header
   - Acceptance: Unread count updates; actions return 200; UX consistent
+  - Status: Backend list, mark-as-read, delete, mark-all-read implemented; FE header unread counter and dropdown wired; full `/notifications` page with filters, pagination, accept/deny invite actions.
 
 ---
 
