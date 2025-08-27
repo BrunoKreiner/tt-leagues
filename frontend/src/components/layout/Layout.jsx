@@ -24,6 +24,8 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { notificationsAPI, leaguesAPI } from '@/services/api';
+import MobileMenu from './MobileMenu';
+import HamburgerButton from './HamburgerButton';
 
 const Layout = () => {
   const { user, logout, isAdmin } = useAuth();
@@ -32,6 +34,7 @@ const Layout = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifLoading, setNotifLoading] = useState(false);
   const [acceptLoading, setAcceptLoading] = useState({});
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
@@ -45,6 +48,14 @@ const Layout = () => {
 
   const handleLogout = async () => {
     await logout();
+  };
+
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen);
+  };
+
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
   };
 
   const getUserInitials = (user) => {
@@ -131,7 +142,7 @@ const Layout = () => {
           </Link>
 
           {/* Navigation */}
-          <nav className="flex items-center space-x-4 lg:space-x-6 mx-6">
+          <nav className="hidden md:flex items-center space-x-4 lg:space-x-6 mx-6">
             {navigation.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.href || 
@@ -154,8 +165,11 @@ const Layout = () => {
             })}
           </nav>
 
+          {/* Mobile Menu Button */}
+          <HamburgerButton isOpen={mobileMenuOpen} onClick={toggleMobileMenu} />
+
           {/* Right side */}
-          <div className="ml-auto flex items-center space-x-4">
+          <div className="hidden md:flex items-center space-x-4">
             {/* Notifications */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -295,6 +309,24 @@ const Layout = () => {
           <Outlet />
         </div>
       </main>
+
+      {/* Mobile Menu */}
+      <MobileMenu
+        isOpen={mobileMenuOpen}
+        onClose={closeMobileMenu}
+        navigation={navigation}
+        user={user}
+        notifications={notifications}
+        unreadCount={unreadCount}
+        notifLoading={notifLoading}
+        acceptLoading={acceptLoading}
+        onFetchNotifications={fetchNotifications}
+        onMarkAsRead={markAsRead}
+        onMarkAllAsRead={markAllAsRead}
+        onAcceptInvite={handleAcceptInvite}
+        onDenyInvite={handleDenyInvite}
+        onLogout={handleLogout}
+      />
     </div>
   );
 };
