@@ -425,26 +425,13 @@ const LeagueDetailPage = () => {
       )}
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Overview</CardTitle>
-            <CardDescription>Key stats</CardDescription>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground space-y-2">
-            <div className="flex items-center gap-2"><Users className="h-4 w-4" /> Members: {league.member_count}</div>
-            <div className="flex items-center gap-2"><ListChecks className="h-4 w-4" /> Matches: {league.match_count}</div>
-            {userMembership && (
-              <div className="flex items-center gap-2"><Trophy className="h-4 w-4" /> Your ELO: {userMembership.current_elo}</div>
-            )}
-          </CardContent>
-        </Card>
-
+        {/* Leaderboard first */}
         <Card className="md:col-span-2">
-          <CardHeader>
+          <CardHeader className="py-3">
             <CardTitle className="text-base">Leaderboard</CardTitle>
             <CardDescription>Ranked by current ELO • {leaderboardPagination.total} players</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             {leaderboard.length === 0 ? (
               <p className="text-sm text-muted-foreground">No players yet.</p>
             ) : (
@@ -477,7 +464,7 @@ const LeagueDetailPage = () => {
                 </Table>
                 
                 {leaderboardPagination.pages > 1 && (
-                  <div className="mt-4">
+                  <div className="mt-3">
                     <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
                       <span>Showing {((leaderboardPagination.page - 1) * leaderboardPagination.limit) + 1} - {Math.min(leaderboardPagination.page * leaderboardPagination.limit, leaderboardPagination.total)} of {leaderboardPagination.total}</span>
                       <span>Page {leaderboardPagination.page} / {leaderboardPagination.pages}</span>
@@ -515,6 +502,21 @@ const LeagueDetailPage = () => {
                   </div>
                 )}
               </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Compact overview beside leaderboard */}
+        <Card>
+          <CardHeader className="py-3">
+            <CardTitle className="text-base">Overview</CardTitle>
+            <CardDescription>Key stats</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0 text-sm text-muted-foreground space-y-2">
+            <div className="flex items-center gap-2"><Users className="h-4 w-4" /> Members: {league.member_count}</div>
+            <div className="flex items-center gap-2"><ListChecks className="h-4 w-4" /> Matches: {league.match_count}</div>
+            {userMembership && (
+              <div className="flex items-center gap-2"><Trophy className="h-4 w-4" /> Your ELO: {userMembership.current_elo}</div>
             )}
           </CardContent>
         </Card>
@@ -817,43 +819,8 @@ const LeagueDetailPage = () => {
       )}
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="md:col-span-1">
-          <CardHeader>
-            <CardTitle className="text-base">Members</CardTitle>
-            <CardDescription>Current participants</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {members.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No members yet.</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>ELO</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {members.slice(0, 10).map((m) => (
-                    <TableRow key={m.id}>
-                      <TableCell>{m.username}{m.is_league_admin ? ' (admin)' : ''}</TableCell>
-                      <TableCell>{m.current_elo}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-            {members.length > 10 && (
-              <div className="pt-3">
-                <Button asChild variant="outline" size="sm">
-                  <Link to="#members">View all</Link>
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="md:col-span-2">
+        {/* Remove mid-page members list to reduce duplication and clutter */}
+        <Card className="md:col-span-3">
           <CardHeader>
             <CardTitle className="text-base">Recent Matches</CardTitle>
             <CardDescription>Last 10 accepted matches</CardDescription>
@@ -899,53 +866,51 @@ const LeagueDetailPage = () => {
         </Card>
       </div>
 
-      {/* Full Members Management Section */}
-      <Card id="members">
-        <CardHeader>
-          <CardTitle className="text-base">All Members</CardTitle>
-          <CardDescription>
-            Roles and basic stats. {userMembership?.is_admin ? 'As a league admin, you can invite users. Member role management will be added soon.' : 'Contact a league admin for membership changes.'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {members.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No members yet.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>ELO</TableHead>
-                  <TableHead>W/L</TableHead>
-                  <TableHead>Win%</TableHead>
-                  <TableHead>Joined</TableHead>
-                  {userMembership?.is_admin && <TableHead className="text-right">Actions</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {members.map((m) => (
-                  <TableRow key={m.id}>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{m.username}</span>
-                        {(m.first_name || m.last_name) && (
-                          <span className="text-xs text-muted-foreground">{[m.first_name, m.last_name].filter(Boolean).join(' ')}</span>
+      {/* Members Management Section — visible to admins only and moved to end */}
+      {isAuthenticated && userMembership?.is_admin && (
+        <Card id="members">
+          <CardHeader>
+            <CardTitle className="text-base">Members</CardTitle>
+            <CardDescription>Manage roles and review member stats</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {members.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No members yet.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>ELO</TableHead>
+                    <TableHead>W/L</TableHead>
+                    <TableHead>Win%</TableHead>
+                    <TableHead>Joined</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {members.map((m) => (
+                    <TableRow key={m.id}>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{m.username}</span>
+                          {(m.first_name || m.last_name) && (
+                            <span className="text-xs text-muted-foreground">{[m.first_name, m.last_name].filter(Boolean).join(' ')}</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {m.is_league_admin ? (
+                          <Badge variant="secondary">Admin</Badge>
+                        ) : (
+                          <Badge variant="outline">Member</Badge>
                         )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {m.is_league_admin ? (
-                        <Badge variant="secondary">Admin</Badge>
-                      ) : (
-                        <Badge variant="outline">Member</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>{m.current_elo}</TableCell>
-                    <TableCell>{m.matches_won}/{m.matches_played - m.matches_won}</TableCell>
-                    <TableCell>{m.win_rate}%</TableCell>
-                    <TableCell>{m.joined_at ? format(new Date(m.joined_at), 'PP') : '-'}</TableCell>
-                    {userMembership?.is_admin && (
+                      </TableCell>
+                      <TableCell>{m.current_elo}</TableCell>
+                      <TableCell>{m.matches_won}/{m.matches_played - m.matches_won}</TableCell>
+                      <TableCell>{m.win_rate}%</TableCell>
+                      <TableCell>{m.joined_at ? format(new Date(m.joined_at), 'PP') : '-'}</TableCell>
                       <TableCell className="text-right">
                         {m.is_league_admin ? (
                           <Button
@@ -967,14 +932,14 @@ const LeagueDetailPage = () => {
                           </Button>
                         )}
                       </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

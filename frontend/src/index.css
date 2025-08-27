@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+/* Lightweight theme prototype */
+:root {
+  --app-gradient-start: 235 85% 98%;
+  --app-gradient-end: 230 60% 94%;
+}
+
+html, body {
+  min-height: 100%;
+}
+
+body {
+  background-image: radial-gradient(1200px 600px at 20% -10%, hsl(var(--app-gradient-start)) 0%, transparent 60%),
+                    radial-gradient(1000px 500px at 120% 10%, hsl(var(--app-gradient-end)) 0%, transparent 60%);
+  background-repeat: no-repeat;
+}
+
+/* Compact spacing helpers used in compacted components */
+.compact-card-header {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.compact-section-gap {
+  row-gap: 0.75rem;
+  column-gap: 0.75rem;
+}
