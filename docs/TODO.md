@@ -189,7 +189,31 @@ These are not implemented; capture next steps at a high level.
   - Next steps: Define report templates, export formats (CSV/PDF), server-side generation.
 
 - [ ] Multi-language (i18n)
-  - Next steps: Choose i18n library, extract strings, translation files, language switcher.
+  - In-scope (initial): German (de)
+  - Next steps:
+    - Choose i18n library (react-i18next + i18next)
+    - Add i18n bootstrap (`frontend/src/i18n/index.ts`), wrap app with provider
+    - Create translation resources: `public/locales/en/common.json`, `public/locales/de/common.json`
+    - Extract strings from layout, dashboard, leagues, matches, profile
+    - Add language switcher in header and persist preference
+    - QA pass with German copy; fallbacks to English verified
+
+- [ ] Cross-link profiles across app
+  - Next steps: Make usernames clickable in league members tables, leaderboards, and match lists to `/profile/:username`; ensure navigation preserves auth context
+  - Acceptance: Clicking any username navigates to public profile page
+
+- [ ] Dashboard profile CTA placement
+  - Next steps: Move or duplicate "View Profile" CTA into welcome header area and recent matches empty state; consider avatar click opening profile
+  - Acceptance: Profile is discoverable in top section; click-through rate improves
+
+- [ ] Profile enhancements (editable equipment & playstyle)
+  - Backend:
+    - Schema: add nullable columns to `users` (or a `user_profiles` table): `forehand_rubber`, `backhand_rubber`, `blade_wood`, `playstyle`, `strengths`, `weaknesses`, `goals`
+    - Endpoints: extend `PUT /api/users/:id` to accept/update these fields; include in `GET /api/users/:id` and public profile output where appropriate
+  - Frontend:
+    - Add editable section on `/profile` (own profile only) with form validation and save/cancel
+    - Display these attributes on public profile view
+  - Acceptance: Users can view and update these fields; values persist and render on public profiles
 
 ---
 

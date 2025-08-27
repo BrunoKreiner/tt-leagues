@@ -52,6 +52,26 @@
 - **Badge Management**: List, edit, and delete badges (admin only)
 - **Status**: 🔄 Pending (backend endpoints completed at `/api/badges` and `/api/users/:id/badges`)
 
+### 7) Frontend: Clickable Profile Links
+- **Scope**: Make usernames in league members tables, leaderboards, and match lists link to `/profile/:username`
+- **Status**: 🔄 Pending (public route exists; add links in UI)
+
+### 8) Editable Profile Details (Equipment & Playstyle)
+- **Fields**: forehand_rubber, backhand_rubber, blade_wood, playstyle, strengths, weaknesses, goals
+- **Backend**:
+  - Schema: add nullable columns to `users` (both `schema.sql` and `schema.pg.sql`) or create `user_profiles` table
+  - API: extend `PUT /api/users/:id` to accept these fields; surface in `GET /api/users/:id` (self) and `GET /api/users/profile/:username` (public subset)
+- **Frontend**:
+  - Add editable section on `/profile` (own profile) with form + validation
+  - Display these fields on public profiles (read-only)
+- **Acceptance**: Users can update/save equipment and playstyle; public profiles show them
+
+### 9) German Language Support (i18n)
+- **Library**: i18next + react-i18next
+- **Setup**: i18n provider, translation resources for `en` and `de`, language switcher in header
+- **Scope**: Layout, dashboard, leagues, matches, profile, notifications
+- **Acceptance**: UI fully usable in German with English fallback
+
 ## API Shapes (Draft)
 
 ### GET `/api/users/:id/profile`
