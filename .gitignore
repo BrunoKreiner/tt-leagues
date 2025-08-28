@@ -79,6 +79,9 @@ public
 frontend/public/*
 !frontend/public/locales/
 !frontend/public/locales/**
+!frontend/public/img/
+!frontend/public/img/**
+
 
 # Vuepress build output
 .vuepress/dist
