@@ -70,7 +70,7 @@ export const leaguesAPI = {
   invite: (id, userData) => api.post(`/leagues/${id}/invite`, userData),
   join: (id, inviteCode) => api.post(`/leagues/${id}/join`, inviteCode ? { invite_code: inviteCode } : {}),
   leave: (id) => api.delete(`/leagues/${id}/leave`),
-  getLeaderboard: (id) => api.get(`/leagues/${id}/leaderboard`),
+  getLeaderboard: (id, params) => api.get(`/leagues/${id}/leaderboard`, { params }),
   getMatches: (id, params) => api.get(`/leagues/${id}/matches`, { params }),
   // Admin tools
   listInvites: (id, params) => api.get(`/leagues/${id}/invites`, { params }),

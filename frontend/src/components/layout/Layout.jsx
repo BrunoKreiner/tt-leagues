@@ -2,7 +2,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -83,8 +83,8 @@ const Layout = () => {
     // initial fetch on layout mount
     fetchNotifications();
     // optional: poll every 60s
-    const t = setInterval(fetchNotifications, 60000);
-    return () => clearInterval(t);
+    const intervalId = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(intervalId);
   }, []);
 
   const markAsRead = async (id) => {
@@ -108,16 +108,16 @@ const Layout = () => {
   const handleAcceptInvite = async (n) => {
     const leagueId = n.related_id;
     if (!leagueId) {
-      toast.error('Missing league reference');
+             toast.error(t('notifications.missingLeague'));
       return;
     }
     try {
       setAcceptLoading((s) => ({ ...s, [n.id]: true }));
       const res = await leaguesAPI.join(leagueId);
-      toast.success(res.data?.message || 'Joined league');
+             toast.success(res.data?.message || t('notifications.joinedLeague'));
       await markAsRead(n.id);
     } catch (err) {
-      const msg = err.response?.data?.error || 'Failed to accept invite';
+             const msg = err.response?.data?.error || t('notifications.acceptError');
       toast.error(msg);
     } finally {
       setAcceptLoading((s) => ({ ...s, [n.id]: false }));
@@ -127,7 +127,7 @@ const Layout = () => {
   const handleDenyInvite = async (n) => {
     // No decline endpoint yet; soft-deny by marking notification as read
     await markAsRead(n.id);
-    toast.success('Invitation dismissed');
+         toast.success(t('notifications.inviteHandled'));
   };
 
   return (
@@ -209,7 +209,7 @@ const Layout = () => {
                 <DropdownMenuSeparator />
                 <div className="max-h-96 overflow-auto">
                   {notifLoading ? (
-                    <div className="p-4 text-sm text-muted-foreground">Loading…</div>
+                    <div className="p-4 text-sm text-muted-foreground">{t('common.loading')}</div>
                   ) : notifications.length === 0 ? (
                     <div className="p-4 text-sm text-muted-foreground">{t('notifications.none')}</div>
                   ) : (
@@ -247,19 +247,19 @@ const Layout = () => {
                             {!n.is_read ? (
                               <div className="flex items-center gap-2">
                                 <Button size="sm" onClick={() => handleAcceptInvite(n)} disabled={!!acceptLoading[n.id]}>
-                                  {acceptLoading[n.id] ? 'Joining…' : 'Accept'}
+                                  {acceptLoading[n.id] ? t('status.joining') : t('actions.accept')}
                                 </Button>
-                                <Button size="sm" variant="outline" onClick={() => handleDenyInvite(n)}>
-                                  Deny
-                                </Button>
+                                                                 <Button size="sm" variant="outline" onClick={() => handleDenyInvite(n)}>
+                                   {t('actions.reject')}
+                                 </Button>
                               </div>
                             ) : (
-                              <div className="text-xs text-muted-foreground">Invite handled</div>
+                                                             <div className="text-xs text-muted-foreground">{t('notifications.inviteHandled')}</div>
                             )}
                             {n.related_id && (
-                              <Link to={`/leagues/${n.related_id}`} className="text-xs text-primary underline">
-                                View league
-                              </Link>
+                                                             <Link to={`/leagues/${n.related_id}`} className="text-xs text-primary underline">
+                                 {t('matchDetail.viewLeague')}
+                               </Link>
                             )}
                           </div>
                         )}
@@ -281,6 +281,9 @@ const Layout = () => {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                   <Avatar className="h-8 w-8">
+                    {user?.avatar_url && (
+                      <AvatarImage src={user.avatar_url} alt="Profile" />
+                    )}
                     <AvatarFallback className="text-xs">
                       {getUserInitials(user)}
                     </AvatarFallback>

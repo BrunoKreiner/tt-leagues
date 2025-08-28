@@ -580,7 +580,7 @@ router.get('/:id/leaderboard', optionalAuth, validateId, validatePagination, asy
         
         const leaderboard = await database.all(`
             SELECT 
-                u.id, u.username, u.first_name, u.last_name,
+                u.id, u.username, u.first_name, u.last_name, u.avatar_url,
                 lm.current_elo, lm.joined_at,
                 COUNT(CASE WHEN m.player1_id = u.id OR m.player2_id = u.id THEN m.id END) as matches_played,
                 COUNT(CASE WHEN m.winner_id = u.id THEN m.id END) as matches_won,
@@ -589,7 +589,7 @@ router.get('/:id/leaderboard', optionalAuth, validateId, validatePagination, asy
             JOIN users u ON lm.user_id = u.id
             LEFT JOIN matches m ON m.league_id = lm.league_id AND (m.player1_id = u.id OR m.player2_id = u.id) AND m.is_accepted = ?
             WHERE lm.league_id = ?
-            GROUP BY u.id, u.username, u.first_name, u.last_name, lm.current_elo, lm.joined_at
+            GROUP BY u.id, u.username, u.first_name, u.last_name, u.avatar_url, lm.current_elo, lm.joined_at
             ORDER BY lm.current_elo DESC
             LIMIT ? OFFSET ?
         `, [true, leagueId, limit, offset]);

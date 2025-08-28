@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { User, Trophy, TrendingUp, Calendar, Users, Swords, ExternalLink, Award } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { usersAPI, leaguesAPI } from '@/services/api';
 import { toast } from 'sonner';
@@ -33,6 +34,7 @@ const ProfilePage = () => {
   const [eloError, setEloError] = useState(null);
   const [timeWindow, setTimeWindow] = useState('all'); // 30, 90, all
   const [savingProfile, setSavingProfile] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [profileFields, setProfileFields] = useState({
     forehand_rubber: '',
     backhand_rubber: '',
@@ -56,6 +58,7 @@ const ProfilePage = () => {
           ]);
 
           setStats(statsRes.data);
+          setAvatarUrl(currentUser?.avatar_url || '');
           setProfileFields({
             forehand_rubber: statsRes.data?.user?.forehand_rubber || '',
             backhand_rubber: statsRes.data?.user?.backhand_rubber || '',
@@ -77,6 +80,7 @@ const ProfilePage = () => {
           // Fetch public profile data
           const publicProfileRes = await usersAPI.getPublicProfile(username);
           setStats(publicProfileRes.data);
+          setAvatarUrl(publicProfileRes.data?.user?.avatar_url || '');
           setUserLeagues(publicProfileRes.data.league_rankings || []);
           setProfileFields({
             forehand_rubber: publicProfileRes.data?.profile?.forehand_rubber || '',
@@ -299,7 +303,7 @@ const ProfilePage = () => {
   const handleProfileSave = async () => {
     try {
       setSavingProfile(true);
-      await usersAPI.update(currentUser.id, profileFields);
+      await usersAPI.update(currentUser.id, { ...profileFields, avatar_url: avatarUrl || null });
       toast.success(t('profile.saved'));
     } catch (e) {
       toast.error(e?.response?.data?.error || t('profile.saveError'));
@@ -351,6 +355,30 @@ const ProfilePage = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 pt-0">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-16 w-16">
+                {avatarUrl && <AvatarImage src={avatarUrl} alt="Avatar" />}
+                <AvatarFallback>{(isOwnProfile ? currentUser.username : username)?.[0]?.toUpperCase()}</AvatarFallback>
+              </Avatar>
+              {isOwnProfile && (
+                <div className="flex-1">
+                  <label className="text-sm font-medium text-muted-foreground">Avatar</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="w-full mt-1 border rounded px-2 py-1 bg-background"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => setAvatarUrl(e.target.result);
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </div>
+              )}
+            </div>
             <div>
               <label className="text-sm font-medium text-muted-foreground">Name</label>
               <p className="text-lg">

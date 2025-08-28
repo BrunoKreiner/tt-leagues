@@ -125,7 +125,7 @@ router.get('/:id', authenticateToken, validateId, async (req, res) => {
 router.put('/:id', authenticateToken, validateId, async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
-        const { first_name, last_name, email, is_admin, forehand_rubber, backhand_rubber, blade_wood, playstyle, strengths, weaknesses, goals } = req.body;
+        const { first_name, last_name, email, is_admin, forehand_rubber, backhand_rubber, blade_wood, playstyle, strengths, weaknesses, goals, avatar_url } = req.body;
         
         // Users can only update their own profile unless they're admin
         if (userId !== req.user.id && !req.user.is_admin) {
@@ -172,6 +172,8 @@ router.put('/:id', authenticateToken, validateId, async (req, res) => {
             values.push(is_admin);
         }
 
+        if (avatar_url !== undefined) { updates.push('avatar_url = ?'); values.push(avatar_url || null); }
+        
         // Optional public profile fields
         if (forehand_rubber !== undefined) { updates.push('forehand_rubber = ?'); values.push(forehand_rubber || null); }
         if (backhand_rubber !== undefined) { updates.push('backhand_rubber = ?'); values.push(backhand_rubber || null); }
@@ -195,7 +197,7 @@ router.put('/:id', authenticateToken, validateId, async (req, res) => {
         
         // Get updated user
         const updatedUser = await database.get(
-            'SELECT id, username, first_name, last_name, email, is_admin, forehand_rubber, backhand_rubber, blade_wood, playstyle, strengths, weaknesses, goals FROM users WHERE id = ?',
+            'SELECT id, username, first_name, last_name, email, is_admin, forehand_rubber, backhand_rubber, blade_wood, playstyle, strengths, weaknesses, goals, avatar_url FROM users WHERE id = ?',
             [userId]
         );
         
@@ -442,6 +444,7 @@ router.get('/profile/:username', async (req, res) => {
         const user = await database.get(`
             SELECT 
                 u.id, u.username, u.first_name, u.last_name, u.created_at,
+                u.avatar_url,
                 u.forehand_rubber, u.backhand_rubber, u.blade_wood, u.playstyle, u.strengths, u.weaknesses, u.goals
             FROM users u
             WHERE u.username = ?
@@ -551,7 +554,8 @@ router.get('/profile/:username', async (req, res) => {
                 username: user.username,
                 first_name: user.first_name,
                 last_name: user.last_name,
-                created_at: user.created_at
+                created_at: user.created_at,
+                avatar_url: user.avatar_url || null
             },
             profile: {
                 forehand_rubber: user.forehand_rubber,

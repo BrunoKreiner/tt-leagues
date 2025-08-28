@@ -49,7 +49,7 @@ router.post('/register', validateRegistration, async (req, res) => {
         
         // Get created user
         const user = await database.get(
-            'SELECT id, username, first_name, last_name, email, is_admin, created_at FROM users WHERE id = ?',
+            'SELECT id, username, first_name, last_name, email, is_admin, created_at, avatar_url FROM users WHERE id = ?',
             [result.id]
         );
         
@@ -65,7 +65,8 @@ router.post('/register', validateRegistration, async (req, res) => {
                 last_name: user.last_name,
                 email: user.email,
                 is_admin: user.is_admin,
-                created_at: user.created_at
+                created_at: user.created_at,
+                avatar_url: user.avatar_url || null
             },
             token
         });
@@ -85,7 +86,7 @@ router.post('/login', validateLogin, async (req, res) => {
         
         // Get user by username
         const user = await database.get(
-            'SELECT id, username, password_hash, first_name, last_name, email, is_admin FROM users WHERE username = ?',
+            'SELECT id, username, password_hash, first_name, last_name, email, is_admin, avatar_url FROM users WHERE username = ?',
             [username]
         );
         
@@ -111,7 +112,8 @@ router.post('/login', validateLogin, async (req, res) => {
                 first_name: user.first_name,
                 last_name: user.last_name,
                 email: user.email,
-                is_admin: user.is_admin
+                is_admin: user.is_admin,
+                avatar_url: user.avatar_url || null
             },
             token
         });
@@ -146,7 +148,8 @@ router.get('/me', authenticateToken, async (req, res) => {
                 first_name: req.user.first_name,
                 last_name: req.user.last_name,
                 email: req.user.email,
-                is_admin: req.user.is_admin
+                is_admin: req.user.is_admin,
+                avatar_url: req.user.avatar_url || null
             },
             stats: {
                 leagues_count: stats.leagues_count || 0,
@@ -168,7 +171,7 @@ router.get('/me', authenticateToken, async (req, res) => {
  */
 router.put('/profile', authenticateToken, async (req, res) => {
     try {
-        const { first_name, last_name, email } = req.body;
+        const { first_name, last_name, email, avatar_url } = req.body;
         const updates = [];
         const values = [];
         
@@ -199,6 +202,11 @@ router.put('/profile', authenticateToken, async (req, res) => {
             values.push(email || null);
         }
         
+        if (avatar_url !== undefined) {
+            updates.push('avatar_url = ?');
+            values.push(avatar_url || null);
+        }
+
         if (updates.length === 0) {
             return res.status(400).json({ error: 'No valid fields to update' });
         }
@@ -213,7 +221,7 @@ router.put('/profile', authenticateToken, async (req, res) => {
         
         // Get updated user
         const updatedUser = await database.get(
-            'SELECT id, username, first_name, last_name, email, is_admin FROM users WHERE id = ?',
+            'SELECT id, username, first_name, last_name, email, is_admin, avatar_url FROM users WHERE id = ?',
             [req.user.id]
         );
         

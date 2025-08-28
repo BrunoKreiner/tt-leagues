@@ -83,6 +83,11 @@ class Database {
                 }
             }
 
+            // Add optional profile columns if they don't exist (SQLite compatibility)
+            if (!this.isPg) {
+                await this.addOptionalColumns();
+            }
+
             // Create/update admin user from env
             await this.createAdminUser();
 
@@ -90,6 +95,35 @@ class Database {
         } catch (error) {
             console.error('Error initializing database:', error);
             throw error;
+        }
+    }
+
+    async addOptionalColumns() {
+        const optionalColumns = [
+            'forehand_rubber TEXT',
+            'backhand_rubber TEXT',
+            'blade_wood TEXT',
+            'playstyle VARCHAR(100)',
+            'strengths TEXT',
+            'weaknesses TEXT',
+            'goals TEXT',
+            'avatar_url TEXT'
+        ];
+
+        for (const columnDef of optionalColumns) {
+            const columnName = columnDef.split(' ')[0];
+            try {
+                // Check if column exists by trying to select from it
+                await this.run(`SELECT ${columnName} FROM users LIMIT 1`);
+            } catch (err) {
+                // Column doesn't exist, add it
+                try {
+                    await this.run(`ALTER TABLE users ADD COLUMN ${columnDef}`);
+                    console.log(`Added column: ${columnName}`);
+                } catch (addErr) {
+                    console.warn(`Failed to add column ${columnName}:`, addErr.message);
+                }
+            }
         }
     }
 

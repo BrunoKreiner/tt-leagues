@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Trophy, Users, Swords, TrendingUp, Plus, Calendar } from 'lucide-react';
+import MedalIcon from '@/components/MedalIcon';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { leaguesAPI, matchesAPI, authAPI } from '../services/api';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +17,8 @@ const DashboardPage = () => {
   const [stats, setStats] = useState(null);
   const [recentMatches, setRecentMatches] = useState([]);
   const [userLeagues, setUserLeagues] = useState([]);
+  const [selectedLeagueId, setSelectedLeagueId] = useState(null);
+  const [topLeaders, setTopLeaders] = useState([]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -32,7 +35,11 @@ const DashboardPage = () => {
         setStats(userResponse.data.stats);
         setRecentMatches(matchesResponse.data.matches || []);
         // Use backend-provided membership flag
-        setUserLeagues(leaguesResponse.data.leagues?.filter((league) => !!league.is_member) || []);
+        const leagues = leaguesResponse.data.leagues?.filter((league) => !!league.is_member) || [];
+        setUserLeagues(leagues);
+        if (leagues.length > 0) {
+          setSelectedLeagueId(leagues[0].id);
+        }
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
       } finally {
@@ -42,6 +49,20 @@ const DashboardPage = () => {
 
     fetchDashboardData();
   }, []);
+
+  useEffect(() => {
+    const loadLeaders = async () => {
+      if (!selectedLeagueId) { setTopLeaders([]); return; }
+      try {
+        const res = await leaguesAPI.getLeaderboard(selectedLeagueId, { page: 1, limit: 5 });
+        setTopLeaders(res.data?.leaderboard || []);
+      } catch (e) {
+        console.error('Failed to load dashboard leaderboard:', e);
+        setTopLeaders([]);
+      }
+    };
+    loadLeaders();
+  }, [selectedLeagueId]);
 
   if (loading) {
     return (
@@ -176,6 +197,58 @@ const DashboardPage = () => {
           )}
         </section>
       </div>
+
+      {/* Compact Leaderboard */}
+      <section>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-base font-semibold">{t('leagues.leaderboard')}</h2>
+          {userLeagues.length > 1 && (
+            <select
+              className="text-xs border rounded px-2 py-1 bg-background"
+              value={selectedLeagueId || ''}
+              onChange={(e) => setSelectedLeagueId(Number(e.target.value))}
+            >
+              {userLeagues.map(l => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
+        {selectedLeagueId && topLeaders.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-muted-foreground">
+                  <th className="px-2 py-1">{t('leagues.rank')}</th>
+                  <th className="px-2 py-1">{t('leagues.player')}</th>
+                  <th className="px-2 py-1">{t('leagues.elo')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topLeaders.map(p => (
+                  <tr key={p.id} className="border-t">
+                    <td className="px-2 py-1">
+                      {p.rank <= 3 ? (
+                        <MedalIcon rank={p.rank} size={28} userAvatar={p.avatar_url} />
+                      ) : (
+                        <span>{p.rank}</span>
+                      )}
+                    </td>
+                    <td className="px-2 py-1">
+                      <Link to={`/profile/${p.username}`} className="underline hover:no-underline">{p.username}</Link>
+                    </td>
+                    <td className="px-2 py-1">{p.current_elo}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground">
+            {userLeagues.length === 0 ? t('leagues.noPlayers') : t('common.loading')}
+          </div>
+        )}
+      </section>
 
       {/* Compact Actions Toolbar */}
       <div className="flex flex-wrap items-center gap-2">

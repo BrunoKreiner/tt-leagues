@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { leaguesAPI, matchesAPI } from '@/services/api';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -19,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '@/components/ui/form';
 import EloSparkline from '@/components/EloSparkline';
+import MedalIcon from '@/components/MedalIcon';
 import { useTranslation } from 'react-i18next';
 import {
   Pagination,
@@ -40,12 +41,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
-const editSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(200, 'Max 200 characters'),
-  description: z.string().max(1000, 'Max 1000 characters').optional().or(z.literal('')),
-  is_public: z.boolean().default(true),
-  season: z.string().max(100, 'Max 100 characters').optional().or(z.literal('')),
-});
+// Note: Schema depends on translations, so build it inside the component where `t` is available
 
 const LeagueDetailPage = () => {
   const { t } = useTranslation();
@@ -73,6 +69,26 @@ const LeagueDetailPage = () => {
   const [eloMode, setEloMode] = useState('immediate');
 
   const [consolidating, setConsolidating] = useState(false);
+
+  const editSchema = useMemo(() => (
+    z.object({
+      name: z
+        .string()
+        .min(1, t('common.validation.nameRequired'))
+        .max(200, t('common.validation.max200Chars')),
+      description: z
+        .string()
+        .max(1000, t('common.validation.max1000Chars'))
+        .optional()
+        .or(z.literal('')),
+      is_public: z.boolean().default(true),
+      season: z
+        .string()
+        .max(100, t('common.validation.max100Chars'))
+        .optional()
+        .or(z.literal('')),
+    })
+  ), [t]);
 
   const form = useForm({
     resolver: zodResolver(editSchema),
@@ -138,7 +154,7 @@ const LeagueDetailPage = () => {
         }
       } catch (err) {
         if (cancelled) return;
-        setError(err.response?.data?.error || 'Failed to load league');
+                 setError(err.response?.data?.error || t('leagues.loadError'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -228,7 +244,7 @@ const LeagueDetailPage = () => {
   }, [id, isAuthenticated, userMembership?.is_admin]);
 
   const handlePromote = async (userId, username) => {
-    if (!window.confirm(`Promote ${username} to admin?`)) return;
+    if (!window.confirm(t('leagues.promoteConfirm', { username }))) return;
     try {
       setRoleChanging((m) => ({ ...m, [userId]: true }));
       const res = await leaguesAPI.promoteMember(id, userId);
@@ -245,17 +261,17 @@ const LeagueDetailPage = () => {
   const handleDemote = async (userId, username) => {
     const adminCount = members.filter((m) => m.is_league_admin).length;
     if (adminCount <= 1) {
-      toast.error('Cannot demote the last remaining admin');
+      toast.error(t('leagues.cannotDemoteLastAdmin'));
       return;
     }
-    if (!window.confirm(`Demote ${username} to member?`)) return;
+    if (!window.confirm(t('leagues.demoteConfirm', { username }))) return;
     try {
       setRoleChanging((m) => ({ ...m, [userId]: true }));
       const res = await leaguesAPI.demoteMember(id, userId);
-      toast.success(res.data?.message || 'Admin demoted to member');
+      toast.success(res.data?.message || t('leagues.adminDemoted'));
       await refreshLeagueData();
     } catch (err) {
-      const msg = err.response?.data?.error || 'Failed to demote admin';
+      const msg = err.response?.data?.error || t('leagues.demoteAdminError');
       toast.error(msg);
     } finally {
       setRoleChanging((m) => ({ ...m, [userId]: false }));
@@ -393,7 +409,7 @@ const LeagueDetailPage = () => {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Error</CardTitle>
+                     <CardTitle>{t('common.error')}</CardTitle>
           <CardDescription className="text-red-500">{error}</CardDescription>
         </CardHeader>
       </Card>
@@ -431,7 +447,7 @@ const LeagueDetailPage = () => {
         <Card className="md:col-span-2">
           <CardHeader className="py-3">
             <CardTitle className="text-base">{t('leagues.leaderboard')}</CardTitle>
-            <CardDescription>Ranked by current ELO • {leaderboardPagination.total} players</CardDescription>
+            <CardDescription>{t('leagues.rankedByElo', { count: leaderboardPagination.total })}</CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
             {leaderboard.length === 0 ? (
@@ -441,18 +457,24 @@ const LeagueDetailPage = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Rank</TableHead>
-                      <TableHead>Player</TableHead>
-                      <TableHead>ELO</TableHead>
-                      <TableHead>Trend</TableHead>
-                      <TableHead>W/L</TableHead>
-                      <TableHead>Win%</TableHead>
+                      <TableHead>{t('leagues.rank')}</TableHead>
+                      <TableHead>{t('leagues.player')}</TableHead>
+                      <TableHead>{t('leagues.elo')}</TableHead>
+                      <TableHead>{t('leagues.trend')}</TableHead>
+                      <TableHead>{t('leagues.wl')}</TableHead>
+                      <TableHead>{t('leagues.winPercent')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {leaderboard.map((p) => (
                       <TableRow key={p.id}>
-                        <TableCell>{p.rank}</TableCell>
+                        <TableCell>
+                          {p.rank <= 3 ? (
+                            <MedalIcon rank={p.rank} size={32} userAvatar={p.avatar_url} />
+                          ) : (
+                            <span>{p.rank}</span>
+                          )}
+                        </TableCell>
                         <TableCell><Link to={`/profile/${p.username}`} className="underline hover:no-underline">{p.username}</Link></TableCell>
                         <TableCell>{p.current_elo}</TableCell>
                         <TableCell>
@@ -468,8 +490,12 @@ const LeagueDetailPage = () => {
                 {leaderboardPagination.pages > 1 && (
                   <div className="mt-3">
                     <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
-                      <span>Showing {((leaderboardPagination.page - 1) * leaderboardPagination.limit) + 1} - {Math.min(leaderboardPagination.page * leaderboardPagination.limit, leaderboardPagination.total)} of {leaderboardPagination.total}</span>
-                      <span>Page {leaderboardPagination.page} / {leaderboardPagination.pages}</span>
+                      <span>{t('leagues.showing', { 
+                        start: ((leaderboardPagination.page - 1) * leaderboardPagination.limit) + 1, 
+                        end: Math.min(leaderboardPagination.page * leaderboardPagination.limit, leaderboardPagination.total), 
+                        total: leaderboardPagination.total 
+                      })}</span>
+                      <span>{t('leagues.page', { current: leaderboardPagination.page, total: leaderboardPagination.pages })}</span>
                     </div>
                     <Pagination>
                       <PaginationContent>
@@ -487,7 +513,7 @@ const LeagueDetailPage = () => {
                         <PaginationItem>
                           <PaginationLink isActive>{leaderboardPagination.page}</PaginationLink>
                         </PaginationItem>
-                        <span className="px-1 self-center text-sm text-muted-foreground">/ {leaderboardPagination.pages}</span>
+                        <span className="px-1 self-center text-sm text-muted-foreground">{t('leagues.of')} {leaderboardPagination.pages}</span>
                         {leaderboardPagination.page < leaderboardPagination.pages && (
                           <PaginationItem>
                             <PaginationNext 
@@ -512,13 +538,13 @@ const LeagueDetailPage = () => {
         <Card>
           <CardHeader className="py-3">
             <CardTitle className="text-base">{t('common.overview')}</CardTitle>
-            <CardDescription>Key stats</CardDescription>
+            <CardDescription>{t('leagues.keyStats')}</CardDescription>
           </CardHeader>
           <CardContent className="pt-0 text-sm text-muted-foreground space-y-2">
             <div className="flex items-center gap-2"><Users className="h-4 w-4" /> {t('leagues.membersLabel')}: {league.member_count}</div>
             <div className="flex items-center gap-2"><ListChecks className="h-4 w-4" /> {t('leagues.matchesLabel')}: {league.match_count}</div>
             {userMembership && (
-              <div className="flex items-center gap-2"><Trophy className="h-4 w-4" /> Your ELO: {userMembership.current_elo}</div>
+              <div className="flex items-center gap-2"><Trophy className="h-4 w-4" /> {t('leagues.yourElo', { elo: userMembership.current_elo })}</div>
             )}
           </CardContent>
         </Card>
@@ -528,7 +554,7 @@ const LeagueDetailPage = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">{t('leagues.joinThisLeague')}</CardTitle>
-            <CardDescription>Enter your invite code to join</CardDescription>
+                         <CardDescription>{t('leagues.joinDescription')}</CardDescription>
           </CardHeader>
           <CardContent>
             <form className="flex flex-col sm:flex-row gap-3" onSubmit={handleJoin}>
@@ -550,7 +576,7 @@ const LeagueDetailPage = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">{t('leagues.leaveThisLeague')}</CardTitle>
-            <CardDescription>You will lose access to members-only data</CardDescription>
+            <CardDescription>{t('leagues.leaveWarning')}</CardDescription>
           </CardHeader>
           <CardContent>
             <AlertDialog>
@@ -561,16 +587,16 @@ const LeagueDetailPage = () => {
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Leave league?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action will remove you from the league. You may need a new invite to rejoin.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleLeave} disabled={leaveLoading}>
-                    Confirm
-                  </AlertDialogAction>
+                                     <AlertDialogTitle>{t('dialog.leaveLeague')}</AlertDialogTitle>
+                   <AlertDialogDescription>
+                     {t('dialog.leaveLeagueDesc')}
+                   </AlertDialogDescription>
+                 </AlertDialogHeader>
+                 <AlertDialogFooter>
+                   <AlertDialogCancel>{t('dialog.cancel')}</AlertDialogCancel>
+                   <AlertDialogAction onClick={handleLeave} disabled={leaveLoading}>
+                     {t('dialog.confirm')}
+                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
@@ -582,7 +608,7 @@ const LeagueDetailPage = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">{t('leagues.editLeague')}</CardTitle>
-            <CardDescription>Update name, description, visibility, season, and ELO update mode</CardDescription>
+            <CardDescription>{t('leagues.editDescription')}</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -592,7 +618,7 @@ const LeagueDetailPage = () => {
                   control={form.control}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Name</FormLabel>
+                                              <FormLabel>{t('common.name')}</FormLabel>
                       <FormControl>
                         <Input placeholder={t('admin.leagueNamePlaceholder')} {...field} />
                       </FormControl>
@@ -606,11 +632,11 @@ const LeagueDetailPage = () => {
                   control={form.control}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Description</FormLabel>
+                                              <FormLabel>{t('common.description')}</FormLabel>
                       <FormControl>
                         <Textarea placeholder={t('admin.descriptionPlaceholder')} rows={4} {...field} />
                       </FormControl>
-                      <FormDescription>Up to 1000 characters.</FormDescription>
+                      <FormDescription>{t('admin.descriptionHint')}</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -622,7 +648,7 @@ const LeagueDetailPage = () => {
                     control={form.control}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Season</FormLabel>
+                        <FormLabel>{t('admin.season')}</FormLabel>
                         <FormControl>
                           <Input placeholder={t('admin.seasonPlaceholder')} {...field} />
                         </FormControl>
@@ -639,7 +665,7 @@ const LeagueDetailPage = () => {
                         <div>
                           <FormLabel className="mb-1">{t('admin.publicLeague')}</FormLabel>
                           <FormDescription>
-                            Public leagues are visible to all users. Private leagues require membership.
+                            {t('admin.publicLeagueHint')}
                           </FormDescription>
                         </div>
                         <FormControl>
@@ -652,7 +678,7 @@ const LeagueDetailPage = () => {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="flex flex-col gap-2">
-                    <FormLabel>ELO Update Mode</FormLabel>
+                                            <FormLabel>{t('leagues.eloUpdateMode')}</FormLabel>
                     <div className="text-xs text-muted-foreground mb-2">
                       {t('leagues.eloModeHelp')}
                     </div>
@@ -690,7 +716,7 @@ const LeagueDetailPage = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">{t('leagues.inviteUser')}</CardTitle>
-            <CardDescription>Invite by username; generates a code valid for 7 days</CardDescription>
+            <CardDescription>{t('leagues.inviteDescription')}</CardDescription>
           </CardHeader>
           <CardContent>
             <form className="flex flex-col sm:flex-row gap-3" onSubmit={handleInvite}>
@@ -724,7 +750,7 @@ const LeagueDetailPage = () => {
           <CardHeader>
             <CardTitle className="text-base">{t('leagues.eloConsolidation')}</CardTitle>
             <CardDescription>
-              Apply deferred ELO updates for accepted matches. Only available for leagues with weekly/monthly consolidation mode.
+              {t('leagues.consolidationDescription')}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
@@ -750,7 +776,7 @@ const LeagueDetailPage = () => {
                 }
               }}
             >
-              {consolidating ? 'Consolidating…' : 'Consolidate ELO'}
+              {consolidating ? t('leagues.consolidating') : t('leagues.consolidateElo')}
             </Button>
             <Button
               variant="outline"
@@ -760,15 +786,15 @@ const LeagueDetailPage = () => {
                   const res = await matchesAPI.debugConsolidation(id);
                   console.log('Debug endpoint response:', res);
                   console.log('Debug data:', res.data);
-                  toast.success(`Debug: ${res.data.matchesToConsolidate} matches to consolidate`);
+                  toast.success(t('leagues.debugMatchesToConsolidate', { count: res.data.matchesToConsolidate }));
                 } catch (e) {
                   console.error('Debug endpoint error:', e);
                   console.error('Debug error response:', e?.response?.data);
-                  toast.error(`Debug endpoint failed: ${e.message}`);
+                  toast.error(t('leagues.debugEndpointFailed', { error: e.message }));
                 }
               }}
             >
-              Debug
+              {t('leagues.debug')}
             </Button>
           </CardContent>
         </Card>
@@ -777,22 +803,22 @@ const LeagueDetailPage = () => {
       {isAuthenticated && userMembership?.is_admin && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Pending Invites</CardTitle>
-            <CardDescription>Revoke invites that should no longer be valid</CardDescription>
+                      <CardTitle className="text-base">{t('leagues.pendingInvites')}</CardTitle>
+          <CardDescription>{t('leagues.revokeInvitesDesc')}</CardDescription>
           </CardHeader>
           <CardContent>
             {invitesLoading ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
+              <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
             ) : invites.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No pending invites.</p>
+              <p className="text-sm text-muted-foreground">{t('leagues.noPendingInvites')}</p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Invited By</TableHead>
-                    <TableHead>Expires</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                                      <TableHead>{t('leagues.user')}</TableHead>
+                  <TableHead>{t('leagues.invitedBy')}</TableHead>
+                  <TableHead>{t('leagues.expires')}</TableHead>
+                  <TableHead className="text-right">{t('table.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -808,7 +834,7 @@ const LeagueDetailPage = () => {
                           onClick={() => handleRevokeInvite(inv.id)}
                           disabled={!!revokingInvite[inv.id]}
                         >
-                          {revokingInvite[inv.id] ? 'Revoking…' : 'Revoke'}
+                          {revokingInvite[inv.id] ? t('status.revoking') : t('actions.revoke')}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -824,21 +850,21 @@ const LeagueDetailPage = () => {
         {/* Remove mid-page members list to reduce duplication and clutter */}
         <Card className="md:col-span-3">
           <CardHeader>
-            <CardTitle className="text-base">Recent Matches</CardTitle>
-            <CardDescription>Last 10 accepted matches</CardDescription>
+                      <CardTitle className="text-base">{t('leagues.recentMatches')}</CardTitle>
+          <CardDescription>{t('leagues.last10Accepted')}</CardDescription>
           </CardHeader>
           <CardContent>
             {matches.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No matches yet.</p>
+              <p className="text-sm text-muted-foreground">{t('leagues.noMatchesYet')}</p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Player 1</TableHead>
-                    <TableHead>Player 2</TableHead>
-                    <TableHead>Score</TableHead>
-                    <TableHead>ELO Δ</TableHead>
+                                         <TableHead>{t('match.date')}</TableHead>
+                     <TableHead>{t('match.player1')}</TableHead>
+                     <TableHead>{t('match.player2')}</TableHead>
+                     <TableHead>{t('match.score')}</TableHead>
+                     <TableHead>{t('match.eloDelta')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -857,7 +883,7 @@ const LeagueDetailPage = () => {
                         <Link to={`/matches/${m.id}`}>{m.player1_sets_won} - {m.player2_sets_won}</Link>
                       </TableCell>
                       <TableCell>
-                        P1 {eloDiff(m.player1_elo_after, m.player1_elo_before)} / P2 {eloDiff(m.player2_elo_after, m.player2_elo_before)}
+                        {t('match.player1')} {eloDiff(m.player1_elo_after, m.player1_elo_before)} / {t('match.player2')} {eloDiff(m.player2_elo_after, m.player2_elo_before)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -872,23 +898,23 @@ const LeagueDetailPage = () => {
       {isAuthenticated && userMembership?.is_admin && (
         <Card id="members">
           <CardHeader>
-            <CardTitle className="text-base">Members</CardTitle>
-            <CardDescription>Manage roles and review member stats</CardDescription>
+                      <CardTitle className="text-base">{t('leagues.members')}</CardTitle>
+          <CardDescription>{t('leagues.manageRoles')}</CardDescription>
           </CardHeader>
           <CardContent>
             {members.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No members yet.</p>
+              <p className="text-sm text-muted-foreground">{t('leagues.noMembers')}</p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>ELO</TableHead>
-                    <TableHead>W/L</TableHead>
-                    <TableHead>Win%</TableHead>
-                    <TableHead>Joined</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t('leagues.user')}</TableHead>
+                    <TableHead>{t('leagues.role')}</TableHead>
+                    <TableHead>{t('leagues.elo')}</TableHead>
+                    <TableHead>{t('leagues.wl')}</TableHead>
+                    <TableHead>{t('leagues.winPercent')}</TableHead>
+                    <TableHead>{t('leagues.joined')}</TableHead>
+                    <TableHead className="text-right">{t('table.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -904,9 +930,9 @@ const LeagueDetailPage = () => {
                       </TableCell>
                       <TableCell>
                         {m.is_league_admin ? (
-                          <Badge variant="secondary">Admin</Badge>
+                          <Badge variant="secondary">{t('leagues.admin')}</Badge>
                         ) : (
-                          <Badge variant="outline">Member</Badge>
+                          <Badge variant="outline">{t('leagues.member')}</Badge>
                         )}
                       </TableCell>
                       <TableCell>{m.current_elo}</TableCell>
@@ -921,7 +947,7 @@ const LeagueDetailPage = () => {
                             onClick={() => handleDemote(m.id, m.username)}
                             disabled={!!roleChanging[m.id] || members.filter((x) => x.is_league_admin).length <= 1}
                           >
-                            {roleChanging[m.id] ? 'Updating…' : 'Demote'}
+                            {roleChanging[m.id] ? t('status.updating') : t('leagues.demote')}
                           </Button>
                         ) : (
                           <Button
@@ -930,7 +956,7 @@ const LeagueDetailPage = () => {
                             onClick={() => handlePromote(m.id, m.username)}
                             disabled={!!roleChanging[m.id]}
                           >
-                            {roleChanging[m.id] ? 'Updating…' : 'Promote'}
+                            {roleChanging[m.id] ? t('status.updating') : t('leagues.promote')}
                           </Button>
                         )}
                       </TableCell>

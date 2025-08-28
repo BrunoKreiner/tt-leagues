@@ -14,13 +14,8 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- Optional public profile fields (add columns if they do not exist)
-ALTER TABLE users ADD COLUMN IF NOT EXISTS forehand_rubber TEXT;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS backhand_rubber TEXT;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS blade_wood TEXT;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS playstyle VARCHAR(100);
-ALTER TABLE users ADD COLUMN IF NOT EXISTS strengths TEXT;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS weaknesses TEXT;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS goals TEXT;
+-- Note: SQLite doesn't support IF NOT EXISTS in ALTER TABLE, so we'll handle this in the application
+-- These columns will be added by the application if they don't exist
 
 -- Leagues table
 CREATE TABLE IF NOT EXISTS leagues (

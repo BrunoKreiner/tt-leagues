@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { 
@@ -30,6 +31,7 @@ const MobileMenu = ({
   onDenyInvite,
   onLogout 
 }) => {
+  const { t } = useTranslation();
   const location = useLocation();
 
   // Close menu on route change
@@ -193,9 +195,9 @@ const MobileMenu = ({
             {/* Notifications List */}
             <div className="max-h-64 overflow-y-auto">
               {notifLoading ? (
-                <div className="px-3 py-2 text-sm text-muted-foreground">Loading…</div>
+                                 <div className="px-3 py-2 text-sm text-muted-foreground">{t('common.loading')}</div>
               ) : notifications.length === 0 ? (
-                <div className="px-3 py-2 text-sm text-muted-foreground">No notifications</div>
+                                 <div className="px-3 py-2 text-sm text-muted-foreground">{t('notifications.none')}</div>
               ) : (
                 notifications.slice(0, 5).map((n) => (
                   <div key={n.id} className={`px-3 py-2 rounded-lg ${!n.is_read ? 'bg-muted/40' : ''}`}>
@@ -245,7 +247,7 @@ const MobileMenu = ({
                               disabled={!!acceptLoading[n.id]}
                               className="flex-1 h-8 text-xs"
                             >
-                              {acceptLoading[n.id] ? 'Joining…' : 'Accept'}
+                              {acceptLoading[n.id] ? t('status.joining') : t('actions.accept')}
                             </Button>
                             <Button 
                               size="sm" 

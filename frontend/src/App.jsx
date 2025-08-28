@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 // Layout components
 import Layout from './components/layout/Layout';
@@ -58,6 +59,16 @@ const PublicRoute = ({ children }) => {
 };
 
 function AppRoutes() {
+  const { ready } = useTranslation();
+
+  if (!ready) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
   return (
     <Router>
       <Routes>

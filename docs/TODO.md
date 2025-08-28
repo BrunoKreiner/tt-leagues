@@ -59,6 +59,12 @@ Quick facts (current state):
   - Acceptance: Unread count updates; actions return 200; UX consistent
   - Status: Backend list, mark-as-read, delete, mark-all-read implemented; FE header unread counter and dropdown wired; full `/notifications` page with filters, pagination, accept/deny invite actions.
 
+- [x] Mobile Navigation (responsive hamburger menu)
+  - Files: `frontend/src/components/layout/HamburgerButton.jsx`, `frontend/src/components/layout/MobileMenu.jsx`, `frontend/src/components/layout/Layout.jsx`
+  - Actions: Add hamburger menu, slide-in panel with backdrop blur, responsive nav (md breakpoint), user profile and notifications integration, ARIA labels, Escape/backdrop close, smooth animations.
+  - Acceptance: Menu toggles and slides smoothly; mobile/desktop breakpoints respected; notifications and user actions accessible; accessibility and performance validated across major browsers.
+  - Status: Completed and verified; redundant docs consolidated into this TODO and removed.
+
 ---
 
 ## 1) Database Environment Strategy (High Priority)
@@ -188,15 +194,8 @@ These are not implemented; capture next steps at a high level.
 - [ ] Reporting (advanced analytics)
   - Next steps: Define report templates, export formats (CSV/PDF), server-side generation.
 
-- [ ] Multi-language (i18n)
-  - In-scope (initial): German (de)
-  - Next steps:
-    - Choose i18n library (react-i18next + i18next)
-    - Add i18n bootstrap (`frontend/src/i18n/index.ts`), wrap app with provider
-    - Create translation resources: `public/locales/en/common.json`, `public/locales/de/common.json`
-    - Extract strings from layout, dashboard, leagues, matches, profile
-    - Add language switcher in header and persist preference
-    - QA pass with German copy; fallbacks to English verified
+- [x] Multi-language (i18n)
+  - Status: Implemented with react-i18next; EN/DE resources added; components migrated to `t()`, i18n ready-gate in `App.jsx`, JSON validated; language switcher in header.
 
 - [ ] Cross-link profiles across app
   - Next steps: Make usernames clickable in league members tables, leaderboards, and match lists to `/profile/:username`; ensure navigation preserves auth context
@@ -255,3 +254,108 @@ These are not implemented; capture next steps at a high level.
 - Docs updated with clear env setup and workflows.
 - Smoke tests pass for both modes.
 - No lingering bcrypt dependency.
+
+## 8) Aesthetic Update - Modern Video Game UI Theme
+
+Based on the reference images showing modern dark-themed video game dashboards, the following changes are needed to transform the current design:
+
+### Dark Theme & Color Scheme
+- [ ] Implement dark theme as default (remove light mode or make dark primary)
+- [ ] Update color palette to match video game aesthetics:
+  - [ ] Dark blue/black backgrounds with subtle circuit patterns
+  - [ ] Glowing accent colors (purple, blue, green for stats)
+  - [ ] High contrast text with better readability
+  - [ ] Gradient backgrounds and subtle animations
+- [ ] Add CSS custom properties for consistent theming across components
+
+### Video Game Stats Dashboard Layout
+- [ ] Redesign dashboard to match video game stats layout:
+  - [ ] Large circular progress indicators for key metrics (like the green/yellow/blue circles)
+  - [ ] Card-based layout with rounded corners and subtle borders
+  - [ ] Stats displayed prominently with icons and large numbers
+  - [ ] "Hall of Fame" style leaderboard with distinct styling
+- [ ] Add animated elements and hover effects
+- [ ] Implement responsive grid layouts that work on mobile
+- [ ] **Dashboard Leaderboard Improvements:**
+  - [ ] Make leaderboards narrow and box-like (not full width)
+  - [ ] Display up to 3 leaderboards in one row (responsive grid)
+  - [ ] Make each leaderboard card clickable to link to the league
+  - [ ] Make entire leaderboard rows clickable to link to user profiles
+  - [ ] Add small ELO history visualization (sparkline) on the right side of each leaderboard row
+  - [ ] Change page title from "Table Tennis League" to just "Leagues"
+- [ ] **League Page Improvements:**
+  - [ ] Make entire league cards clickable (not just buttons)
+  - [ ] Improve league card hover effects and visual feedback
+
+### Enhanced Visual Components
+- [ ] Redesign leaderboard to be more prominent and visually appealing:
+  - [ ] Larger medal icons with better positioning
+  - [ ] Player avatars integrated into medal badges (already implemented)
+  - [ ] Better spacing and typography
+  - [ ] Add visual indicators for rank changes (arrows, colors)
+- [ ] Improve profile pages with:
+  - [ ] Hero section with large avatar and key stats
+  - [ ] Equipment/playstyle cards with better visual hierarchy
+  - [ ] Achievement/badge display with modern styling
+- [ ] Update navigation to be more game-like:
+  - [ ] Stylized buttons and hover effects
+  - [ ] Better mobile menu design
+  - [ ] Consistent iconography throughout
+
+### Responsive Design Improvements
+- [ ] Mobile-first responsive design:
+  - [ ] Better breakpoints for tablets and mobile
+  - [ ] Touch-friendly interface elements
+  - [ ] Optimized layouts for small screens
+  - [ ] Improved navigation for mobile devices
+- [ ] Performance optimizations:
+  - [ ] Lazy loading for images and components
+  - [ ] Smooth animations and transitions
+  - [ ] Optimized bundle size
+
+### Interactive Elements
+- [ ] Add micro-interactions:
+  - [ ] Hover effects on cards and buttons
+  - [ ] Loading states with animations
+  - [ ] Success/error feedback with better styling
+  - [ ] Smooth page transitions
+- [ ] Implement modern form designs:
+  - [ ] Better input styling and focus states
+  - [ ] Improved validation feedback
+  - [ ] Modern button designs
+
+### Technical Implementation
+- [ ] Update CSS framework usage:
+  - [ ] Leverage Tailwind CSS more effectively for consistent design
+  - [ ] Add custom CSS for unique video game elements
+  - [ ] Implement CSS Grid and Flexbox for better layouts
+- [ ] Component library updates:
+  - [ ] Custom styled components for video game aesthetic
+  - [ ] Consistent spacing and typography system
+  - [ ] Icon library updates for better visual consistency
+
+### Files to Update
+- `frontend/src/index.css` - Global styles and theme variables
+- `frontend/src/components/ui/*` - All UI components need styling updates
+- `frontend/src/pages/*` - Page layouts and component arrangements
+- `frontend/src/components/layout/*` - Navigation and layout components
+- `frontend/src/components/MedalIcon.jsx` - Medal styling improvements
+- `frontend/src/components/BadgeDisplay.jsx` - Badge styling updates
+- `frontend/src/pages/DashboardPage.jsx` - Dashboard leaderboard grid layout and interactions
+- `frontend/src/pages/LeaguesPage.jsx` - League card clickability improvements
+- `frontend/src/components/layout/Layout.jsx` - Page title update
+- `frontend/src/components/EloSparkline.jsx` - Sparkline component for leaderboard rows
+
+### Acceptance Criteria
+- [ ] Site has a cohesive dark video game aesthetic
+- [ ] All pages are fully responsive and mobile-friendly
+- [ ] Visual hierarchy clearly guides user attention
+- [ ] Interactive elements provide good feedback
+- [ ] Performance remains fast with new styling
+- [ ] Accessibility standards are maintained
+
+---
+
+## 9) User List of Small Fixes
+
+- [ ] "Your sets won" and "Opponent sets won" needs to be translated too in german.
