@@ -77,20 +77,23 @@ const RegisterPage = () => {
     }
 
     const { confirmPassword, ...registrationData } = formData;
+    if (!registrationData.email) {
+      delete registrationData.email; // omit empty email so BE treats it as truly optional
+    }
     await register(registrationData);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-gradient-to-br from-gray-950 via-gray-900 to-gray-800">
+      <Card className="w-full max-w-md vg-card">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-600 text-white shadow-md">
               <Trophy className="h-6 w-6" />
             </div>
           </div>
-          <CardTitle className="text-2xl">Create account</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-2xl text-blue-300">Create account</CardTitle>
+          <CardDescription className="text-gray-400">
             Join the Table Tennis League community
           </CardDescription>
         </CardHeader>
@@ -104,7 +107,7 @@ const RegisterPage = () => {
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="first_name">First Name</Label>
+                <Label htmlFor="first_name" className="text-gray-300">First Name</Label>
                 <Input
                   id="first_name"
                   name="first_name"
@@ -120,7 +123,7 @@ const RegisterPage = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="last_name">Last Name</Label>
+                <Label htmlFor="last_name" className="text-gray-300">Last Name</Label>
                 <Input
                   id="last_name"
                   name="last_name"
@@ -137,7 +140,7 @@ const RegisterPage = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username" className="text-gray-300">Username</Label>
               <Input
                 id="username"
                 name="username"
@@ -145,7 +148,7 @@ const RegisterPage = () => {
                 value={formData.username}
                 onChange={handleChange}
                 required
-                placeholder="johndoe"
+                placeholder="player123"
               />
               {validationErrors.username && (
                 <p className="text-sm text-red-600">{validationErrors.username}</p>
@@ -153,7 +156,7 @@ const RegisterPage = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email (optional)</Label>
+              <Label htmlFor="email" className="text-gray-300">Email (optional)</Label>
               <Input
                 id="email"
                 name="email"
@@ -168,7 +171,7 @@ const RegisterPage = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-gray-300">Password</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -177,7 +180,7 @@ const RegisterPage = () => {
                   value={formData.password}
                   onChange={handleChange}
                   required
-                  placeholder="Enter your password"
+                  placeholder="••••••••"
                 />
                 <Button
                   type="button"
@@ -199,7 +202,7 @@ const RegisterPage = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Label htmlFor="confirmPassword" className="text-gray-300">Confirm Password</Label>
               <div className="relative">
                 <Input
                   id="confirmPassword"
@@ -208,7 +211,7 @@ const RegisterPage = () => {
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   required
-                  placeholder="Confirm your password"
+                  placeholder="••••••••"
                 />
                 <Button
                   type="button"

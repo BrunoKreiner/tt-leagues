@@ -451,3 +451,8 @@ Based on the reference images showing modern dark-themed video game dashboards, 
 ## 9) User List of Small Fixes
 
 - [ ] "Your sets won" and "Opponent sets won" needs to be translated too in german.
+ - [x] Registration: make email truly optional (FE strips empty; BE ignores empty)
+ - [x] Login: remove demo admin credentials from login card
+ - [x] Login/Register: improve dark mode styling (cards, labels, backgrounds)
+ - [x] Dashboard: average ELO now reads from normalized stats and updates
+ - [x] Header: replace hamburger with icon and align with logo/title

@@ -30,16 +30,16 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-gray-950 via-gray-900 to-gray-800">
+      <Card className="w-full max-w-md vg-card">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-600 text-white shadow-md">
               <Trophy className="h-6 w-6" />
             </div>
           </div>
-          <CardTitle className="text-2xl">Welcome back</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-2xl text-blue-300">Welcome back</CardTitle>
+          <CardDescription className="text-gray-400">
             Sign in to your Table Tennis League account
           </CardDescription>
         </CardHeader>
@@ -52,7 +52,7 @@ const LoginPage = () => {
             )}
             
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username" className="text-gray-300">Username</Label>
               <Input
                 id="username"
                 name="username"
@@ -65,7 +65,7 @@ const LoginPage = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-gray-300">Password</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -74,7 +74,7 @@ const LoginPage = () => {
                   value={formData.password}
                   onChange={handleChange}
                   required
-                  placeholder="Enter your password"
+                  placeholder="••••••••"
                 />
                 <Button
                   type="button"
@@ -105,16 +105,10 @@ const LoginPage = () => {
           </form>
 
           <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">Don't have an account? </span>
-            <Link to="/register" className="text-primary hover:underline">
+            <span className="text-gray-400">Don't have an account? </span>
+            <Link to="/register" className="text-blue-400 hover:underline">
               Sign up
             </Link>
-          </div>
-
-          <div className="mt-4 text-center text-xs text-muted-foreground">
-            <p>Demo admin account:</p>
-            <p>Username: <code className="bg-muted px-1 rounded">admin</code></p>
-            <p>Password: <code className="bg-muted px-1 rounded">admin123</code></p>
           </div>
         </CardContent>
       </Card>

@@ -35,7 +35,7 @@ const validateRegistration = [
         .withMessage('Last name is required and must be less than 100 characters')
         .trim(),
     body('email')
-        .optional()
+        .optional({ nullable: true, checkFalsy: true })
         .isEmail()
         .withMessage('Must be a valid email address')
         .normalizeEmail(),
