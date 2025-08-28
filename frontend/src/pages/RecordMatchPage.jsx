@@ -56,6 +56,7 @@ export default function RecordMatchPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [eloPreview, setEloPreview] = useState(null);
+  const [gameTypeValue, setGameTypeValue] = useState('best_of_3');
   const previewTimer = useRef(null);
 
   const me = useMemo(() => {
@@ -75,7 +76,17 @@ export default function RecordMatchPage() {
       player2_points_total: 0,
       played_at: '',
     },
+    mode: 'onChange',
   });
+
+  // Ensure form is properly initialized
+  useEffect(() => {
+    if (!form.getValues('game_type')) {
+      form.setValue('game_type', 'best_of_3', { shouldValidate: true });
+    }
+    // Sync local state with form
+    setGameTypeValue(form.getValues('game_type') || 'best_of_3');
+  }, [form]);
 
   // Local state: per-set points for each played set (auto totals)
   const [setScores, setSetScores] = useState([{ p1: 0, p2: 0 }, { p1: 0, p2: 0 }, { p1: 0, p2: 0 }]);
@@ -84,6 +95,13 @@ export default function RecordMatchPage() {
   const gameType = form.watch('game_type');
   const p1SetsWon = form.watch('player1_sets_won');
   const p2SetsWon = form.watch('player2_sets_won');
+
+  // Sync local state with form value
+  useEffect(() => {
+    if (gameType && gameType !== gameTypeValue) {
+      setGameTypeValue(gameType);
+    }
+  }, [gameType, gameTypeValue]);
 
   const maxSets = useMemo(() => MAX_SETS_BY_TYPE[gameType] ?? 3, [gameType]);
   const desiredSetCount = useMemo(() => {
@@ -269,6 +287,8 @@ export default function RecordMatchPage() {
         <p className="text-sm text-muted-foreground">{t('recordMatch.subtitle')}</p>
       </div>
 
+      
+
       <Card>
         <CardHeader>
           <CardTitle>{t('recordMatch.detailsTitle')}</CardTitle>
@@ -336,29 +356,36 @@ export default function RecordMatchPage() {
                 )}
               />
 
-              {/* Game type */}
-              <FormField
-                name="game_type"
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('matchDetail.gameType')}</FormLabel>
-                    <FormControl>
-                      <RadioGroup value={field.value} onValueChange={field.onChange} className="grid gap-2 md:grid-cols-2">
-                        {GAME_TYPES.map((gt) => (
-                          <div key={gt.value} className="flex items-center space-x-2 rounded-md border p-3">
-                            <RadioGroupItem id={gt.value} value={gt.value} />
-                            <label htmlFor={gt.value} className="text-sm leading-none cursor-pointer">
-                              {t(gt.labelKey)}
-                            </label>
-                          </div>
-                        ))}
-                      </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                             {/* Game type */}
+               <FormField
+                 name="game_type"
+                 control={form.control}
+                 render={({ field }) => (
+                   <FormItem>
+                     <FormLabel>{t('matchDetail.gameType')}</FormLabel>
+                     <FormControl>
+                       <RadioGroup 
+                         value={gameTypeValue} 
+                         onValueChange={(value) => {
+                           setGameTypeValue(value);
+                           field.onChange(value);
+                         }} 
+                         className="grid gap-2 md:grid-cols-2"
+                       >
+                         {GAME_TYPES.map((gt) => (
+                           <div key={gt.value} className="flex items-center space-x-2 rounded-md border p-3">
+                             <RadioGroupItem id={gt.value} value={gt.value} />
+                             <label htmlFor={gt.value} className="text-sm leading-none cursor-pointer">
+                               {t(gt.labelKey)}
+                             </label>
+                           </div>
+                         ))}
+                       </RadioGroup>
+                     </FormControl>
+                     <FormMessage />
+                   </FormItem>
+                 )}
+               />
 
               {/* Result (sets) */}
               <div className="grid gap-4 md:grid-cols-2">

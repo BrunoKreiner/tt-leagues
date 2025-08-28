@@ -58,8 +58,8 @@ const LeaguesPage = () => {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t('nav.leagues')}</h1>
-          <p className="text-muted-foreground">{t('leagues.subtitle')}</p>
+          <h1 className="cyberpunk-title text-3xl text-blue-400">{t('nav.leagues')}</h1>
+          <p className="cyberpunk-subtitle text-gray-400">{t('leagues.subtitle')}</p>
         </div>
         {isAdmin && (
           <Button asChild>
@@ -90,11 +90,15 @@ const LeaguesPage = () => {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {leagues.map((l) => (
-            <Card key={l.id} className="flex flex-col">
+            <Card 
+              key={l.id} 
+              className="vg-card cursor-pointer hover:scale-105 transition-transform"
+              onClick={() => window.location.href = `/leagues/${l.id}`}
+            >
               <CardHeader className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-xl truncate">
-                    <Link to={`/leagues/${l.id}`} className="hover:underline">{l.name}</Link>
+                  <CardTitle className="cyberpunk-subtitle text-xl truncate text-blue-400">
+                    {l.name}
                   </CardTitle>
                   <Badge variant="secondary" className="ml-2 flex items-center gap-1">
                     {l.is_public ? <Globe className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
@@ -102,21 +106,16 @@ const LeaguesPage = () => {
                   </Badge>
                 </div>
                 {l.description && (
-                  <CardDescription className="line-clamp-2">{l.description}</CardDescription>
+                  <CardDescription className="line-clamp-2 text-gray-400">{l.description}</CardDescription>
                 )}
               </CardHeader>
               <CardContent className="mt-auto">
-                <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+                <div className="flex flex-wrap gap-3 text-sm text-gray-500">
                   <span className="flex items-center gap-1"><Users className="h-4 w-4" /> {l.member_count} {t('leagues.members')}</span>
                   <span className="flex items-center gap-1"><ListChecks className="h-4 w-4" /> {l.match_count} {t('leagues.matches')}</span>
                   {l.season && (
                     <span className="flex items-center gap-1"><Calendar className="h-4 w-4" /> {l.season}</span>
                   )}
-                </div>
-                <div className="pt-4">
-                  <Button asChild variant="outline" size="sm">
-                    <Link to={`/leagues/${l.id}`}>{t('actions.viewDetails')}</Link>
-                  </Button>
                 </div>
               </CardContent>
             </Card>

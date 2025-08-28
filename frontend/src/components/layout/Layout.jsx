@@ -131,16 +131,14 @@ const Layout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       {/* Header */}
-      <header className="border-b bg-card">
+      <header className="border-b border-gray-700 bg-gray-900/80 backdrop-blur-sm">
         <div className="flex h-16 items-center px-4 md:px-6">
           {/* Logo */}
           <Link to="/dashboard" className="flex items-center space-x-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Trophy className="h-4 w-4" />
-            </div>
-            <span className="font-bold text-lg">{t('app.title')}</span>
+            <img src="/img/logo.png" alt="Logo" className="h-8 w-8" />
+            <span className="cyberpunk-title text-lg text-blue-400">{t('app.title')}</span>
           </Link>
 
           {/* Navigation */}
@@ -154,10 +152,10 @@ const Layout = () => {
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`flex items-center space-x-2 text-sm font-medium transition-colors hover:text-primary ${
+                  className={`cyberpunk-text flex items-center space-x-2 text-sm font-medium transition-all duration-200 hover:text-blue-400 hover:scale-105 ${
                     isActive 
-                      ? 'text-primary border-b-2 border-primary pb-1' 
-                      : 'text-muted-foreground'
+                      ? 'text-blue-400' 
+                      : 'text-gray-400'
                   }`}
                 >
                   <Icon className="h-4 w-4" />
@@ -182,9 +180,9 @@ const Layout = () => {
                   {i18n.language === 'de' ? 'DE' : 'EN'}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => i18n.changeLanguage('en')}>{t('language.english')}</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => i18n.changeLanguage('de')}>{t('language.german')}</DropdownMenuItem>
+              <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700">
+                <DropdownMenuItem onClick={() => i18n.changeLanguage('en')} className="text-gray-200 hover:bg-gray-700">{t('language.english')}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => i18n.changeLanguage('de')} className="text-gray-200 hover:bg-gray-700">{t('language.german')}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             {/* Notifications */}
@@ -199,7 +197,7 @@ const Layout = () => {
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-96" align="end" forceMount>
+              <DropdownMenuContent className="w-96 bg-gray-800 border-gray-700" align="end" forceMount>
                 <div className="px-2 py-2 flex items-center justify-between">
                   <span className="text-sm font-medium">{t('notifications.title')}</span>
                   <Button variant="ghost" size="sm" onClick={markAllAsRead} disabled={notifLoading || unreadCount === 0}>
@@ -214,7 +212,7 @@ const Layout = () => {
                     <div className="p-4 text-sm text-muted-foreground">{t('notifications.none')}</div>
                   ) : (
                     notifications.map((n) => (
-                      <div key={n.id} className={`px-3 py-2 border-b last:border-b-0 ${!n.is_read ? 'bg-muted/40' : ''}`}>
+                      <div key={n.id} className={`px-3 py-2 border-b border-gray-700 last:border-b-0 ${!n.is_read ? 'bg-gray-700/40' : 'bg-gray-800'}`}>
                         <div className="flex items-start gap-3">
                           {/* Icon */}
                           <div className="mt-0.5 text-muted-foreground">
@@ -284,36 +282,36 @@ const Layout = () => {
                     {user?.avatar_url && (
                       <AvatarImage src={user.avatar_url} alt="Profile" />
                     )}
-                    <AvatarFallback className="text-xs">
+                    <AvatarFallback className="text-xs bg-gray-700 text-gray-200">
                       {getUserInitials(user)}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
+              <DropdownMenuContent className="w-56 bg-gray-800 border-gray-700" align="end" forceMount>
                 <div className="flex items-center justify-start gap-2 p-2">
                   <div className="flex flex-col space-y-1 leading-none">
-                    <p className="font-medium">{user?.first_name} {user?.last_name}</p>
-                    <p className="w-[200px] truncate text-sm text-muted-foreground">
+                    <p className="font-medium text-gray-200">{user?.first_name} {user?.last_name}</p>
+                    <p className="w-[200px] truncate text-sm text-gray-400">
                       @{user?.username}
                     </p>
                   </div>
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
+                <DropdownMenuItem asChild className="text-gray-200 hover:bg-gray-700">
                   <Link to="/profile" className="flex items-center">
                     <User className="mr-2 h-4 w-4" />
                     <span>{t('nav.profile')}</span>
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
+                <DropdownMenuItem asChild className="text-gray-200 hover:bg-gray-700">
                   <Link to="/settings" className="flex items-center">
                     <Settings className="mr-2 h-4 w-4" />
                     <span>{t('nav.settings')}</span>
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                <DropdownMenuSeparator className="bg-gray-700" />
+                <DropdownMenuItem onClick={handleLogout} className="text-red-400 hover:bg-gray-700">
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>{t('nav.logout')}</span>
                 </DropdownMenuItem>

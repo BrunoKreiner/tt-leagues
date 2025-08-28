@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { Menu, X } from 'lucide-react';
 
 const HamburgerButton = ({ isOpen, onClick }) => {
   return (
@@ -6,30 +7,15 @@ const HamburgerButton = ({ isOpen, onClick }) => {
       variant="ghost"
       size="sm"
       onClick={onClick}
-      className="md:hidden h-10 w-10 p-0 rounded-md hover:bg-muted transition-colors"
+      className="md:hidden h-8 w-8 p-0 flex items-center justify-center hover:bg-transparent active:bg-transparent focus-visible:ring-0 focus:outline-none relative top-[1px]"
       aria-label={isOpen ? 'Close menu' : 'Open menu'}
       aria-expanded={isOpen}
     >
-      <div className="w-6 h-6 relative">
-        {/* Top line */}
-        <span 
-          className={`absolute h-0.5 w-6 bg-current transform transition-all duration-300 ease-in-out ${
-            isOpen ? 'rotate-45 translate-y-2.5' : '-translate-y-1'
-          }`} 
-        />
-        {/* Middle line */}
-        <span 
-          className={`absolute h-0.5 w-6 bg-current transform transition-all duration-300 ease-in-out ${
-            isOpen ? 'opacity-0' : 'opacity-100'
-          }`} 
-        />
-        {/* Bottom line */}
-        <span 
-          className={`absolute h-0.5 w-6 bg-current transform transition-all duration-300 ease-in-out ${
-            isOpen ? '-rotate-45 translate-y-2.5' : 'translate-y-1'
-          }`} 
-        />
-      </div>
+      {isOpen ? (
+        <X className="w-6 h-6 text-gray-200" />
+      ) : (
+        <Menu className="w-6 h-6 text-gray-200" />
+      )}
     </Button>
   );
 };

@@ -28,11 +28,25 @@ if (process.env.VERCEL) {
     }
 }
 
-// Rate limiting
+// Rate limiting - More generous for better UX
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
-    message: 'Too many requests from this IP, please try again later.'
+    max: 1000, // limit each IP to 1000 requests per windowMs (much more generous)
+    message: 'Too many requests from this IP, please try again later.',
+    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    // Allow bursts of requests
+    skipSuccessfulRequests: false,
+    skipFailedRequests: false,
+});
+
+// Stricter rate limiting for auth endpoints to prevent brute force
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 50, // limit each IP to 50 auth requests per windowMs
+    message: 'Too many authentication attempts, please try again later.',
+    standardHeaders: true,
+    legacyHeaders: false,
 });
 
 // Middleware
@@ -99,7 +113,7 @@ app.get('/health', (req, res) => {
 });
 
 // API Routes
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes); // Stricter rate limiting for auth
 app.use('/api/users', userRoutes);
 app.use('/api/leagues', leagueRoutes);
 app.use('/api/matches', matchRoutes);

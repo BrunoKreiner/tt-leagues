@@ -53,6 +53,21 @@ Quick facts (current state):
     - [ ] Medal icons on leaderboard rows (frontend)
     - [ ] Admin badge management UI (frontend)
 
+- [x] UI/UX Polish & Bug Fixes
+  - Files: Various frontend components and pages
+  - Actions: Fix notification page background, ELO deferred badge styling, dashboard layout improvements, ELO display enhancements, dark theme menu styling
+  - Acceptance: All UI elements are readable and properly styled; dashboard layout is optimized; ELO display shows progression; all menus match dark theme
+  - Progress:
+    - [x] Fix notification page background (white text on white background)
+    - [x] Fix "ELO deferred" badge styling in matches list (white text on white background)
+    - [x] Move dashboard stats circles below username and align with recent matches
+    - [x] Move leaderboards below recent matches and make them narrower
+    - [ ] Filter leaderboards by most recent league update
+    - [x] Show ELO progression in recent matches: "elo points (+n) vs elo points (+n)"
+    - [x] Fix hamburger menu dark theme styling (mobile and desktop)
+    - [x] Fix user profile image/avatar dark theme styling
+    - [x] Update file input styling for profile image upload
+
 - [x] Notifications UX
   - Files: `backend/src/routes/notifications.js`, FE notifications components
   - Actions: Wire list/mark-as-read/delete; toast for key events; unread count in header
@@ -259,6 +274,48 @@ These are not implemented; capture next steps at a high level.
 
 Based on the reference images showing modern dark-themed video game dashboards, the following changes are needed to transform the current design:
 
+### Implementation Priority & Phases
+
+**Phase 1: Foundation (High Priority)**
+- [ ] **Dark Theme Implementation**
+  - [x] Update `frontend/src/index.css` with dark theme CSS variables
+  - [x] Implement dark blue/black background with subtle circuit patterns
+  - [x] Add glowing accent colors (purple, blue, green for stats)
+  - [x] Ensure high contrast text readability
+  - [x] **Background & Visual Polish**
+    - [x] Fix background to use dark gradient (black to dark blue-greenish)
+    - [x] Replace logo and favicon with `452-4528875_riot-logo-fist-riot-games.png`
+    - [x] Add modern cyberpunk font for titles and subtitles
+    - [x] Apply cyberpunk font styling to headings and important text
+  - [ ] Test across all components for consistency
+
+**Phase 2: Dashboard Redesign (High Priority)**
+- [x] **Dashboard Layout Transformation**
+  - [x] Convert current dashboard to card-based grid layout
+  - [x] Implement large circular progress indicators for key metrics
+  - [x] Create "Hall of Fame" style leaderboard cards
+  - [x] Add responsive grid (3 columns max) for leaderboards
+  - [x] Implement clickable leaderboard cards and rows
+
+**Phase 3: Visual Components (Medium Priority)**
+- [x] **Enhanced UI Components**
+  - [x] Redesign navigation with game-like styling
+  - [x] Update buttons with hover effects and animations
+  - [x] Improve form designs with modern styling
+  - [x] Add micro-interactions and loading states
+
+**Phase 4: Polish & Responsive (Medium Priority)**
+- [x] **Layout & Background Fixes**
+  - [x] Fix dark background gradient (forced with !important)
+  - [x] Redesign dashboard layout (welcome left, recent matches + stats right)
+  - [x] Remove unnecessary buttons and improve navigation
+  - [x] Add click indicators and improve UX
+- [ ] **Mobile & Performance**
+  - [ ] Ensure responsive design works on all devices
+  - [ ] Add smooth animations and transitions
+  - [ ] Optimize performance and bundle size
+  - [ ] Final accessibility review
+
 ### Dark Theme & Color Scheme
 - [ ] Implement dark theme as default (remove light mode or make dark primary)
 - [ ] Update color palette to match video game aesthetics:
@@ -276,31 +333,32 @@ Based on the reference images showing modern dark-themed video game dashboards, 
   - [ ] "Hall of Fame" style leaderboard with distinct styling
 - [ ] Add animated elements and hover effects
 - [ ] Implement responsive grid layouts that work on mobile
-- [ ] **Dashboard Leaderboard Improvements:**
-  - [ ] Make leaderboards narrow and box-like (not full width)
-  - [ ] Display up to 3 leaderboards in one row (responsive grid)
-  - [ ] Make each leaderboard card clickable to link to the league
-  - [ ] Make entire leaderboard rows clickable to link to user profiles
-  - [ ] Add small ELO history visualization (sparkline) on the right side of each leaderboard row
-  - [ ] Change page title from "Table Tennis League" to just "Leagues"
-- [ ] **League Page Improvements:**
-  - [ ] Make entire league cards clickable (not just buttons)
-  - [ ] Improve league card hover effects and visual feedback
+- [x] **Dashboard Leaderboard Improvements:**
+  - [x] Make leaderboards narrow and box-like (not full width)
+  - [x] Display up to 3 leaderboards in one row (responsive grid)
+  - [x] Make each leaderboard card clickable to link to the league
+  - [x] Make entire leaderboard rows clickable to link to user profiles
+  - [x] Add small ELO history visualization (sparkline) on the right side of each leaderboard row
+  - [x] Change page title from "Table Tennis League" to just "Leagues"
+- [x] **League Page Improvements:**
+  - [x] Make entire league cards clickable (not just buttons)
+  - [x] Improve league card hover effects and visual feedback
 
 ### Enhanced Visual Components
-- [ ] Redesign leaderboard to be more prominent and visually appealing:
-  - [ ] Larger medal icons with better positioning
-  - [ ] Player avatars integrated into medal badges (already implemented)
-  - [ ] Better spacing and typography
-  - [ ] Add visual indicators for rank changes (arrows, colors)
-- [ ] Improve profile pages with:
-  - [ ] Hero section with large avatar and key stats
-  - [ ] Equipment/playstyle cards with better visual hierarchy
-  - [ ] Achievement/badge display with modern styling
-- [ ] Update navigation to be more game-like:
-  - [ ] Stylized buttons and hover effects
-  - [ ] Better mobile menu design
-  - [ ] Consistent iconography throughout
+- [x] Redesign leaderboard to be more prominent and visually appealing:
+  - [x] Larger medal icons with better positioning
+  - [x] Player avatars integrated into medal badges (already implemented)
+  - [x] Better spacing and typography
+  - [x] Add visual indicators for rank changes (arrows, colors)
+- [x] Improve league detail pages with:
+  - [x] Fixed black table headers with proper dark theme styling
+  - [x] Consolidated admin functions into one compact panel
+  - [x] Better layout with sidebar and main content areas
+  - [x] Modern table styling with hover effects
+- [x] Update navigation to be more game-like:
+  - [x] Stylized buttons and hover effects
+  - [x] Better mobile menu design
+  - [x] Consistent iconography throughout
 
 ### Responsive Design Improvements
 - [ ] Mobile-first responsive design:
@@ -334,25 +392,59 @@ Based on the reference images showing modern dark-themed video game dashboards, 
   - [ ] Consistent spacing and typography system
   - [ ] Icon library updates for better visual consistency
 
-### Files to Update
-- `frontend/src/index.css` - Global styles and theme variables
-- `frontend/src/components/ui/*` - All UI components need styling updates
-- `frontend/src/pages/*` - Page layouts and component arrangements
-- `frontend/src/components/layout/*` - Navigation and layout components
-- `frontend/src/components/MedalIcon.jsx` - Medal styling improvements
-- `frontend/src/components/BadgeDisplay.jsx` - Badge styling updates
-- `frontend/src/pages/DashboardPage.jsx` - Dashboard leaderboard grid layout and interactions
-- `frontend/src/pages/LeaguesPage.jsx` - League card clickability improvements
-- `frontend/src/components/layout/Layout.jsx` - Page title update
+### Files to Update (Implementation Order)
+
+**Phase 1 Files:**
+- `frontend/src/index.css` - Global dark theme CSS variables and base styles
+- `frontend/src/components/ui/card.jsx` - Card component styling for dark theme
+- `frontend/src/components/ui/button.jsx` - Button styling with hover effects
+- `frontend/src/components/layout/Layout.jsx` - Page title update to "Leagues"
+
+**Phase 2 Files:**
+- `frontend/src/pages/DashboardPage.jsx` - Complete dashboard redesign with grid layout
 - `frontend/src/components/EloSparkline.jsx` - Sparkline component for leaderboard rows
+- `frontend/src/components/MedalIcon.jsx` - Medal styling improvements
+- `frontend/src/pages/LeaguesPage.jsx` - League card clickability improvements
+
+**Phase 3 Files:**
+- `frontend/src/components/ui/*` - All remaining UI components styling updates
+- `frontend/src/components/layout/*` - Navigation and layout components
+- `frontend/src/components/BadgeDisplay.jsx` - Badge styling updates
+- `frontend/src/pages/*` - All page layouts and component arrangements
+
+**Phase 4 Files:**
+- `frontend/src/App.css` - Global animations and transitions
+- `frontend/src/components/ui/LoadingSpinner.jsx` - Loading state animations
+- All component files for final responsive and accessibility review
 
 ### Acceptance Criteria
-- [ ] Site has a cohesive dark video game aesthetic
-- [ ] All pages are fully responsive and mobile-friendly
-- [ ] Visual hierarchy clearly guides user attention
-- [ ] Interactive elements provide good feedback
-- [ ] Performance remains fast with new styling
-- [ ] Accessibility standards are maintained
+
+**Phase 1 Acceptance:**
+- [ ] Dark theme is consistently applied across all components
+- [ ] Color palette matches video game aesthetic (dark blue/black, glowing accents)
+- [ ] Text is highly readable with proper contrast ratios
+- [ ] Page title displays as "Leagues"
+
+**Phase 2 Acceptance:**
+- [ ] Dashboard displays leaderboards in responsive grid (3 columns max)
+- [ ] Leaderboard cards are clickable and link to leagues
+- [ ] Leaderboard rows are clickable and link to user profiles
+- [ ] ELO sparklines appear on the right side of leaderboard rows
+- [ ] Medal icons with user avatars display correctly
+- [ ] League cards are fully clickable (not just buttons)
+
+**Phase 3 Acceptance:**
+- [ ] All UI components have consistent game-like styling
+- [ ] Navigation has modern hover effects and animations
+- [ ] Forms have improved styling and validation feedback
+- [ ] Micro-interactions provide good user feedback
+
+**Phase 4 Acceptance:**
+- [ ] Site is fully responsive on all device sizes
+- [ ] Smooth animations and transitions are implemented
+- [ ] Performance remains optimal with new styling
+- [ ] Accessibility standards are maintained (WCAG compliance)
+- [ ] Site has cohesive dark video game aesthetic throughout
 
 ---
 

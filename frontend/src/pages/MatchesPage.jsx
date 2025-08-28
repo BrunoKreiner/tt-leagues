@@ -153,7 +153,7 @@ export default function MatchesPage() {
                             m.elo_applied ? (
                               <span className="inline-flex items-center rounded border px-2 py-0.5 text-xs">{t('elo.applied')}</span>
                             ) : (
-                              <span className="inline-flex items-center rounded border px-2 py-0.5 text-xs bg-amber-50">{t('elo.deferred')}</span>
+                              <span className="inline-flex items-center rounded border px-2 py-0.5 text-xs bg-amber-900/50 text-amber-200 border-amber-700">{t('elo.deferred')}</span>
                             )
                           ) : (
                             <span className="text-muted-foreground text-xs">-</span>

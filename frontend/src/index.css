@@ -1,9 +1,33 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
 
-/* Lightweight theme prototype */
+/* Dark Video Game Theme */
 :root {
-  --app-gradient-start: 235 85% 98%;
-  --app-gradient-end: 230 60% 94%;
+  /* Dark theme colors based on reference images */
+  --bg-primary: 15 23% 4%; /* Very dark blue-black */
+  --bg-secondary: 220 13% 8%; /* Slightly lighter dark */
+  --bg-card: 220 13% 10%; /* Card background */
+  --bg-elevated: 220 13% 12%; /* Elevated elements */
+  
+  /* Accent colors for stats and highlights */
+  --accent-purple: 250 95% 60%; /* Purple for primary stats */
+  --accent-blue: 210 100% 50%; /* Blue for secondary stats */
+  --accent-green: 142 76% 36%; /* Green for positive stats */
+  --accent-yellow: 45 93% 47%; /* Yellow for warnings */
+  --accent-red: 0 84% 60%; /* Red for negative stats */
+  
+  /* Text colors */
+  --text-primary: 0 0% 95%; /* Almost white */
+  --text-secondary: 0 0% 70%; /* Light gray */
+  --text-muted: 0 0% 50%; /* Medium gray */
+  
+  /* Border and shadow colors */
+  --border-color: 220 13% 20%;
+  --shadow-color: 0 0% 0% 0.3;
+  
+  /* Circuit pattern colors */
+  --circuit-primary: 210 100% 50% 0.1;
+  --circuit-secondary: 250 95% 60% 0.05;
 }
 
 html, body {
@@ -11,9 +35,93 @@ html, body {
 }
 
 body {
-  background-image: radial-gradient(1200px 600px at 20% -10%, hsl(var(--app-gradient-start)) 0%, transparent 60%),
-                    radial-gradient(1000px 500px at 120% 10%, hsl(var(--app-gradient-end)) 0%, transparent 60%);
-  background-repeat: no-repeat;
+  background-color: #0a0a0a !important;
+  color: hsl(var(--text-primary)) !important;
+  
+  /* Dark gradient background with circuit patterns */
+  background-image: 
+    linear-gradient(135deg, #0a0a0a 0%, #0f1419 25%, #1a2332 50%, #0f1419 75%, #0a0a0a 100%) !important,
+    radial-gradient(circle at 20% 20%, hsl(var(--circuit-primary)) 0%, transparent 50%) !important,
+    radial-gradient(circle at 80% 80%, hsl(var(--circuit-secondary)) 0%, transparent 50%) !important,
+    linear-gradient(45deg, transparent 49%, hsl(var(--border-color)) 50%, transparent 51%) !important;
+  background-size: 100% 100%, 100px 100px, 150px 150px, 20px 20px !important;
+  background-position: 0 0, 0 0, 0 0, 0 0 !important;
+  background-repeat: no-repeat, repeat, repeat, repeat !important;
+  min-height: 100vh !important;
+}
+
+/* Override any Tailwind background classes */
+.bg-background {
+  background-color: transparent !important;
+}
+
+.bg-card {
+  background-color: hsl(var(--bg-card)) !important;
+}
+
+/* Hide scrollbars but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Safari and Chrome */
+}
+
+/* Glowing effects for accent elements */
+.glow-purple {
+  box-shadow: 0 0 10px hsl(var(--accent-purple) / 0.3);
+}
+
+.glow-blue {
+  box-shadow: 0 0 10px hsl(var(--accent-blue) / 0.3);
+}
+
+.glow-green {
+  box-shadow: 0 0 10px hsl(var(--accent-green) / 0.3);
+}
+
+/* Subtle animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes cyberpunkGlow {
+  0%, 100% { 
+    box-shadow: 0 0 5px currentColor, 0 0 10px currentColor, 0 0 15px currentColor;
+  }
+  50% { 
+    box-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor;
+  }
+}
+
+@keyframes dataStream {
+  0% { transform: translateY(-100%); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-pulse-subtle {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-cyberpunk-glow {
+  animation: cyberpunkGlow 2s ease-in-out infinite;
+}
+
+.animate-data-stream {
+  animation: dataStream 3s linear infinite;
 }
 
 /* Compact spacing helpers used in compacted components */
@@ -25,4 +133,64 @@ body {
 .compact-section-gap {
   row-gap: 0.75rem;
   column-gap: 0.75rem;
+}
+
+/* Cyberpunk Typography */
+.cyberpunk-title {
+  font-family: 'Orbitron', monospace;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.cyberpunk-subtitle {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.cyberpunk-text {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 400;
+}
+
+/* Video game style card styling */
+.vg-card {
+  background: hsl(var(--bg-card));
+  border: 1px solid hsl(var(--border-color));
+  border-radius: 12px;
+  box-shadow: 0 4px 6px hsl(var(--shadow-color));
+  transition: all 0.2s ease;
+}
+
+.vg-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 12px hsl(var(--shadow-color));
+  border-color: hsl(var(--accent-blue) / 0.3);
+}
+
+/* Circular progress indicators */
+.circular-progress {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.circular-progress::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, currentColor, transparent);
+  opacity: 0.1;
 }

@@ -420,553 +420,465 @@ const LeagueDetailPage = () => {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{league.name}</h1>
-          <p className="text-muted-foreground">{t('leagues.createdBy', { user: '' })}<Link to={`/profile/${league.created_by_username}`} className="underline">{league.created_by_username}</Link> • {format(new Date(league.created_at), 'PPP')}</p>
+          <h1 className="cyberpunk-title text-3xl text-blue-300">{league.name}</h1>
+          <p className="cyberpunk-text text-gray-400">{t('leagues.createdBy', { user: '' })}<Link to={`/profile/${league.created_by_username}`} className="text-blue-400 hover:text-blue-300">{league.created_by_username}</Link> • {format(new Date(league.created_at), 'PPP')}</p>
         </div>
         <div className="flex items-center gap-2">
+          {league.description && (
+            <span className="text-sm text-gray-300 px-2 py-1 bg-gray-800 rounded border border-gray-700">
+              {league.description}
+            </span>
+          )}
           <Badge variant="secondary" className="flex items-center gap-1">
             {league.is_public ? <Globe className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
             {league.is_public ? t('leagues.public') : t('leagues.private')}
           </Badge>
           {league.season && <Badge variant="outline">{t('admin.season')}: {league.season}</Badge>}
-        </div>
-      </div>
-
-      {league.description && (
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-muted-foreground">{league.description}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="grid gap-4 md:grid-cols-3">
-        {/* Leaderboard first */}
-        <Card className="md:col-span-2">
-          <CardHeader className="py-3">
-            <CardTitle className="text-base">{t('leagues.leaderboard')}</CardTitle>
-            <CardDescription>{t('leagues.rankedByElo', { count: leaderboardPagination.total })}</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {leaderboard.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('leagues.noPlayers')}</p>
-            ) : (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('leagues.rank')}</TableHead>
-                      <TableHead>{t('leagues.player')}</TableHead>
-                      <TableHead>{t('leagues.elo')}</TableHead>
-                      <TableHead>{t('leagues.trend')}</TableHead>
-                      <TableHead>{t('leagues.wl')}</TableHead>
-                      <TableHead>{t('leagues.winPercent')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {leaderboard.map((p) => (
-                      <TableRow key={p.id}>
-                        <TableCell>
-                          {p.rank <= 3 ? (
-                            <MedalIcon rank={p.rank} size={32} userAvatar={p.avatar_url} />
-                          ) : (
-                            <span>{p.rank}</span>
-                          )}
-                        </TableCell>
-                        <TableCell><Link to={`/profile/${p.username}`} className="underline hover:no-underline">{p.username}</Link></TableCell>
-                        <TableCell>{p.current_elo}</TableCell>
-                        <TableCell>
-                          <EloSparkline userId={p.id} leagueId={id} width={50} height={16} points={15} />
-                        </TableCell>
-                        <TableCell>{p.matches_won}/{p.matches_played - p.matches_won}</TableCell>
-                        <TableCell>{p.win_rate}%</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                
-                {leaderboardPagination.pages > 1 && (
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
-                      <span>{t('leagues.showing', { 
-                        start: ((leaderboardPagination.page - 1) * leaderboardPagination.limit) + 1, 
-                        end: Math.min(leaderboardPagination.page * leaderboardPagination.limit, leaderboardPagination.total), 
-                        total: leaderboardPagination.total 
-                      })}</span>
-                      <span>{t('leagues.page', { current: leaderboardPagination.page, total: leaderboardPagination.pages })}</span>
-                    </div>
-                    <Pagination>
-                      <PaginationContent>
-                        {leaderboardPagination.page > 1 && (
-                          <PaginationItem>
-                            <PaginationPrevious 
-                              href="#" 
-                              onClick={(e) => { 
-                                e.preventDefault(); 
-                                fetchLeaderboard(leaderboardPagination.page - 1); 
-                              }} 
-                            />
-                          </PaginationItem>
-                        )}
-                        <PaginationItem>
-                          <PaginationLink isActive>{leaderboardPagination.page}</PaginationLink>
-                        </PaginationItem>
-                        <span className="px-1 self-center text-sm text-muted-foreground">{t('leagues.of')} {leaderboardPagination.pages}</span>
-                        {leaderboardPagination.page < leaderboardPagination.pages && (
-                          <PaginationItem>
-                            <PaginationNext 
-                              href="#" 
-                              onClick={(e) => { 
-                                e.preventDefault(); 
-                                fetchLeaderboard(leaderboardPagination.page + 1); 
-                              }} 
-                            />
-                          </PaginationItem>
-                        )}
-                      </PaginationContent>
-                    </Pagination>
-                  </div>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Compact overview beside leaderboard */}
-        <Card>
-          <CardHeader className="py-3">
-            <CardTitle className="text-base">{t('common.overview')}</CardTitle>
-            <CardDescription>{t('leagues.keyStats')}</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0 text-sm text-muted-foreground space-y-2">
-            <div className="flex items-center gap-2"><Users className="h-4 w-4" /> {t('leagues.membersLabel')}: {league.member_count}</div>
-            <div className="flex items-center gap-2"><ListChecks className="h-4 w-4" /> {t('leagues.matchesLabel')}: {league.match_count}</div>
-            {userMembership && (
-              <div className="flex items-center gap-2"><Trophy className="h-4 w-4" /> {t('leagues.yourElo', { elo: userMembership.current_elo })}</div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {isAuthenticated && !userMembership && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t('leagues.joinThisLeague')}</CardTitle>
-                         <CardDescription>{t('leagues.joinDescription')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form className="flex flex-col sm:flex-row gap-3" onSubmit={handleJoin}>
-              <Input
-                placeholder={t('leagues.inviteCodePlaceholder')}
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value)}
-                disabled={joinLoading}
-              />
-              <Button type="submit" disabled={joinLoading}>
-                {joinLoading ? t('status.joining') : t('actions.join')}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      )}
-
-      {isAuthenticated && userMembership && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t('leagues.leaveThisLeague')}</CardTitle>
-            <CardDescription>{t('leagues.leaveWarning')}</CardDescription>
-          </CardHeader>
-          <CardContent>
+          {isAuthenticated && userMembership && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" disabled={leaveLoading}>
+                <Button variant="destructive" size="sm" disabled={leaveLoading}>
                   {leaveLoading ? t('status.leaving') : t('leagues.leaveLeague')}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                                     <AlertDialogTitle>{t('dialog.leaveLeague')}</AlertDialogTitle>
-                   <AlertDialogDescription>
-                     {t('dialog.leaveLeagueDesc')}
-                   </AlertDialogDescription>
-                 </AlertDialogHeader>
-                 <AlertDialogFooter>
-                   <AlertDialogCancel>{t('dialog.cancel')}</AlertDialogCancel>
-                   <AlertDialogAction onClick={handleLeave} disabled={leaveLoading}>
-                     {t('dialog.confirm')}
-                   </AlertDialogAction>
+                  <AlertDialogTitle>{t('dialog.leaveLeague')}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t('dialog.leaveLeagueDesc')}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t('dialog.cancel')}</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleLeave} disabled={leaveLoading}>
+                    {t('dialog.confirm')}
+                  </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </div>
+      </div>
 
-      {isAuthenticated && userMembership?.is_admin && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t('leagues.editLeague')}</CardTitle>
-            <CardDescription>{t('leagues.editDescription')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleUpdate)} className="space-y-6">
-                <FormField
-                  name="name"
-                  control={form.control}
-                  render={({ field }) => (
-                    <FormItem>
-                                              <FormLabel>{t('common.name')}</FormLabel>
-                      <FormControl>
-                        <Input placeholder={t('admin.leagueNamePlaceholder')} {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  name="description"
-                  control={form.control}
-                  render={({ field }) => (
-                    <FormItem>
-                                              <FormLabel>{t('common.description')}</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder={t('admin.descriptionPlaceholder')} rows={4} {...field} />
-                      </FormControl>
-                      <FormDescription>{t('admin.descriptionHint')}</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField
-                    name="season"
-                    control={form.control}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t('admin.season')}</FormLabel>
-                        <FormControl>
-                          <Input placeholder={t('admin.seasonPlaceholder')} {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    name="is_public"
-                    control={form.control}
-                    render={({ field }) => (
-                      <FormItem className="flex items-center justify-between rounded-md border p-3">
-                        <div>
-                          <FormLabel className="mb-1">{t('admin.publicLeague')}</FormLabel>
-                          <FormDescription>
-                            {t('admin.publicLeagueHint')}
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="flex flex-col gap-2">
-                                            <FormLabel>{t('leagues.eloUpdateMode')}</FormLabel>
-                    <div className="text-xs text-muted-foreground mb-2">
-                      {t('leagues.eloModeHelp')}
+      {/* Recent Matches - Minimal */}
+      {matches.length === 0 ? (
+        <p className="text-sm text-gray-400">{t('leagues.noMatchesYet')}</p>
+      ) : (
+        <div className="relative mx-4">
+          {/* Left Arrow */}
+          <button 
+            className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 text-gray-400 hover:text-gray-300 text-2xl font-bold bg-gray-900/80 rounded-full w-8 h-8 flex items-center justify-center"
+            onClick={() => {
+              const container = document.getElementById('matches-scroll');
+              if (container) container.scrollLeft -= 300;
+            }}
+          >
+            ‹
+          </button>
+          
+          {/* Right Arrow */}
+          <button 
+            className="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 text-gray-400 hover:text-gray-300 text-2xl font-bold bg-gray-900/80 rounded-full w-8 h-8 flex items-center justify-center"
+            onClick={() => {
+              const container = document.getElementById('matches-scroll');
+              if (container) container.scrollLeft += 300;
+            }}
+          >
+            ›
+          </button>
+          
+          {/* Matches Container */}
+          <div 
+            id="matches-scroll"
+            className="overflow-x-auto scrollbar-hide px-10"
+            style={{ scrollBehavior: 'smooth' }}
+          >
+            <div className="flex gap-4 min-w-max py-3 justify-center">
+              {matches.map((m) => {
+                const player1Won = m.player1_sets_won > m.player2_sets_won;
+                const player2Won = m.player2_sets_won > m.player1_sets_won;
+                
+                return (
+                  <div key={m.id} className="flex flex-col items-center min-w-fit px-2">
+                    {/* Score Line */}
+                    <div className="flex items-center gap-2 whitespace-nowrap">
+                      <Link to={`/profile/${m.player1_username}`} className="text-blue-400 hover:text-blue-300 font-medium">
+                        {m.player1_username}
+                      </Link>
+                      <span className="text-gray-300 font-bold">{m.player1_sets_won}</span>
+                      <span className="text-gray-500">:</span>
+                      <span className="text-gray-300 font-bold">{m.player2_sets_won}</span>
+                      <Link to={`/profile/${m.player2_username}`} className="text-blue-400 hover:text-blue-300 font-medium">
+                        {m.player2_username}
+                      </Link>
                     </div>
-                    <Select onValueChange={(v) => setEloMode(v)} value={eloMode}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder={t('leagues.selectEloMode')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="immediate">{t('leagues.eloImmediate')}</SelectItem>
-                        <SelectItem value="weekly">{t('leagues.eloWeekly')}</SelectItem>
-                        <SelectItem value="monthly">{t('leagues.eloMonthly')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <div className="text-xs text-muted-foreground">
-                      {t('leagues.eloModeDesc')}
+                    
+                    {/* ELO Points Line */}
+                    <div className="flex items-center gap-2 whitespace-nowrap mt-1">
+                      {m.elo_applied ? (
+                        <>
+                          <span className={`text-xs font-medium ${player1Won ? 'text-green-400' : player2Won ? 'text-red-400' : 'text-gray-400'}`}>
+                            {m.player1_elo_before || 'N/A'}
+                            {m.player1_elo_after && m.player1_elo_before && (
+                              <span className={m.player1_elo_after > m.player1_elo_before ? 'text-green-400' : 'text-red-400'}>
+                                {m.player1_elo_after > m.player1_elo_before ? ' (+' : ' ('}
+                                {m.player1_elo_after - m.player1_elo_before}
+                                {m.player1_elo_after > m.player1_elo_before ? ')' : ')'}
+                              </span>
+                            )}
+                          </span>
+                          <span className="text-gray-500 text-xs">vs</span>
+                          <span className={`text-xs font-medium ${player2Won ? 'text-green-400' : player1Won ? 'text-red-400' : 'text-gray-400'}`}>
+                            {m.player2_elo_before || 'N/A'}
+                            {m.player2_elo_after && m.player2_elo_before && (
+                              <span className={m.player2_elo_after > m.player2_elo_before ? 'text-green-400' : 'text-red-400'}>
+                                {m.player2_elo_after > m.player2_elo_before ? ' (+' : ' ('}
+                                {m.player2_elo_after - m.player2_elo_before}
+                                {m.player2_elo_after > m.player2_elo_before ? ')' : ')'}
+                              </span>
+                            )}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-xs text-yellow-400 font-medium">Pending ELO calculation</span>
+                      )}
+                    </div>
+                    
+                    {/* Date and League Line */}
+                    <div className="text-xs text-gray-500 mt-1 text-center">
+                      {m.played_at ? format(new Date(m.played_at), 'MMM d') : '-'} • {league.name}
                     </div>
                   </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button type="submit" disabled={updateLoading}>
-                    {updateLoading ? t('status.saving') : t('actions.saveChanges')}
-                  </Button>
-                  <Button type="button" variant="outline" onClick={() => form.reset()} disabled={updateLoading}>
-                    {t('actions.reset')}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
 
+      {/* Main Content Grid */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Leaderboard - Takes 2/3 width */}
+        <div className="lg:col-span-2">
+          <Card className="vg-card">
+            <CardHeader className="py-4">
+              <CardTitle className="cyberpunk-subtitle text-lg">{t('leagues.leaderboard')}</CardTitle>
+              <CardDescription className="text-gray-400">{t('leagues.rankedByElo', { count: leaderboardPagination.total })}</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {leaderboard.length === 0 ? (
+                <p className="text-sm text-gray-400">{t('leagues.noPlayers')}</p>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-base">
+                      <thead>
+                        <tr className="text-left text-gray-400 border-b border-gray-700">
+                          <th className="px-3 py-2 font-medium text-lg">{t('leagues.rank')}</th>
+                          <th className="px-3 py-2 font-medium">{t('leagues.player')}</th>
+                          <th className="px-3 py-2 font-medium">{t('leagues.elo')}</th>
+                          <th className="px-3 py-2 font-medium">{t('leagues.trend')}</th>
+                          <th className="px-3 py-2 font-medium">{t('leagues.wl')}</th>
+                          <th className="px-3 py-2 font-medium">{t('leagues.winPercent')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {leaderboard.map((p) => (
+                          <tr key={p.id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                            <td className="px-3 py-4">
+                              {p.rank <= 3 ? (
+                                <MedalIcon rank={p.rank} size={48} userAvatar={p.avatar_url} />
+                              ) : (
+                                <span className="text-gray-300 text-2xl font-bold">{p.rank}</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-4">
+                              <Link to={`/profile/${p.username}`} className="text-blue-400 hover:text-blue-300 text-lg">{p.username}</Link>
+                            </td>
+                            <td className="px-3 py-4 text-gray-300 text-lg">{p.current_elo}</td>
+                            <td className="px-3 py-4">
+                              <EloSparkline userId={p.id} leagueId={id} width={50} height={16} points={15} />
+                            </td>
+                            <td className="px-3 py-4 text-gray-300 text-lg">{p.matches_won}/{p.matches_played - p.matches_won}</td>
+                            <td className="px-3 py-4 text-gray-300 text-lg">{p.win_rate}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  {leaderboardPagination.pages > 1 && (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between text-sm text-gray-400 mb-2">
+                        <span>{t('leagues.showing', { 
+                          start: ((leaderboardPagination.page - 1) * leaderboardPagination.limit) + 1, 
+                          end: Math.min(leaderboardPagination.page * leaderboardPagination.limit, leaderboardPagination.total), 
+                          total: leaderboardPagination.total 
+                        })}</span>
+                        <span>{t('leagues.page', { current: leaderboardPagination.page, total: leaderboardPagination.pages })}</span>
+                      </div>
+                      <Pagination>
+                        <PaginationContent>
+                          {leaderboardPagination.page > 1 && (
+                            <PaginationItem>
+                              <PaginationPrevious 
+                                href="#" 
+                                onClick={(e) => { 
+                                  e.preventDefault(); 
+                                  fetchLeaderboard(leaderboardPagination.page - 1); 
+                                }} 
+                              />
+                            </PaginationItem>
+                          )}
+                          <PaginationItem>
+                            <PaginationLink isActive>{leaderboardPagination.page}</PaginationLink>
+                          </PaginationItem>
+                          <span className="px-1 self-center text-sm text-gray-400">{t('leagues.of')} {leaderboardPagination.pages}</span>
+                          {leaderboardPagination.page < leaderboardPagination.pages && (
+                            <PaginationItem>
+                              <PaginationNext 
+                                href="#" 
+                                onClick={(e) => { 
+                                  e.preventDefault(); 
+                                  fetchLeaderboard(leaderboardPagination.page + 1); 
+                                }} 
+                              />
+                            </PaginationItem>
+                          )}
+                        </PaginationContent>
+                      </Pagination>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Sidebar - Takes 1/3 width */}
+        <div className="space-y-4">
+          {/* Overview */}
+          <Card className="vg-card">
+            <CardHeader className="py-3">
+              <CardTitle className="cyberpunk-subtitle text-sm">{t('common.overview')}</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 text-sm text-gray-300 space-y-2">
+              <div className="flex items-center gap-2"><Users className="h-4 w-4 text-blue-400" /> {t('leagues.membersLabel')}: {league.member_count}</div>
+              <div className="flex items-center gap-2"><ListChecks className="h-4 w-4 text-green-400" /> {t('leagues.matchesLabel')}: {league.match_count}</div>
+              {userMembership && (
+                <div className="flex items-center gap-2"><Trophy className="h-4 w-4 text-yellow-400" /> {t('leagues.yourElo', { elo: userMembership.current_elo })}</div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Join League */}
+          {isAuthenticated && !userMembership && (
+            <Card className="vg-card">
+              <CardHeader className="py-3">
+                <CardTitle className="cyberpunk-subtitle text-sm">{t('leagues.joinThisLeague')}</CardTitle>
+                <CardDescription className="text-gray-400 text-xs">{t('leagues.joinDescription')}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form className="flex flex-col gap-2" onSubmit={handleJoin}>
+                  <Input
+                    placeholder={t('leagues.inviteCodePlaceholder')}
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value)}
+                    disabled={joinLoading}
+                  />
+                  <Button type="submit" disabled={joinLoading} size="sm">
+                    {joinLoading ? t('status.joining') : t('actions.join')}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          )}
+
+
+        </div>
+      </div>
+
+      {/* Members List and Admin Panel - Side by Side */}
       {isAuthenticated && userMembership?.is_admin && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t('leagues.inviteUser')}</CardTitle>
-            <CardDescription>{t('leagues.inviteDescription')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form className="flex flex-col sm:flex-row gap-3" onSubmit={handleInvite}>
-              <Input
-                placeholder={t('profile.username')}
-                value={inviteUsername}
-                onChange={(e) => setInviteUsername(e.target.value)}
-                disabled={inviteLoading}
-              />
-              <Button type="submit" disabled={inviteLoading}>
-                {inviteLoading ? t('status.inviting') : t('leagues.sendInvite')}
-              </Button>
-            </form>
-            {inviteResult?.invite_code && (
-              <div className="mt-3 text-sm">
-                <div className="text-muted-foreground">{t('leagues.inviteCodeLabel')}:</div>
-                <div className="font-mono text-base">{inviteResult.invite_code}</div>
-                {inviteResult.expires_at && (
-                  <div className="text-muted-foreground">
-                    {t('leagues.expires')}: {format(new Date(inviteResult.expires_at), 'PP p')}
+        <div className="grid gap-6 lg:grid-cols-2 mt-6">
+          {/* Members List - Left */}
+          <Card id="members" className="vg-card">
+            <CardHeader className="py-4">
+              <CardTitle className="cyberpunk-subtitle text-lg">{t('leagues.members')}</CardTitle>
+              <CardDescription className="text-gray-400">{t('leagues.manageRoles')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {members.length === 0 ? (
+                <p className="text-sm text-gray-400">{t('leagues.noMembers')}</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-gray-400 border-b border-gray-700">
+                        <th className="px-3 py-2 font-medium">{t('leagues.user')}</th>
+                        <th className="px-3 py-2 font-medium">{t('leagues.role')}</th>
+                        <th className="px-3 py-2 font-medium">{t('leagues.joined')}</th>
+                        <th className="px-3 py-2 font-medium text-right">{t('table.actions')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {members.map((m) => (
+                        <tr key={m.id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                          <td className="px-3 py-3">
+                            <div className="flex flex-col">
+                              <span className="font-medium">
+                                <Link to={`/profile/${m.username}`} className="text-blue-400 hover:text-blue-300">{m.username}</Link>
+                              </span>
+                              {(m.first_name || m.last_name) && (
+                                <span className="text-xs text-gray-500">{[m.first_name, m.last_name].filter(Boolean).join(' ')}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-3 py-3">
+                            {m.is_league_admin ? (
+                              <Badge variant="secondary">{t('leagues.admin')}</Badge>
+                            ) : (
+                              <Badge variant="outline">{t('leagues.member')}</Badge>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 text-gray-300">{m.joined_at ? format(new Date(m.joined_at), 'PP') : '-'}</td>
+                          <td className="px-3 py-3 text-right">
+                            {m.is_league_admin ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDemote(m.id, m.username)}
+                                disabled={!!roleChanging[m.id] || members.filter((x) => x.is_league_admin).length <= 1}
+                              >
+                                {roleChanging[m.id] ? t('status.updating') : t('leagues.demote')}
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handlePromote(m.id, m.username)}
+                                disabled={!!roleChanging[m.id]}
+                              >
+                                {roleChanging[m.id] ? t('status.updating') : t('leagues.promote')}
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Admin Panel - Right */}
+          <Card className="vg-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="cyberpunk-subtitle text-lg">Admin Panel</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Invite Users */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-gray-300">Invite Users</h4>
+                <form className="flex gap-2" onSubmit={handleInvite}>
+                  <Input
+                    placeholder={t('profile.username')}
+                    value={inviteUsername}
+                    onChange={(e) => setInviteUsername(e.target.value)}
+                    disabled={inviteLoading}
+                    className="flex-1"
+                  />
+                  <Button type="submit" disabled={inviteLoading}>
+                    {inviteLoading ? t('status.inviting') : 'Send Invite'}
+                  </Button>
+                </form>
+                {inviteResult?.invite_code && (
+                  <div className="text-sm bg-gray-800 p-3 rounded border border-gray-700">
+                    <div className="text-gray-400 mb-1">Invite Code:</div>
+                    <div className="font-mono text-blue-400 text-lg">{inviteResult.invite_code}</div>
                   </div>
                 )}
               </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
-      {isAuthenticated && userMembership?.is_admin && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t('leagues.eloConsolidation')}</CardTitle>
-            <CardDescription>
-              {t('leagues.consolidationDescription')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              disabled={consolidating}
-              onClick={async () => {
-                console.log('Consolidation button clicked for league:', id);
-                try {
-                  setConsolidating(true);
-                  console.log('Making consolidation API call...');
-                  const res = await matchesAPI.consolidateLeague(id);
-                  console.log('Consolidation response:', res);
-                  toast.success(res.data?.message || t('leagues.consolidationComplete'));
-                  await refreshLeagueData();
-                } catch (e) {
-                  console.error('Consolidation error:', e);
-                  console.error('Error response:', e?.response);
-                  console.error('Error data:', e?.response?.data);
-                  toast.error(e?.response?.data?.error || t('leagues.consolidationError'));
-                } finally {
-                  setConsolidating(false);
-                }
-              }}
-            >
-              {consolidating ? t('leagues.consolidating') : t('leagues.consolidateElo')}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={async () => {
-                try {
-                  console.log('Testing debug endpoint for league:', id);
-                  const res = await matchesAPI.debugConsolidation(id);
-                  console.log('Debug endpoint response:', res);
-                  console.log('Debug data:', res.data);
-                  toast.success(t('leagues.debugMatchesToConsolidate', { count: res.data.matchesToConsolidate }));
-                } catch (e) {
-                  console.error('Debug endpoint error:', e);
-                  console.error('Debug error response:', e?.response?.data);
-                  toast.error(t('leagues.debugEndpointFailed', { error: e.message }));
-                }
-              }}
-            >
-              {t('leagues.debug')}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+              {/* ELO Update Mode */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-gray-300">ELO Update Mode</h4>
+                <Select value={eloMode} onValueChange={setEloMode}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="immediate">Immediate</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  disabled={updateLoading}
+                  onClick={async () => {
+                    try {
+                      setUpdateLoading(true);
+                      await leaguesAPI.update(id, { elo_update_mode: eloMode });
+                      toast.success('ELO update mode updated');
+                      await refreshLeagueData();
+                    } catch (e) {
+                      toast.error(e?.response?.data?.error || 'Failed to update ELO mode');
+                    } finally {
+                      setUpdateLoading(false);
+                    }
+                  }}
+                  className="w-full"
+                >
+                  {updateLoading ? 'Updating...' : 'Update ELO Mode'}
+                </Button>
+              </div>
 
-      {isAuthenticated && userMembership?.is_admin && (
-        <Card>
-          <CardHeader>
-                      <CardTitle className="text-base">{t('leagues.pendingInvites')}</CardTitle>
-          <CardDescription>{t('leagues.revokeInvitesDesc')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {invitesLoading ? (
-              <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
-            ) : invites.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('leagues.noPendingInvites')}</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                                      <TableHead>{t('leagues.user')}</TableHead>
-                  <TableHead>{t('leagues.invitedBy')}</TableHead>
-                  <TableHead>{t('leagues.expires')}</TableHead>
-                  <TableHead className="text-right">{t('table.actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {invites.map((inv) => (
-                    <TableRow key={inv.id}>
-                      <TableCell>{inv.invited_username}</TableCell>
-                      <TableCell>{inv.invited_by_username}</TableCell>
-                      <TableCell>{inv.expires_at ? format(new Date(inv.expires_at), 'PP p') : '-'}</TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleRevokeInvite(inv.id)}
-                          disabled={!!revokingInvite[inv.id]}
-                        >
-                          {revokingInvite[inv.id] ? t('status.revoking') : t('actions.revoke')}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      )}
+              {/* ELO Consolidation */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-gray-300">ELO Management</h4>
+                <Button
+                  variant="outline"
+                  disabled={consolidating}
+                  onClick={async () => {
+                    try {
+                      setConsolidating(true);
+                      const res = await matchesAPI.consolidateLeague(id);
+                      toast.success(res.data?.message || t('leagues.consolidationComplete'));
+                      await refreshLeagueData();
+                    } catch (e) {
+                      toast.error(e?.response?.data?.error || t('leagues.consolidationError'));
+                    } finally {
+                      setConsolidating(false);
+                    }
+                  }}
+                  className="w-full"
+                >
+                  {consolidating ? t('leagues.consolidating') : 'Consolidate ELO'}
+                </Button>
+              </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {/* Remove mid-page members list to reduce duplication and clutter */}
-        <Card className="md:col-span-3">
-          <CardHeader>
-                      <CardTitle className="text-base">{t('leagues.recentMatches')}</CardTitle>
-          <CardDescription>{t('leagues.last10Accepted')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {matches.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('leagues.noMatchesYet')}</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                                         <TableHead>{t('match.date')}</TableHead>
-                     <TableHead>{t('match.player1')}</TableHead>
-                     <TableHead>{t('match.player2')}</TableHead>
-                     <TableHead>{t('match.score')}</TableHead>
-                     <TableHead>{t('match.eloDelta')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {matches.map((m) => (
-                    <TableRow key={m.id}>
-                      <TableCell>
-                        <Link to={`/matches/${m.id}`}>{m.played_at ? format(new Date(m.played_at), 'PP p') : '-'}</Link>
-                      </TableCell>
-                      <TableCell>
-                        <Link to={`/matches/${m.id}`}>{m.player1_username}</Link>
-                      </TableCell>
-                      <TableCell>
-                        <Link to={`/matches/${m.id}`}>{m.player2_username}</Link>
-                      </TableCell>
-                      <TableCell>
-                        <Link to={`/matches/${m.id}`}>{m.player1_sets_won} - {m.player2_sets_won}</Link>
-                      </TableCell>
-                      <TableCell>
-                        {t('match.player1')} {eloDiff(m.player1_elo_after, m.player1_elo_before)} / {t('match.player2')} {eloDiff(m.player2_elo_after, m.player2_elo_before)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Members Management Section — visible to admins only and moved to end */}
-      {isAuthenticated && userMembership?.is_admin && (
-        <Card id="members">
-          <CardHeader>
-                      <CardTitle className="text-base">{t('leagues.members')}</CardTitle>
-          <CardDescription>{t('leagues.manageRoles')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {members.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('leagues.noMembers')}</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('leagues.user')}</TableHead>
-                    <TableHead>{t('leagues.role')}</TableHead>
-                    <TableHead>{t('leagues.elo')}</TableHead>
-                    <TableHead>{t('leagues.wl')}</TableHead>
-                    <TableHead>{t('leagues.winPercent')}</TableHead>
-                    <TableHead>{t('leagues.joined')}</TableHead>
-                    <TableHead className="text-right">{t('table.actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {members.map((m) => (
-                    <TableRow key={m.id}>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium"><Link to={`/profile/${m.username}`} className="underline hover:no-underline">{m.username}</Link></span>
-                          {(m.first_name || m.last_name) && (
-                            <span className="text-xs text-muted-foreground">{[m.first_name, m.last_name].filter(Boolean).join(' ')}</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {m.is_league_admin ? (
-                          <Badge variant="secondary">{t('leagues.admin')}</Badge>
-                        ) : (
-                          <Badge variant="outline">{t('leagues.member')}</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>{m.current_elo}</TableCell>
-                      <TableCell>{m.matches_won}/{m.matches_played - m.matches_won}</TableCell>
-                      <TableCell>{m.win_rate}%</TableCell>
-                      <TableCell>{m.joined_at ? format(new Date(m.joined_at), 'PP') : '-'}</TableCell>
-                      <TableCell className="text-right">
-                        {m.is_league_admin ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDemote(m.id, m.username)}
-                            disabled={!!roleChanging[m.id] || members.filter((x) => x.is_league_admin).length <= 1}
-                          >
-                            {roleChanging[m.id] ? t('status.updating') : t('leagues.demote')}
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => handlePromote(m.id, m.username)}
-                            disabled={!!roleChanging[m.id]}
-                          >
-                            {roleChanging[m.id] ? t('status.updating') : t('leagues.promote')}
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+              {/* Quick Stats */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-gray-300">Quick Stats</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="bg-gray-800 p-3 rounded border border-gray-700">
+                    <div className="text-gray-400">Pending Invites</div>
+                    <div className="text-2xl font-bold text-blue-400">{invites.length}</div>
+                  </div>
+                  <div className="bg-gray-800 p-3 rounded border border-gray-700">
+                    <div className="text-gray-400">Total Members</div>
+                    <div className="text-2xl font-bold text-green-400">{members.length}</div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );

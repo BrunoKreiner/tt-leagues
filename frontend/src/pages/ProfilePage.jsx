@@ -20,7 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 const ProfilePage = () => {
   const { t } = useTranslation();
   const { username } = useParams(); // Get username from URL if provided
-  const { user: currentUser, isAuthenticated } = useAuth();
+  const { user: currentUser, isAuthenticated, refreshUser } = useAuth();
   
   // Determine if this is current user's profile or public profile
   const isOwnProfile = !username || username === currentUser?.username;
@@ -305,6 +305,10 @@ const ProfilePage = () => {
       setSavingProfile(true);
       await usersAPI.update(currentUser.id, { ...profileFields, avatar_url: avatarUrl || null });
       toast.success(t('profile.saved'));
+      // Refresh auth user so top-right avatar updates immediately
+      try {
+        await refreshUser();
+      } catch (_) {}
     } catch (e) {
       toast.error(e?.response?.data?.error || t('profile.saveError'));
     } finally {
@@ -358,7 +362,7 @@ const ProfilePage = () => {
             <div className="flex items-center gap-3">
               <Avatar className="h-16 w-16">
                 {avatarUrl && <AvatarImage src={avatarUrl} alt="Avatar" />}
-                <AvatarFallback>{(isOwnProfile ? currentUser.username : username)?.[0]?.toUpperCase()}</AvatarFallback>
+                <AvatarFallback className="bg-gray-700 text-gray-200">{(isOwnProfile ? currentUser.username : username)?.[0]?.toUpperCase()}</AvatarFallback>
               </Avatar>
               {isOwnProfile && (
                 <div className="flex-1">
@@ -366,7 +370,7 @@ const ProfilePage = () => {
                   <input
                     type="file"
                     accept="image/*"
-                    className="w-full mt-1 border rounded px-2 py-1 bg-background"
+                    className="w-full mt-1 border border-gray-600 rounded px-2 py-1 bg-gray-800 text-gray-200 file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer cursor-pointer"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {

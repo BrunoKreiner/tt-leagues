@@ -4,10 +4,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Users, Swords, TrendingUp, Plus, Calendar } from 'lucide-react';
+import { Trophy, Users, Swords, TrendingUp, Plus, Calendar, Target, Award, ArrowRight, User } from 'lucide-react';
 import MedalIcon from '@/components/MedalIcon';
+import EloSparkline from '@/components/EloSparkline';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
-import { leaguesAPI, matchesAPI, authAPI } from '../services/api';
+import { leaguesAPI, matchesAPI, authAPI, usersAPI } from '../services/api';
 import { useTranslation } from 'react-i18next';
 
 const DashboardPage = () => {
@@ -17,29 +18,58 @@ const DashboardPage = () => {
   const [stats, setStats] = useState(null);
   const [recentMatches, setRecentMatches] = useState([]);
   const [userLeagues, setUserLeagues] = useState([]);
-  const [selectedLeagueId, setSelectedLeagueId] = useState(null);
-  const [topLeaders, setTopLeaders] = useState([]);
+  const [leagueLeaderboards, setLeagueLeaderboards] = useState({});
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
         
-        // Fetch user stats
+        // Fetch base data
         const [userResponse, matchesResponse, leaguesResponse] = await Promise.all([
           authAPI.getMe(),
           matchesAPI.getAll({ limit: 5, status: 'accepted' }),
           leaguesAPI.getAll({ limit: 10 })
         ]);
 
-        setStats(userResponse.data.stats);
+        // Fetch up-to-date user stats (authoritative source)
+        try {
+          const statsRes = await usersAPI.getStats(userResponse.data.user.id);
+          // Normalize to have a stable shape
+          const normalized = statsRes.data?.overall
+            ? { ...statsRes.data, avg_elo: statsRes.data.overall.average_elo, win_rate: statsRes.data.overall.win_rate, leagues_count: statsRes.data.overall.leagues_count, matches_played: statsRes.data.overall.matches_played }
+            : statsRes.data;
+          setStats(normalized);
+        } catch (e) {
+          console.error('Failed to load user stats, falling back to /auth/me stats', e);
+          const s = userResponse.data.stats || null;
+          const normalized = s?.overall
+            ? { ...s, avg_elo: s.overall.average_elo, win_rate: s.overall.win_rate, leagues_count: s.overall.leagues_count, matches_played: s.overall.matches_played }
+            : s;
+          setStats(normalized);
+        }
         setRecentMatches(matchesResponse.data.matches || []);
         // Use backend-provided membership flag
         const leagues = leaguesResponse.data.leagues?.filter((league) => !!league.is_member) || [];
         setUserLeagues(leagues);
-        if (leagues.length > 0) {
-          setSelectedLeagueId(leagues[0].id);
-        }
+        
+        // Fetch leaderboards for all user leagues
+        const leaderboardPromises = leagues.map(async (league) => {
+          try {
+            const res = await leaguesAPI.getLeaderboard(league.id, { page: 1, limit: 5 });
+            return { leagueId: league.id, data: res.data?.leaderboard || [] };
+          } catch (e) {
+            console.error(`Failed to load leaderboard for league ${league.id}:`, e);
+            return { leagueId: league.id, data: [] };
+          }
+        });
+        
+        const leaderboardResults = await Promise.all(leaderboardPromises);
+        const leaderboardMap = {};
+        leaderboardResults.forEach(({ leagueId, data }) => {
+          leaderboardMap[leagueId] = data;
+        });
+        setLeagueLeaderboards(leaderboardMap);
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
       } finally {
@@ -49,20 +79,6 @@ const DashboardPage = () => {
 
     fetchDashboardData();
   }, []);
-
-  useEffect(() => {
-    const loadLeaders = async () => {
-      if (!selectedLeagueId) { setTopLeaders([]); return; }
-      try {
-        const res = await leaguesAPI.getLeaderboard(selectedLeagueId, { page: 1, limit: 5 });
-        setTopLeaders(res.data?.leaderboard || []);
-      } catch (e) {
-        console.error('Failed to load dashboard leaderboard:', e);
-        setTopLeaders([]);
-      }
-    };
-    loadLeaders();
-  }, [selectedLeagueId]);
 
   if (loading) {
     return (
@@ -80,197 +96,229 @@ const DashboardPage = () => {
     });
   };
 
+  const avgElo = Math.round(
+    (stats?.avg_elo ?? stats?.overall?.average_elo ?? stats?.average_elo ?? 1200)
+  );
+
   return (
-    <div className="space-y-4">
-      {/* Welcome Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">
-          {t('welcome', { name: user?.first_name })}
-        </h1>
-        <p className="text-muted-foreground">
-          {t('dashboard.subtitle')}
-        </p>
-      </div>
-
-      {/* Compact stats chips */}
-      <div className="flex flex-wrap gap-2">
-        <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm bg-muted/40">
-          <Trophy className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="font-medium">{t('stats.leagues', { count: stats?.leagues_count || 0 })}</span>
-        </div>
-        <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm bg-muted/40">
-          <Swords className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="font-medium">{t('stats.matches', { count: stats?.matches_played || 0 })}</span>
-        </div>
-        <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm bg-muted/40">
-          <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="font-medium">{t('stats.wins', { wins: stats?.matches_won || 0, rate: stats?.win_rate || 0 })}</span>
-        </div>
-        <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm bg-muted/40">
-          <Users className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="font-medium">Avg ELO 1200</span>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Recent Matches */}
-        <section>
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-base font-semibold">{t('nav.matches')}</h2>
-            <Link to="/matches" className="text-xs text-primary underline">{t('nav.matches')}</Link>
+    <div className="space-y-6 animate-fade-in">
+      {/* Main Dashboard Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* Left Column: Username + Stats (2/5 width) */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Username - Centered */}
+          <div className="flex items-center justify-center gap-3">
+            <h1 className="cyberpunk-title text-4xl text-blue-300">
+              {user?.first_name || user?.username}
+            </h1>
+            <Link to="/profile" className="text-blue-400 hover:text-blue-300 transition-colors">
+              <User className="h-6 w-6" />
+            </Link>
           </div>
-          {recentMatches.length > 0 ? (
-            <div className="space-y-2">
-              {recentMatches.map((match) => (
-                <div key={match.id} className="flex items-center justify-between p-2 border rounded-md">
-                  <div className="flex items-center gap-3">
-                    <div className="flex flex-col">
-                      <div className="font-medium text-sm">
-                        <Link to={`/profile/${match.player1_username}`} className="underline hover:no-underline">{match.player1_username}</Link> vs <Link to={`/profile/${match.player2_username}`} className="underline hover:no-underline">{match.player2_username}</Link>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {match.league_name} • {formatDate(match.played_at)}
-                      </div>
-                    </div>
+
+          {/* Stats Circles - Centered */}
+          <div className="flex gap-6 justify-center">
+            <div className="text-center">
+              <div className="circular-progress glow-purple text-purple-300 mb-2">
+                {stats?.leagues_count || 0}
+              </div>
+              <p className="text-sm text-gray-300">Leagues</p>
+            </div>
+            <div className="text-center">
+              <div className="circular-progress glow-blue text-blue-300 mb-2">
+                {stats?.matches_played || 0}
+              </div>
+              <p className="text-sm text-gray-300">Matches</p>
+            </div>
+            <div className="text-center">
+              <div className="circular-progress glow-green text-green-300 mb-2">
+                {stats?.win_rate || 0}%
+              </div>
+              <p className="text-sm text-gray-300">Win Rate</p>
+            </div>
+            <div className="text-center">
+              <div className="circular-progress glow-blue text-blue-300 mb-2">
+                {avgElo}
+              </div>
+              <p className="text-sm text-gray-300">Avg ELO</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Recent Matches + Leaderboards (3/5 width) */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* Recent Matches */}
+          <div>
+            {recentMatches.length > 0 ? (
+              <div className="relative mx-2">
+                {/* Left Arrow */}
+                <button 
+                  className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 text-gray-400 hover:text-gray-300 text-xl font-bold bg-gray-900/80 rounded-full w-6 h-6 flex items-center justify-center"
+                  onClick={() => {
+                    const container = document.getElementById('dashboard-matches-scroll');
+                    if (container) container.scrollLeft -= 200;
+                  }}
+                >
+                  ‹
+                </button>
+                
+                {/* Right Arrow */}
+                <button 
+                  className="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 text-gray-400 hover:text-gray-300 text-xl font-bold bg-gray-900/80 rounded-full w-6 h-6 flex items-center justify-center"
+                  onClick={() => {
+                    const container = document.getElementById('dashboard-matches-scroll');
+                    if (container) container.scrollLeft += 200;
+                  }}
+                >
+                  ›
+                </button>
+                
+                {/* Matches Container */}
+                <div 
+                  id="dashboard-matches-scroll"
+                  className="overflow-x-auto scrollbar-hide px-8"
+                  style={{ scrollBehavior: 'smooth' }}
+                >
+                  <div className="flex gap-3 min-w-max py-2 justify-center">
+                    {recentMatches.slice(0, 5).map((match) => {
+                      const player1Won = match.player1_sets_won > match.player2_sets_won;
+                      const player2Won = match.player2_sets_won > match.player1_sets_won;
+                      
+                      return (
+                        <div key={match.id} className="flex flex-col items-center min-w-fit px-1">
+                          {/* Score Line */}
+                          <div className="flex items-center gap-1 text-sm whitespace-nowrap">
+                            <Link to={`/profile/${match.player1_username}`} className="text-blue-400 hover:text-blue-300">
+                              {match.player1_username}
+                            </Link>
+                            <span className="text-gray-300 font-bold">{match.player1_sets_won}</span>
+                            <span className="text-gray-500">:</span>
+                            <span className="text-gray-300 font-bold">{match.player2_sets_won}</span>
+                            <Link to={`/profile/${match.player2_username}`} className="text-blue-400 hover:text-blue-300">
+                              {match.player2_username}
+                            </Link>
+                          </div>
+                          
+                          {/* ELO Points Line */}
+                          <div className="flex items-center gap-1 text-xs whitespace-nowrap mt-0.5">
+                            {match.elo_applied ? (
+                              <>
+                                <span className={`font-medium ${player1Won ? 'text-green-400' : player2Won ? 'text-red-400' : 'text-gray-400'}`}>
+                                  {match.player1_elo_before || 'N/A'}
+                                  {match.player1_elo_after && match.player1_elo_before && (
+                                    <span className={match.player1_elo_after > match.player1_elo_before ? 'text-green-400' : 'text-red-400'}>
+                                      {match.player1_elo_after > match.player1_elo_before ? ' (+' : ' ('}
+                                      {match.player1_elo_after - match.player1_elo_before}
+                                      {match.player1_elo_after > match.player1_elo_before ? ')' : ')'}
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="text-gray-500">vs</span>
+                                <span className={`font-medium ${player2Won ? 'text-green-400' : player1Won ? 'text-red-400' : 'text-gray-400'}`}>
+                                  {match.player2_elo_before || 'N/A'}
+                                  {match.player2_elo_after && match.player2_elo_before && (
+                                    <span className={match.player2_elo_after > match.player2_elo_before ? 'text-green-400' : 'text-red-400'}>
+                                      {match.player2_elo_after > match.player2_elo_before ? ' (+' : ' ('}
+                                      {match.player2_elo_after - match.player2_elo_before}
+                                      {match.player2_elo_after > match.player2_elo_before ? ')' : ')'}
+                                    </span>
+                                  )}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-yellow-400 font-medium">Pending ELO calculation</span>
+                            )}
+                          </div>
+                          
+                          {/* Date and League Line */}
+                          <div className="text-xs text-gray-500 mt-0.5 text-center">
+                            {formatDate(match.played_at)} • {match.league_name || 'Unknown'}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={match.winner_id === user?.id ? 'default' : 'secondary'}>
-                      {match.player1_sets_won}-{match.player2_sets_won}
-                    </Badge>
-                    {match.winner_id === user?.id && (
-                      <Badge variant="outline" className="text-green-600">Won</Badge>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <Swords className="h-6 w-6 text-gray-600 mx-auto mb-2" />
+                <p className="text-gray-500 text-sm">No matches yet</p>
+              </div>
+            )}
+          </div>
+
+          {/* Leaderboards */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="cyberpunk-title text-2xl text-purple-300">Leaderboards</h2>
+              <Link to="/leagues" className="text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2">
+                Browse all leagues <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {userLeagues.map((league) => (
+                <Card 
+                  key={league.id} 
+                  className="vg-card cursor-pointer hover:scale-105 transition-transform"
+                  onClick={() => window.location.href = `/leagues/${league.id}`}
+                >
+                  <CardHeader className="compact-card-header">
+                    <CardTitle className="cyberpunk-subtitle flex items-center gap-2 text-lg">
+                      <Trophy className="h-5 w-5 text-yellow-400" />
+                      {league.name}
+                    </CardTitle>
+                    <CardDescription className="text-gray-400">
+                      {league.member_count} members • {league.match_count} matches
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    {leagueLeaderboards[league.id]?.length > 0 ? (
+                      <div className="space-y-2">
+                        {leagueLeaderboards[league.id].slice(0, 5).map((player) => (
+                          <div 
+                            key={player.id} 
+                            className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.location.href = `/profile/${player.username}`;
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              {player.rank <= 3 ? (
+                                <MedalIcon rank={player.rank} size={24} userAvatar={player.avatar_url} />
+                              ) : (
+                                <span className="text-sm text-gray-400 w-6 text-center">{player.rank}</span>
+                              )}
+                              <span className="text-sm font-medium">{player.username}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-400">{player.current_elo}</span>
+                              <div className="w-12 h-6">
+                                <EloSparkline 
+                                  userId={player.id} 
+                                  leagueId={league.id} 
+                                  width={48} 
+                                  height={16} 
+                                  points={15} 
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400">{t('leagues.noPlayers')}</p>
                     )}
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
-          ) : (
-            <div className="text-center py-6">
-              <Swords className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-              <p className="text-muted-foreground text-sm">{t('notifications.none')}</p>
-              <Button asChild size="sm" className="mt-3">
-                <Link to="/matches">
-                  <Plus className="h-4 w-4 mr-2" />
-                  {t('cta.recordMatch')}
-                </Link>
-              </Button>
-            </div>
-          )}
-        </section>
-
-        {/* My Leagues */}
-        <section>
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-base font-semibold">{t('nav.leagues')}</h2>
-            <Link to="/leagues" className="text-xs text-primary underline">{t('nav.leagues')}</Link>
           </div>
-          {userLeagues.length > 0 ? (
-            <div className="space-y-2">
-              {userLeagues.slice(0, 5).map((league) => (
-                <div key={league.id} className="flex items-center justify-between p-2 border rounded-md">
-                  <div className="flex items-center gap-3">
-                    <Trophy className="h-6 w-6 text-primary" />
-                    <div className="flex flex-col">
-                      <div className="font-medium text-sm">{league.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {league.member_count} members • {league.match_count} matches
-                      </div>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm" asChild>
-                    <Link to={`/leagues/${league.id}`}>{t('cta.viewProfile')}</Link>
-                  </Button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-6">
-              <Trophy className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-              <p className="text-muted-foreground text-sm">{t('notifications.none')}</p>
-              <Button asChild size="sm" className="mt-3">
-                <Link to="/leagues">
-                  <Plus className="h-4 w-4 mr-2" />
-                  {t('cta.browseLeagues')}
-                </Link>
-              </Button>
-            </div>
-          )}
-        </section>
-      </div>
-
-      {/* Compact Leaderboard */}
-      <section>
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-base font-semibold">{t('leagues.leaderboard')}</h2>
-          {userLeagues.length > 1 && (
-            <select
-              className="text-xs border rounded px-2 py-1 bg-background"
-              value={selectedLeagueId || ''}
-              onChange={(e) => setSelectedLeagueId(Number(e.target.value))}
-            >
-              {userLeagues.map(l => (
-                <option key={l.id} value={l.id}>{l.name}</option>
-              ))}
-            </select>
-          )}
         </div>
-        {selectedLeagueId && topLeaders.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-muted-foreground">
-                  <th className="px-2 py-1">{t('leagues.rank')}</th>
-                  <th className="px-2 py-1">{t('leagues.player')}</th>
-                  <th className="px-2 py-1">{t('leagues.elo')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topLeaders.map(p => (
-                  <tr key={p.id} className="border-t">
-                    <td className="px-2 py-1">
-                      {p.rank <= 3 ? (
-                        <MedalIcon rank={p.rank} size={28} userAvatar={p.avatar_url} />
-                      ) : (
-                        <span>{p.rank}</span>
-                      )}
-                    </td>
-                    <td className="px-2 py-1">
-                      <Link to={`/profile/${p.username}`} className="underline hover:no-underline">{p.username}</Link>
-                    </td>
-                    <td className="px-2 py-1">{p.current_elo}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="text-sm text-muted-foreground">
-            {userLeagues.length === 0 ? t('leagues.noPlayers') : t('common.loading')}
-          </div>
-        )}
-      </section>
-
-      {/* Compact Actions Toolbar */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button asChild variant="outline" size="sm">
-          <Link to="/matches">
-            <Swords className="h-4 w-4 mr-2" />
-            {t('cta.recordMatch')}
-          </Link>
-        </Button>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/leagues">
-            <Trophy className="h-4 w-4 mr-2" />
-            {t('cta.browseLeagues')}
-          </Link>
-        </Button>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/profile">
-            <Users className="h-4 w-4 mr-2" />
-            {t('cta.viewProfile')}
-          </Link>
-        </Button>
       </div>
+
+
     </div>
   );
 };

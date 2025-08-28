@@ -159,7 +159,7 @@ export default function NotificationsPage() {
       ) : (
         <div className="space-y-3">
           {items.map((n) => (
-            <div key={n.id} className={`p-3 rounded-md border ${!n.is_read ? 'bg-muted/40' : ''}`}>
+            <div key={n.id} className={`p-3 rounded-md border bg-gray-800/50 ${!n.is_read ? 'bg-gray-700/50' : ''}`}>
               <div className="flex items-start gap-3">
                 <div className="mt-0.5 text-muted-foreground">
                   {n.type === 'league_invite' ? (

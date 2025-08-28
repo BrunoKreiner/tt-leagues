@@ -78,7 +78,7 @@ const MobileMenu = ({
       
       {/* Menu Panel */}
       <div 
-        className={`fixed right-0 top-0 h-full w-80 bg-card border-l border-border z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed right-0 top-0 h-full w-80 bg-gray-900 border-l border-gray-700 z-50 transform transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
         role="dialog"
@@ -86,12 +86,9 @@ const MobileMenu = ({
         aria-label="Mobile navigation menu"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
+        <div className="flex items-center justify-between p-4 border-b border-gray-700">
           <div className="flex items-center space-x-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Trophy className="h-4 w-4" />
-            </div>
-            <span className="font-bold text-lg">Menu</span>
+            <span className="font-bold text-lg text-gray-200">Menu</span>
           </div>
           <Button
             variant="ghost"
@@ -105,18 +102,21 @@ const MobileMenu = ({
         </div>
 
         {/* User Profile Section */}
-        <div className="p-4 border-b border-border">
+        <div className="p-4 border-b border-gray-700">
           <div className="flex items-center space-x-3">
             <Avatar className="h-10 w-10">
-              <AvatarFallback className="text-sm">
+              {user?.avatar_url && (
+                <img src={user.avatar_url} alt="Avatar" className="h-full w-full object-cover rounded-full" />
+              )}
+              <AvatarFallback className="text-sm bg-gray-700 text-gray-200">
                 {getUserInitials(user)}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm truncate">
+              <p className="font-medium text-sm truncate text-gray-200">
                 {user?.first_name} {user?.last_name}
               </p>
-              <p className="text-xs text-muted-foreground truncate">
+              <p className="text-xs text-gray-400 truncate">
                 @{user?.username}
               </p>
             </div>
@@ -137,8 +137,8 @@ const MobileMenu = ({
                   to={item.href}
                   className={`flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
                     isActive 
-                      ? 'bg-primary text-primary-foreground' 
-                      : 'text-foreground hover:bg-muted'
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-gray-200 hover:bg-gray-700'
                   }`}
                   onClick={onClose}
                 >
@@ -151,14 +151,14 @@ const MobileMenu = ({
 
           {/* Divider */}
           <div className="px-4 py-2">
-            <div className="h-px bg-border" />
+            <div className="h-px bg-gray-700" />
           </div>
 
           {/* Quick Actions */}
           <div className="p-2">
             <Link
               to="/profile"
-              className="flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              className="flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-700 transition-colors"
               onClick={onClose}
             >
               <User className="h-5 w-5" />
@@ -166,7 +166,7 @@ const MobileMenu = ({
             </Link>
             <Link
               to="/settings"
-              className="flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              className="flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-700 transition-colors"
               onClick={onClose}
             >
               <Settings className="h-5 w-5" />
@@ -176,14 +176,14 @@ const MobileMenu = ({
 
           {/* Notifications Section */}
           <div className="px-4 py-2">
-            <div className="h-px bg-border" />
+            <div className="h-px bg-gray-700" />
           </div>
           
           <div className="p-2">
             <div className="flex items-center justify-between px-3 py-2">
               <div className="flex items-center space-x-3">
-                <Bell className="h-5 w-5 text-muted-foreground" />
-                <span className="text-sm font-medium">Notifications</span>
+                <Bell className="h-5 w-5 text-gray-400" />
+                <span className="text-sm font-medium text-gray-200">Notifications</span>
               </div>
               {unreadCount > 0 && (
                 <span className="min-w-[1.25rem] h-5 px-1.5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center">
@@ -195,14 +195,14 @@ const MobileMenu = ({
             {/* Notifications List */}
             <div className="max-h-64 overflow-y-auto">
               {notifLoading ? (
-                                 <div className="px-3 py-2 text-sm text-muted-foreground">{t('common.loading')}</div>
+                                 <div className="px-3 py-2 text-sm text-gray-400">{t('common.loading')}</div>
               ) : notifications.length === 0 ? (
-                                 <div className="px-3 py-2 text-sm text-muted-foreground">{t('notifications.none')}</div>
+                                 <div className="px-3 py-2 text-sm text-gray-400">{t('notifications.none')}</div>
               ) : (
                 notifications.slice(0, 5).map((n) => (
-                  <div key={n.id} className={`px-3 py-2 rounded-lg ${!n.is_read ? 'bg-muted/40' : ''}`}>
+                  <div key={n.id} className={`px-3 py-2 rounded-lg ${!n.is_read ? 'bg-gray-700/40' : 'bg-gray-800'}`}>
                     <div className="flex items-start gap-3">
-                      <div className="mt-0.5 text-muted-foreground">
+                      <div className="mt-0.5 text-gray-400">
                         {n.type === 'league_invite' ? (
                           <UserPlus className="h-4 w-4" />
                         ) : (
@@ -212,14 +212,14 @@ const MobileMenu = ({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
-                            <div className={`text-sm ${!n.is_read ? 'font-semibold' : 'font-medium'} truncate`}>
+                            <div className={`text-sm ${!n.is_read ? 'font-semibold' : 'font-medium'} truncate text-gray-200`}>
                               {n.title}
                             </div>
-                            <div className="text-xs text-muted-foreground line-clamp-2">
+                            <div className="text-xs text-gray-400 line-clamp-2">
                               {n.message}
                             </div>
                             {n.created_at && (
-                              <div className="text-[10px] text-muted-foreground mt-1">
+                              <div className="text-[10px] text-gray-500 mt-1">
                                 {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
                               </div>
                             )}
@@ -259,12 +259,12 @@ const MobileMenu = ({
                             </Button>
                           </div>
                         ) : (
-                          <div className="text-xs text-muted-foreground">Invite handled</div>
+                          <div className="text-xs text-gray-400">Invite handled</div>
                         )}
                         {n.related_id && (
                           <Link 
                             to={`/leagues/${n.related_id}`} 
-                            className="text-xs text-primary underline"
+                            className="text-xs text-blue-400 underline"
                             onClick={onClose}
                           >
                             View league
@@ -281,7 +281,7 @@ const MobileMenu = ({
               <div className="mt-2">
                 <Link 
                   to="/notifications" 
-                  className="w-full inline-flex items-center justify-center text-sm underline text-primary py-2"
+                  className="w-full inline-flex items-center justify-center text-sm underline text-blue-400 py-2"
                   onClick={onClose}
                 >
                   View all notifications
@@ -292,11 +292,11 @@ const MobileMenu = ({
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-border">
+        <div className="p-4 border-t border-gray-700">
           <Button 
             variant="ghost" 
             onClick={onLogout} 
-            className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+            className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-red-900/20"
           >
             <LogOut className="mr-3 h-4 w-4" />
             <span>Log out</span>

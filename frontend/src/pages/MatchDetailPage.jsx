@@ -271,7 +271,7 @@ export default function MatchDetailPage() {
               ELO: {match.elo_applied ? (
                 <span className="inline-flex items-center rounded border px-2 py-0.5 text-xs">{t('elo.applied')}{match.elo_applied_at ? ` (${format(new Date(match.elo_applied_at), 'PP p')})` : ''}</span>
               ) : (
-                <span className="inline-flex items-center rounded border px-2 py-0.5 text-xs bg-amber-50">{t('elo.deferred')}</span>
+                <span className="inline-flex items-center rounded border px-2 py-0.5 text-xs bg-amber-900/50 text-amber-200 border-amber-700">{t('elo.deferred')}</span>
               )}
             </div>
           )}
@@ -322,7 +322,11 @@ export default function MatchDetailPage() {
                   <FormItem>
                     <FormLabel>{t('matchDetail.gameType')}</FormLabel>
                     <FormControl>
-                      <RadioGroup value={field.value} onValueChange={field.onChange} className="grid gap-2 md:grid-cols-2">
+                                             <RadioGroup 
+                         value={field.value || 'best_of_3'} 
+                         onValueChange={field.onChange} 
+                         className="grid gap-2 md:grid-cols-2"
+                       >
                         {GAME_TYPES.map((gt) => (
                           <div key={gt.value} className="flex items-center space-x-2 rounded-md border p-3">
                             <RadioGroupItem id={gt.value} value={gt.value} disabled={!canEdit} />

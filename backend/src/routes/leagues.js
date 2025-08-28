@@ -652,7 +652,7 @@ router.get('/:id/matches', optionalAuth, validateId, validatePagination, async (
         const matches = await database.all(`
             SELECT 
                 m.id, m.player1_sets_won, m.player2_sets_won, m.player1_points_total, m.player2_points_total,
-                m.game_type, m.winner_id, m.is_accepted, m.played_at,
+                m.game_type, m.winner_id, m.is_accepted, m.elo_applied, m.elo_applied_at, m.played_at,
                 p1.username as player1_username, p1.first_name as player1_first_name, p1.last_name as player1_last_name,
                 p2.username as player2_username, p2.first_name as player2_first_name, p2.last_name as player2_last_name,
                 m.player1_elo_before, m.player2_elo_before, m.player1_elo_after, m.player2_elo_after
