@@ -15,13 +15,31 @@ router.get('/', authenticateToken, requireAdmin, validatePagination, async (req,
         const limit = parseInt(req.query.limit) || 20;
         const offset = (page - 1) * limit;
         
+        // Check if badges table exists first
+        let tableExists = false;
+        try {
+            await database.get('SELECT 1 FROM badges LIMIT 1');
+            tableExists = true;
+        } catch (tableError) {
+            console.warn('Badges table might not exist yet:', tableError.message);
+            // Return empty result if table doesn't exist
+            return res.json({
+                badges: [],
+                pagination: {
+                    page,
+                    limit,
+                    total: 0,
+                    pages: 0
+                }
+            });
+        }
+        
+        // Use subquery for times_awarded to avoid GROUP BY issues in PostgreSQL
         const badges = await database.all(`
             SELECT 
                 b.id, b.name, b.description, b.icon, b.badge_type, b.image_url, b.created_at,
-                COUNT(ub.id) as times_awarded
+                COALESCE((SELECT COUNT(*) FROM user_badges ub WHERE ub.badge_id = b.id), 0) as times_awarded
             FROM badges b
-            LEFT JOIN user_badges ub ON b.id = ub.badge_id
-            GROUP BY b.id
             ORDER BY b.created_at DESC
             LIMIT ? OFFSET ?
         `, [limit, offset]);
@@ -39,7 +57,12 @@ router.get('/', authenticateToken, requireAdmin, validatePagination, async (req,
         });
     } catch (error) {
         console.error('Get badges error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        console.error('Error details:', {
+            message: error.message,
+            stack: error.stack,
+            code: error.code
+        });
+        res.status(500).json({ error: 'Internal server error', details: process.env.NODE_ENV === 'development' ? error.message : undefined });
     }
 });
 
