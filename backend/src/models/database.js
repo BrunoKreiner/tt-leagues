@@ -88,6 +88,9 @@ class Database {
                 await this.addOptionalColumns();
             }
 
+            // Add image_url column to badges table if it doesn't exist (both SQLite and Postgres)
+            await this.addBadgeImageUrlColumn();
+
             // Create/update admin user from env
             await this.createAdminUser();
 
