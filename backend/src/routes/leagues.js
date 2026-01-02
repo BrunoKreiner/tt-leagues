@@ -18,7 +18,7 @@ router.get('/', optionalAuth, validatePagination, async (req, res) => {
         
         let query = `
             SELECT 
-                l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at,
+                l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at, l.updated_at,
                 u.username as created_by_username,
                 COUNT(DISTINCT lm.user_id) as member_count,
                 COUNT(DISTINCT m.id) as match_count,
@@ -52,8 +52,8 @@ router.get('/', optionalAuth, validatePagination, async (req, res) => {
         }
         
         query += `
-            GROUP BY l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at, u.username
-            ORDER BY l.created_at DESC
+            GROUP BY l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at, l.updated_at, u.username
+            ORDER BY COALESCE(l.updated_at, l.created_at) DESC
             LIMIT ? OFFSET ?
         `;
         
