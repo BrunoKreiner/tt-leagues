@@ -63,7 +63,7 @@ Quick facts (current state):
     - [x] Fix "ELO deferred" badge styling in matches list (white text on white background)
     - [x] Move dashboard stats circles below username and align with recent matches
     - [x] Move leaderboards below recent matches and make them narrower
-    - [ ] Filter leaderboards by most recent league update
+    - [x] Filter leaderboards by most recent league update
     - [x] Show ELO progression in recent matches: "elo points (+n) vs elo points (+n)"
     - [x] Fix hamburger menu dark theme styling (mobile and desktop)
     - [x] Fix user profile image/avatar dark theme styling
