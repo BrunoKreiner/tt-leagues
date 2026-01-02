@@ -43,15 +43,16 @@ Quick facts (current state):
   - Acceptance: Any user can view others’ profiles with non-sensitive info; their ranks and badges visible
   - Status: Backend public profile endpoint implemented (`GET /api/users/profile/:username`); FE routes `/profile` and `/profile/:username` render public profiles with league rankings, recent matches, and badges.
 
-- [ ] Badges & medals
+- [x] Badges & medals
   - Files: schema updates (badges/user_badges if needed), routes to award/revoke/list badges; FE profile and leaderboard badge display
   - Actions: Support admin-awarded badges; upload/display rank medal PNGs on leaderboard rows; show earned badges on profile
   - Acceptance: Admin can award/revoke; users see badges on profile; leaderboard shows medal icons for top ranks
+  - Status: ✅ **COMPLETED**
   - Progress:
     - [x] Backend badge CRUD and awarding/revoking endpoints implemented (`backend/src/routes/badges.js`)
     - [x] Profile badge display implemented (`frontend/src/components/BadgeDisplay.jsx`, `ProfilePage.jsx`)
     - [x] Medal icons on leaderboard rows (frontend) - Already implemented in `LeagueDetailPage.jsx` and `DashboardPage.jsx` using `MedalIcon` component
-    - [ ] Admin badge management UI (frontend)
+    - [x] Admin badge management UI (frontend) - Fully implemented in `AdminPage.jsx` with badge CRUD, image upload/cropping, awarding/revoking, and user list management
 
 - [x] UI/UX Polish & Bug Fixes
   - Files: Various frontend components and pages

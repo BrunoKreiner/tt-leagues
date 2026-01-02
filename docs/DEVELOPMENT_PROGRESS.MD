@@ -2,7 +2,7 @@
 
 Date: 2026-01-02
 
-Summary: Fixed badge image cropper overlay rendering issue and cancel button behavior. Implemented comprehensive badge image upload and cropping functionality.
+Summary: Fixed badge image cropper overlay rendering issue, cancel button behavior, and production database issues. Completed comprehensive badge management system.
 
 Changes:
 - Fixed `InlineImageCropper` component overlay rendering:
@@ -13,10 +13,18 @@ Changes:
   - Added `onCancel` prop to `InlineImageCropper` component
   - Cancel button now preserves existing images when editing (only closes cropper) instead of deleting them
   - When uploading new images, cancel still removes the image as expected
-- Previously completed: Badge image upload with inline cropper, database schema updates (image_url column), badge image display in profiles and leaderboards
+- Fixed production database issues:
+  - Fixed PostgreSQL GROUP BY compatibility by using subquery for `times_awarded` count instead of JOIN with GROUP BY
+  - Added fallback handling for missing `image_url` column in badges table (queries without it, inserts without it if column missing)
+  - Added automatic migration `addBadgeImageUrlColumn()` that runs on database initialization to ensure column exists
+  - Added table existence checks with graceful error handling (returns empty list if table doesn't exist)
+- Reduced default badge seeding from 4 badges to 1 badge (League Champion only)
+- Previously completed: Badge image upload with inline cropper, database schema updates (image_url column), badge image display in profiles and leaderboards, full admin badge management UI
 
 Result:
-- Badge image cropper now works correctly: image is visible in crop area, overlay provides clear visual distinction, cancel button behaves correctly for both new uploads and edits
+- Badge image cropper works correctly in all scenarios
+- Badge endpoints work correctly in production (Vercel/PostgreSQL) with proper error handling and migrations
+- Complete badge management system is functional: CRUD, image upload/cropping, awarding/revoking, user list management
 
 ---
 
