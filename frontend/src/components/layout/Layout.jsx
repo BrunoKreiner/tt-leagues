@@ -278,7 +278,7 @@ const Layout = () => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                  <Avatar className="h-8 w-8">
+                  <Avatar className="h-8 w-8" key={user?.avatar_url}>
                     {user?.avatar_url && (
                       <AvatarImage src={user.avatar_url} alt="Profile" />
                     )}

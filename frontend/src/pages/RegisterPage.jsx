@@ -245,8 +245,8 @@ const RegisterPage = () => {
           </form>
 
           <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">Already have an account? </span>
-            <Link to="/login" className="text-primary hover:underline">
+            <span className="text-gray-400">Already have an account? </span>
+            <Link to="/login" className="text-blue-400 hover:text-blue-300 underline">
               Sign in
             </Link>
           </div>

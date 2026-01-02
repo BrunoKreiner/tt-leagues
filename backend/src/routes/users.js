@@ -1,5 +1,5 @@
 const express = require('express');
-const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { authenticateToken, requireAdmin, optionalAuth } = require('../middleware/auth');
 const { validateId, validatePagination } = require('../middleware/validation');
 const database = require('../models/database');
 
@@ -280,7 +280,33 @@ router.get('/:id/stats', authenticateToken, validateId, async (req, res) => {
             ORDER BY lm.current_elo DESC
         `, [userId, userId, userId, userId, userId, true, userId]);
         
+        // Get user badges
+        let badges = [];
+        try {
+            badges = await database.all(`
+                SELECT 
+                    b.id, b.name, b.description, b.icon, b.badge_type, b.image_url,
+                    ub.earned_at, ub.season,
+                    l.name as league_name
+                FROM user_badges ub
+                JOIN badges b ON ub.badge_id = b.id
+                LEFT JOIN leagues l ON ub.league_id = l.id
+                WHERE ub.user_id = ?
+                ORDER BY ub.earned_at DESC
+            `, [userId]);
+        } catch (badgeError) {
+            console.warn('Failed to fetch badges:', badgeError.message);
+            // Continue without badges if table doesn't exist or error occurs
+        }
+
+        // Get user data
+        const user = await database.get(
+            'SELECT id, username, first_name, last_name, email, avatar_url, forehand_rubber, backhand_rubber, blade_wood, playstyle, strengths, weaknesses, goals FROM users WHERE id = ?',
+            [userId]
+        );
+
         res.json({
+            user: user,
             overall: {
                 ...overallStats,
                 win_rate: overallStats.matches_played > 0 ? 
@@ -291,7 +317,8 @@ router.get('/:id/stats', authenticateToken, validateId, async (req, res) => {
                 ...league,
                 win_rate: league.matches_played > 0 ? 
                     Math.round((league.matches_won / league.matches_played) * 100) : 0
-            }))
+            })),
+            badges: badges
         });
     } catch (error) {
         console.error('Get user stats error:', error);
@@ -309,7 +336,7 @@ router.get('/:id/badges', authenticateToken, validateId, async (req, res) => {
         
         const badges = await database.all(`
             SELECT 
-                b.id, b.name, b.description, b.icon, b.badge_type,
+                b.id, b.name, b.description, b.icon, b.badge_type, b.image_url,
                 ub.earned_at, ub.season,
                 l.name as league_name
             FROM user_badges ub
@@ -329,8 +356,9 @@ router.get('/:id/badges', authenticateToken, validateId, async (req, res) => {
 /**
  * Get user ELO history
  * GET /api/users/:id/elo-history
+ * Anyone can view any user's ELO history - access is only restricted by league visibility (public vs private)
  */
-router.get('/:id/elo-history', authenticateToken, validateId, validatePagination, async (req, res) => {
+router.get('/:id/elo-history', optionalAuth, validateId, validatePagination, async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
         const { league_id } = req.query;
@@ -338,24 +366,34 @@ router.get('/:id/elo-history', authenticateToken, validateId, validatePagination
         const limit = parseInt(req.query.limit) || 50;
         const offset = (page - 1) * limit;
         
-        // Users can only view their own ELO history unless they're admin
-        if (userId !== req.user.id && !req.user.is_admin) {
-            return res.status(403).json({ error: 'Access denied' });
-        }
-        
         // league_id is required
         if (!league_id) {
             return res.status(400).json({ error: 'league_id parameter is required' });
         }
         
-        // Check if user is a member of the specified league
-        const membership = await database.get(
-            'SELECT id FROM league_members WHERE user_id = ? AND league_id = ?',
-            [userId, league_id]
-        );
+        // Check league visibility - similar to leaderboard endpoint
+        // Anyone can view ELO history for public leagues
+        // For private leagues, user must be a member or admin
+        const league = await database.get('SELECT is_public FROM leagues WHERE id = ? AND is_active = ?', [league_id, true]);
         
-        if (!membership && !req.user.is_admin) {
-            return res.status(403).json({ error: 'Access denied to league data' });
+        if (!league) {
+            return res.status(404).json({ error: 'League not found' });
+        }
+        
+        if (!league.is_public) {
+            // Private league - check if user has access
+            if (!req.user) {
+                return res.status(403).json({ error: 'Access denied to private league' });
+            }
+            
+            const membership = await database.get(
+                'SELECT id FROM league_members WHERE league_id = ? AND user_id = ?',
+                [league_id, req.user.id]
+            );
+            
+            if (!membership && !req.user.is_admin) {
+                return res.status(403).json({ error: 'Access denied to private league' });
+            }
         }
         
         // Build query for ELO history
@@ -519,7 +557,8 @@ router.get('/profile/:username', async (req, res) => {
         try {
             badges = await database.all(`
                 SELECT 
-                    b.id, b.name, b.description, b.icon, ub.earned_at, ub.league_id,
+                    b.id, b.name, b.description, b.icon, b.badge_type, b.image_url,
+                    ub.earned_at, ub.league_id,
                     l.name as league_name
                 FROM user_badges ub
                 JOIN badges b ON ub.badge_id = b.id

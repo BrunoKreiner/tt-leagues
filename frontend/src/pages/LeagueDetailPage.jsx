@@ -20,6 +20,7 @@ import { Switch } from '@/components/ui/switch';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '@/components/ui/form';
 import EloSparkline from '@/components/EloSparkline';
 import MedalIcon from '@/components/MedalIcon';
+import { BadgeList } from '@/components/BadgeDisplay';
 import { useTranslation } from 'react-i18next';
 import {
   Pagination,
@@ -211,7 +212,10 @@ const LeagueDetailPage = () => {
   const fetchLeaderboard = async (page = 1) => {
     try {
       const res = await leaguesAPI.getLeaderboard(id, { page, limit: 20 });
-      setLeaderboard(res.data.leaderboard || []);
+      const leaderboardData = res.data.leaderboard || [];
+      console.log('Leaderboard data:', leaderboardData);
+      console.log('First player badges:', leaderboardData[0]?.badges);
+      setLeaderboard(leaderboardData);
       setLeaderboardPagination(res.data.pagination || { page: 1, pages: 1, total: 0, limit: 20 });
     } catch (e) {
       console.error('Failed to load leaderboard', e);
@@ -596,7 +600,18 @@ const LeagueDetailPage = () => {
                               )}
                             </td>
                             <td className="px-3 py-4">
-                              <Link to={`/profile/${p.username}`} className="text-blue-400 hover:text-blue-300 text-lg">{p.username}</Link>
+                              <div className="flex flex-col gap-1">
+                                <Link to={`/profile/${p.username}`} className="text-blue-400 hover:text-blue-300 text-lg">{p.username}</Link>
+                                {p.badges && p.badges.length > 0 && (
+                                  <BadgeList 
+                                    badges={p.badges} 
+                                    size="sm"
+                                    showDate={false}
+                                    showLeague={false}
+                                    className="mt-1"
+                                  />
+                                )}
+                              </div>
                             </td>
                             <td className="px-3 py-4 text-gray-300 text-lg">{p.current_elo}</td>
                             <td className="px-3 py-4">
@@ -610,7 +625,7 @@ const LeagueDetailPage = () => {
                     </table>
                   </div>
                   
-                  {leaderboardPagination.pages > 1 && (
+                  {leaderboardPagination.pages > 1 && leaderboardPagination.pages > 0 && leaderboardPagination.page > 0 && (
                     <div className="mt-4">
                       <div className="flex items-center justify-between text-sm text-gray-400 mb-2">
                         <span>{t('leagues.showing', { 
@@ -622,7 +637,7 @@ const LeagueDetailPage = () => {
                       </div>
                       <Pagination>
                         <PaginationContent>
-                          {leaderboardPagination.page > 1 && (
+                          {leaderboardPagination.page > 1 ? (
                             <PaginationItem>
                               <PaginationPrevious 
                                 href="#" 
@@ -632,12 +647,12 @@ const LeagueDetailPage = () => {
                                 }} 
                               />
                             </PaginationItem>
-                          )}
+                          ) : null}
                           <PaginationItem>
                             <PaginationLink isActive>{leaderboardPagination.page}</PaginationLink>
                           </PaginationItem>
                           <span className="px-1 self-center text-sm text-gray-400">{t('leagues.of')} {leaderboardPagination.pages}</span>
-                          {leaderboardPagination.page < leaderboardPagination.pages && (
+                          {leaderboardPagination.page < leaderboardPagination.pages ? (
                             <PaginationItem>
                               <PaginationNext 
                                 href="#" 
@@ -647,7 +662,7 @@ const LeagueDetailPage = () => {
                                 }} 
                               />
                             </PaginationItem>
-                          )}
+                          ) : null}
                         </PaginationContent>
                       </Pagination>
                     </div>
@@ -702,7 +717,7 @@ const LeagueDetailPage = () => {
       </div>
 
       {/* Members List and Admin Panel - Side by Side */}
-      {isAuthenticated && userMembership?.is_admin && (
+      {isAuthenticated && userMembership?.is_admin ? (
         <div className="grid gap-6 lg:grid-cols-2 mt-6">
           {/* Members List - Left */}
           <Card id="members" className="vg-card">
@@ -879,7 +894,7 @@ const LeagueDetailPage = () => {
             </CardContent>
           </Card>
         </div>
-      )}
+      ) : null}
     </div>
   );
 };

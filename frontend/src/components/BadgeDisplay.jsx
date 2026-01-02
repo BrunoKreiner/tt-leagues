@@ -114,12 +114,21 @@ const BadgeDisplay = ({
               variant={getBadgeVariant()} 
               className={`${getSizeClasses()} flex items-center gap-1.5`}
             >
-              <IconComponent 
-                size={getIconSize()} 
-                className={`transition-transform duration-200 ${
-                  isHovered ? 'scale-110' : 'scale-100'
-                }`}
-              />
+              {badge.image_url ? (
+                <img 
+                  src={badge.image_url} 
+                  alt={badge.name}
+                  className="object-contain"
+                  style={{ width: getIconSize() * 1.5, height: getIconSize() * 1.5, minWidth: getIconSize() * 1.5, minHeight: getIconSize() * 1.5 }}
+                />
+              ) : (
+                <IconComponent 
+                  size={getIconSize()} 
+                  className={`transition-transform duration-200 ${
+                    isHovered ? 'scale-110' : 'scale-100'
+                  }`}
+                />
+              )}
               <span>{badge.name}</span>
             </Badge>
           </div>
@@ -152,15 +161,48 @@ export const BadgeGrid = ({
   
   return (
     <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 ${className}`}>
-      {badges.map((badge) => (
-        <BadgeDisplay
-          key={`${badge.id}-${badge.earned_at}`}
-          badge={badge}
-          showDate={showDate}
-          showLeague={showLeague}
-          size={size}
-        />
-      ))}
+      {badges.map((badge) => {
+        // For profile badges, display images at their actual size
+        if (badge.image_url) {
+          return (
+            <div key={`${badge.id}-${badge.earned_at}`} className="flex flex-col items-center gap-2 p-3 border border-gray-700 rounded-lg">
+              <img 
+                src={badge.image_url} 
+                alt={badge.name}
+                className="w-32 h-32 object-contain"
+                style={{ maxWidth: '128px', maxHeight: '128px' }}
+              />
+              <div className="text-center">
+                <div className="font-semibold">{badge.name}</div>
+                {badge.description && (
+                  <div className="text-xs text-muted-foreground mt-1">{badge.description}</div>
+                )}
+                {showDate && badge.earned_at && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {format(new Date(badge.earned_at), 'MMM d, yyyy')}
+                  </div>
+                )}
+                {showLeague && badge.league_name && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {badge.league_name}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        }
+        
+        // Fallback to regular BadgeDisplay for badges without images
+        return (
+          <BadgeDisplay
+            key={`${badge.id}-${badge.earned_at}`}
+            badge={badge}
+            showDate={showDate}
+            showLeague={showLeague}
+            size={size}
+          />
+        );
+      })}
     </div>
   );
 };

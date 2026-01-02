@@ -122,6 +122,7 @@ CREATE TABLE IF NOT EXISTS badges (
     description TEXT,
     icon VARCHAR(100), -- icon name or path
     badge_type VARCHAR(50) NOT NULL, -- 'league_winner', 'tournament_winner', 'achievement'
+    image_url TEXT, -- base64 image data or image URL
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

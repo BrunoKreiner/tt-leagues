@@ -599,12 +599,35 @@ router.get('/:id/leaderboard', optionalAuth, validateId, validatePagination, asy
             'SELECT COUNT(*) as count FROM league_members WHERE league_id = ?'
         , [leagueId]);
         
-        res.json({
-            leaderboard: leaderboard.map(player => ({
+        // Get top 3 badges for each user in leaderboard (filtered by league: show league-specific badges OR badges with no league_id)
+        const leaderboardWithBadges = await Promise.all(leaderboard.map(async (player) => {
+            let topBadges = [];
+            try {
+                topBadges = await database.all(`
+                    SELECT 
+                        b.id, b.name, b.description, b.icon, b.badge_type, b.image_url,
+                        ub.earned_at
+                    FROM user_badges ub
+                    JOIN badges b ON ub.badge_id = b.id
+                    WHERE ub.user_id = ?
+                    AND (ub.league_id = ? OR ub.league_id IS NULL)
+                    ORDER BY ub.earned_at DESC
+                    LIMIT 3
+                `, [player.id, leagueId]);
+            } catch (badgeError) {
+                console.warn(`Failed to fetch badges for user ${player.id}:`, badgeError.message);
+            }
+            
+            return {
                 ...player,
                 win_rate: player.matches_played > 0 ? 
-                    Math.round((player.matches_won / player.matches_played) * 100) : 0
-            })),
+                    Math.round((player.matches_won / player.matches_played) * 100) : 0,
+                badges: topBadges
+            };
+        }));
+        
+        res.json({
+            leaderboard: leaderboardWithBadges,
             pagination: {
                 page,
                 limit,

@@ -114,6 +114,7 @@ CREATE TABLE IF NOT EXISTS badges (
     description TEXT,
     icon VARCHAR(100),
     badge_type VARCHAR(50) NOT NULL,
+    image_url TEXT,
     created_at TIMESTAMP DEFAULT NOW()
 );
 

@@ -17,7 +17,7 @@ router.get('/', authenticateToken, requireAdmin, validatePagination, async (req,
         
         const badges = await database.all(`
             SELECT 
-                b.id, b.name, b.description, b.icon, b.badge_type, b.created_at,
+                b.id, b.name, b.description, b.icon, b.badge_type, b.image_url, b.created_at,
                 COUNT(ub.id) as times_awarded
             FROM badges b
             LEFT JOIN user_badges ub ON b.id = ub.badge_id
@@ -49,7 +49,7 @@ router.get('/', authenticateToken, requireAdmin, validatePagination, async (req,
  */
 router.post('/', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const { name, description, icon, badge_type } = req.body;
+        const { name, description, icon, badge_type, image_url } = req.body;
         
         // Validate required fields
         if (!name || !badge_type) {
@@ -68,14 +68,14 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
         
         // Insert new badge
         const result = await database.run(`
-            INSERT INTO badges (name, description, icon, badge_type)
-            VALUES (?, ?, ?, ?)
-        `, [name, description || null, icon || null, badge_type]);
+            INSERT INTO badges (name, description, icon, badge_type, image_url)
+            VALUES (?, ?, ?, ?, ?)
+        `, [name, description || null, icon || null, badge_type, image_url || null]);
         
         // Get the created badge
         const newBadge = await database.get(
             'SELECT * FROM badges WHERE id = ?',
-            [result.lastID]
+            [result.id]
         );
         
         res.status(201).json({
@@ -95,7 +95,7 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 router.put('/:id', authenticateToken, requireAdmin, validateId, async (req, res) => {
     try {
         const badgeId = parseInt(req.params.id);
-        const { name, description, icon, badge_type } = req.body;
+        const { name, description, icon, badge_type, image_url } = req.body;
         
         // Check if badge exists
         const existingBadge = await database.get(
@@ -141,6 +141,11 @@ router.put('/:id', authenticateToken, requireAdmin, validateId, async (req, res)
         if (badge_type !== undefined) {
             updates.push('badge_type = ?');
             values.push(badge_type);
+        }
+        
+        if (image_url !== undefined) {
+            updates.push('image_url = ?');
+            values.push(image_url || null);
         }
         
         if (updates.length === 0) {
@@ -275,6 +280,11 @@ router.post('/users/:id/badges', authenticateToken, requireAdmin, validateId, as
         `, [userId, badge_id, league_id || null, season || null]);
         
         // Get the awarded badge details
+        const awardedBadgeId = result.id;
+        if (!awardedBadgeId) {
+            return res.status(500).json({ error: 'Failed to get badge award ID' });
+        }
+        
         const awardedBadge = await database.get(`
             SELECT 
                 ub.id, ub.earned_at, ub.league_id, ub.season,
@@ -284,7 +294,11 @@ router.post('/users/:id/badges', authenticateToken, requireAdmin, validateId, as
             JOIN badges b ON ub.badge_id = b.id
             LEFT JOIN leagues l ON ub.league_id = l.id
             WHERE ub.id = ?
-        `, [result.lastID]);
+        `, [awardedBadgeId]);
+        
+        if (!awardedBadge) {
+            return res.status(500).json({ error: 'Failed to retrieve awarded badge' });
+        }
         
         // Create notification for the user
         await database.run(`
@@ -303,6 +317,44 @@ router.post('/users/:id/badges', authenticateToken, requireAdmin, validateId, as
         });
     } catch (error) {
         console.error('Award badge error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Get users with a specific badge (admin only)
+ * GET /api/badges/:id/users
+ */
+router.get('/:id/users', authenticateToken, requireAdmin, validateId, async (req, res) => {
+    try {
+        const badgeId = parseInt(req.params.id);
+        
+        // Check if badge exists
+        const badge = await database.get(
+            'SELECT name FROM badges WHERE id = ?',
+            [badgeId]
+        );
+        
+        if (!badge) {
+            return res.status(404).json({ error: 'Badge not found' });
+        }
+        
+        // Get all users with this badge
+        const users = await database.all(`
+            SELECT 
+                u.id, u.username, u.first_name, u.last_name,
+                ub.id as user_badge_id, ub.earned_at, ub.league_id, ub.season,
+                l.name as league_name
+            FROM user_badges ub
+            JOIN users u ON ub.user_id = u.id
+            LEFT JOIN leagues l ON ub.league_id = l.id
+            WHERE ub.badge_id = ?
+            ORDER BY ub.earned_at DESC
+        `, [badgeId]);
+        
+        res.json({ users });
+    } catch (error) {
+        console.error('Get badge users error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

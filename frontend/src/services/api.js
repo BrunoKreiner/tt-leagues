@@ -109,6 +109,7 @@ export const badgesAPI = {
   create: (badgeData) => api.post('/badges', badgeData),
   update: (id, badgeData) => api.put(`/badges/${id}`, badgeData),
   delete: (id) => api.delete(`/badges/${id}`),
+  getUsers: (id) => api.get(`/badges/${id}/users`),
   awardToUser: (userId, badgeData) => api.post(`/badges/users/${userId}/badges`, badgeData),
   removeFromUser: (userId, badgeId) => api.delete(`/badges/users/${userId}/badges/${badgeId}`),
 };

@@ -77,13 +77,26 @@ const EloSparkline = ({ userId, leagueId, width = 60, height = 20, points = 20 }
   }
 
   if (data.length < 2) {
+    // Show a straight line placeholder when there's insufficient ELO history
+    const midY = height / 2;
     return (
-      <div 
-        className="bg-muted rounded flex items-center justify-center text-xs text-muted-foreground"
-        style={{ width, height }}
-        title="Insufficient ELO history"
-      >
-        -
+      <div style={{ width, height }}>
+        <svg 
+          width={width} 
+          height={height} 
+          className="overflow-visible"
+          style={{ minWidth: width }}
+        >
+          <line
+            x1="0"
+            y1={midY}
+            x2={width}
+            y2={midY}
+            stroke="#6b7280"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+        </svg>
       </div>
     );
   }
@@ -114,7 +127,7 @@ const EloSparkline = ({ userId, leagueId, width = 60, height = 20, points = 20 }
         trend === 'down' ? 'text-red-600' : 
         'text-muted-foreground'
       }`}>
-        {trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→'}
+        {trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→'}
       </span>
     </div>
   );

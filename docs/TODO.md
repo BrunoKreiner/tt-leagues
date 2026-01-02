@@ -50,7 +50,7 @@ Quick facts (current state):
   - Progress:
     - [x] Backend badge CRUD and awarding/revoking endpoints implemented (`backend/src/routes/badges.js`)
     - [x] Profile badge display implemented (`frontend/src/components/BadgeDisplay.jsx`, `ProfilePage.jsx`)
-    - [ ] Medal icons on leaderboard rows (frontend)
+    - [x] Medal icons on leaderboard rows (frontend) - Already implemented in `LeagueDetailPage.jsx` and `DashboardPage.jsx` using `MedalIcon` component
     - [ ] Admin badge management UI (frontend)
 
 - [x] UI/UX Polish & Bug Fixes
@@ -67,6 +67,9 @@ Quick facts (current state):
     - [x] Fix hamburger menu dark theme styling (mobile and desktop)
     - [x] Fix user profile image/avatar dark theme styling
     - [x] Update file input styling for profile image upload
+    - [x] Made ELO history visible to all users (removed permission check, only league visibility restricts access)
+    - [x] Changed "Insufficient ELO history" placeholder from "-" to SVG straight line in EloSparkline component
+    - [x] Fixed "0" appearing below leaderboard table - Changed conditional from `&&` to ternary operator to prevent React rendering 0 (see `docs/DEBUGGING_ZERO_ISSUE.md` for details)
 
 - [x] Notifications UX
   - Files: `backend/src/routes/notifications.js`, FE notifications components

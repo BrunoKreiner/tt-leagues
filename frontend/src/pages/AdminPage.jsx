@@ -9,11 +9,33 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '@/components/ui/form';
-import { leaguesAPI, matchesAPI } from '@/services/api';
+import { leaguesAPI, matchesAPI, badgesAPI, usersAPI } from '@/services/api';
 import { toast } from 'sonner';
-import { Shield, PlusCircle } from 'lucide-react';
+import { Shield, PlusCircle, Award, Edit, Trash2, Gift } from 'lucide-react';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import InlineImageCropper from '@/components/InlineImageCropper';
 import { format } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import {
   Pagination,
   PaginationContent,
@@ -31,6 +53,17 @@ const schema = z.object({
   season: z.string().max(100, 'Max 100 characters').optional().or(z.literal('')),
 });
 
+const badgeSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(200, 'Max 200 characters'),
+  description: z.string().max(1000, 'Max 1000 characters').optional().or(z.literal('')),
+  icon: z.string().min(1, 'Icon is required'),
+  badge_type: z.string().min(1, 'Badge type is required'),
+  image_url: z.string().nullable().optional().or(z.literal('')),
+});
+
+const badgeIcons = ['trophy', 'star', 'fire', 'comeback', 'target', 'award', 'medal', 'crown', 'calendar', 'users', 'trending', 'heart'];
+const badgeTypes = ['league_winner', 'tournament_winner', 'achievement'];
+
 const AdminPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -42,6 +75,27 @@ const AdminPage = () => {
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [total, setTotal] = useState(0);
+
+  // Badge management state
+  const [badges, setBadges] = useState([]);
+  const [loadingBadges, setLoadingBadges] = useState(true);
+  const [badgePage, setBadgePage] = useState(1);
+  const [badgePages, setBadgePages] = useState(1);
+  const [badgeTotal, setBadgeTotal] = useState(0);
+  const [editingBadge, setEditingBadge] = useState(null);
+  const [badgeFormOpen, setBadgeFormOpen] = useState(false);
+  const [awardDialogOpen, setAwardDialogOpen] = useState(false);
+  const [selectedBadgeForAward, setSelectedBadgeForAward] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [awardUserId, setAwardUserId] = useState('');
+  const [awardLeagueId, setAwardLeagueId] = useState('');
+  const [awardSeason, setAwardSeason] = useState('');
+  const [awarding, setAwarding] = useState(false);
+  const [leagues, setLeagues] = useState([]);
+  const [badgeUsers, setBadgeUsers] = useState([]);
+  const [loadingBadgeUsers, setLoadingBadgeUsers] = useState(false);
+  const [uploadedImageSrc, setUploadedImageSrc] = useState(null);
 
   const form = useForm({
     resolver: zodResolver(schema),
@@ -69,10 +123,211 @@ const AdminPage = () => {
     }
   };
 
+  const badgeForm = useForm({
+    resolver: zodResolver(badgeSchema),
+    defaultValues: {
+      name: '',
+      description: '',
+      icon: 'trophy',
+      badge_type: 'achievement',
+      image_url: '',
+    },
+  });
+
   useEffect(() => {
     fetchPending();
+    fetchBadges();
+    fetchLeagues();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
+
+  useEffect(() => {
+    fetchBadges();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [badgePage]);
+
+  const fetchBadges = async (opts = {}) => {
+    const nextPage = opts.page ?? badgePage;
+    try {
+      setLoadingBadges(true);
+      const { data } = await badgesAPI.getAll({ page: nextPage, limit: 20 });
+      setBadges(data.badges || []);
+      setBadgePages(data.pagination?.pages || 1);
+      setBadgeTotal(data.pagination?.total || 0);
+    } catch (e) {
+      console.error('Failed to load badges', e);
+      toast.error('Failed to load badges');
+    } finally {
+      setLoadingBadges(false);
+    }
+  };
+
+  const fetchLeagues = async () => {
+    try {
+      const { data } = await leaguesAPI.getAll({ page: 1, limit: 100 });
+      setLeagues(data.leagues || []);
+    } catch (e) {
+      console.error('Failed to load leagues', e);
+    }
+  };
+
+  const fetchUsers = async (search = '') => {
+    try {
+      setLoadingUsers(true);
+      const { data } = await usersAPI.getAll({ page: 1, limit: 50, search });
+      setUsers(data.users || []);
+    } catch (e) {
+      console.error('Failed to load users', e);
+      toast.error('Failed to load users');
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const handleCreateBadge = async (values) => {
+    try {
+      setSubmitting(true);
+      // Ensure image_url is empty string instead of null
+      const payload = {
+        ...values,
+        image_url: values.image_url || ''
+      };
+      await badgesAPI.create(payload);
+      toast.success('Badge created successfully');
+      badgeForm.reset();
+      setUploadedImageSrc(null);
+      setBadgeFormOpen(false);
+      fetchBadges();
+    } catch (e) {
+      const msg = e.response?.data?.error || 'Failed to create badge';
+      toast.error(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEditBadge = async (values) => {
+    try {
+      setSubmitting(true);
+      // Ensure image_url is empty string instead of null
+      const payload = {
+        ...values,
+        image_url: values.image_url || ''
+      };
+      await badgesAPI.update(editingBadge.id, payload);
+      toast.success('Badge updated successfully');
+      badgeForm.reset();
+      setEditingBadge(null);
+      setUploadedImageSrc(null);
+      setBadgeFormOpen(false);
+      fetchBadges();
+    } catch (e) {
+      const msg = e.response?.data?.error || 'Failed to update badge';
+      toast.error(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteBadge = async (badgeId) => {
+    try {
+      await badgesAPI.delete(badgeId);
+      toast.success('Badge deleted successfully');
+      fetchBadges();
+    } catch (e) {
+      const msg = e.response?.data?.error || 'Failed to delete badge';
+      toast.error(msg);
+    }
+  };
+
+  const handleAwardBadge = async () => {
+    if (!selectedBadgeForAward || !awardUserId) {
+      toast.error('Please select a badge and user');
+      return;
+    }
+    try {
+      setAwarding(true);
+      await badgesAPI.awardToUser(parseInt(awardUserId), {
+        badge_id: selectedBadgeForAward.id,
+        league_id: awardLeagueId ? parseInt(awardLeagueId) : undefined,
+        season: awardSeason || undefined,
+      });
+      toast.success(`Badge "${selectedBadgeForAward.name}" awarded successfully`);
+      setAwardDialogOpen(false);
+      setAwardUserId('');
+      setAwardLeagueId('');
+      setAwardSeason('');
+      setSelectedBadgeForAward(null);
+    } catch (e) {
+      const msg = e.response?.data?.error || 'Failed to award badge';
+      toast.error(msg);
+    } finally {
+      setAwarding(false);
+    }
+  };
+
+  const fetchBadgeUsers = async (badgeId) => {
+    try {
+      setLoadingBadgeUsers(true);
+      const res = await badgesAPI.getUsers(badgeId);
+      setBadgeUsers(res.data.users || []);
+    } catch (e) {
+      console.error('Failed to fetch badge users:', e);
+      setBadgeUsers([]);
+    } finally {
+      setLoadingBadgeUsers(false);
+    }
+  };
+
+  const handleRevokeBadge = async (userId, badgeId, username) => {
+    if (!window.confirm(`Remove this badge from ${username}?`)) return;
+    try {
+      await badgesAPI.removeFromUser(userId, badgeId);
+      toast.success(`Badge removed from ${username}`);
+      if (editingBadge) {
+        fetchBadgeUsers(editingBadge.id);
+      }
+    } catch (e) {
+      const msg = e.response?.data?.error || 'Failed to remove badge';
+      toast.error(msg);
+    }
+  };
+
+  const openEditBadge = (badge) => {
+    setEditingBadge(badge);
+    setUploadedImageSrc(null);
+    badgeForm.reset({
+      name: badge.name,
+      description: badge.description || '',
+      icon: badge.icon || 'trophy',
+      badge_type: badge.badge_type || 'achievement',
+      image_url: badge.image_url || '',
+    });
+    setBadgeFormOpen(true);
+    fetchBadgeUsers(badge.id);
+  };
+
+  const openCreateBadge = () => {
+    setEditingBadge(null);
+    setUploadedImageSrc(null);
+    badgeForm.reset({
+      name: '',
+      description: '',
+      icon: 'trophy',
+      badge_type: 'achievement',
+      image_url: '',
+    });
+    setBadgeFormOpen(true);
+  };
+
+  const openAwardDialog = (badge) => {
+    setSelectedBadgeForAward(badge);
+    setAwardUserId('');
+    setAwardLeagueId('');
+    setAwardSeason('');
+    setAwardDialogOpen(true);
+    fetchUsers();
+  };
 
   const acceptMatch = async (id) => {
     try {
@@ -288,18 +543,450 @@ const AdminPage = () => {
         </CardContent>
       </Card>
 
+      {/* Badge Management */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <Shield className="h-5 w-5 mr-2" />
-            {t('admin.comingSoon')}
-          </CardTitle>
-          <CardDescription>{t('admin.comingSoonDesc')}</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center">
+                <Award className="h-5 w-5 mr-2" />
+                Badge Management
+              </CardTitle>
+              <CardDescription>Create, edit, and award badges to users</CardDescription>
+            </div>
+            <Dialog open={badgeFormOpen} onOpenChange={setBadgeFormOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={openCreateBadge}><PlusCircle className="h-4 w-4 mr-2" />Create Badge</Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl bg-gray-900 border-2 border-gray-700">
+                <DialogHeader>
+                  <DialogTitle>{editingBadge ? 'Edit Badge' : 'Create Badge'}</DialogTitle>
+                  <DialogDescription>
+                    {editingBadge ? 'Update badge details' : 'Create a new badge to award to users'}
+                  </DialogDescription>
+                </DialogHeader>
+                <Form {...badgeForm}>
+                  <form onSubmit={badgeForm.handleSubmit(editingBadge ? handleEditBadge : handleCreateBadge)} className="space-y-4">
+                    <FormField
+                      name="name"
+                      control={badgeForm.control}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Badge name" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      name="description"
+                      control={badgeForm.control}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Description</FormLabel>
+                          <FormControl>
+                            <Textarea placeholder="Badge description" rows={3} {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <FormField
+                        name="icon"
+                        control={badgeForm.control}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Icon</FormLabel>
+                            <Select value={field.value} onValueChange={field.onChange}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select icon" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {badgeIcons.map((icon) => (
+                                  <SelectItem key={icon} value={icon}>{icon}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        name="badge_type"
+                        control={badgeForm.control}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Badge Type</FormLabel>
+                            <Select value={field.value} onValueChange={field.onChange}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select type" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {badgeTypes.map((type) => (
+                                  <SelectItem key={type} value={type}>{type.replace('_', ' ')}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <FormField
+                      name="image_url"
+                      control={badgeForm.control}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Badge Image (optional)</FormLabel>
+                          <FormControl>
+                            <div className="space-y-2">
+                              {!uploadedImageSrc && !field.value && (
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="w-full border border-gray-600 rounded px-2 py-1 bg-gray-800 text-gray-200 file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer cursor-pointer"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      const reader = new FileReader();
+                                      reader.onload = (e) => {
+                                        setUploadedImageSrc(e.target.result);
+                                      };
+                                      reader.readAsDataURL(file);
+                                    }
+                                  }}
+                                />
+                              )}
+                              {uploadedImageSrc && (
+                                <InlineImageCropper
+                                  imageSrc={uploadedImageSrc}
+                                  onCrop={(cropped) => {
+                                    field.onChange(cropped || '');
+                                    setUploadedImageSrc(null);
+                                  }}
+                                  onCancel={() => {
+                                    setUploadedImageSrc(null);
+                                  }}
+                                  onRemove={() => {
+                                    setUploadedImageSrc(null);
+                                    field.onChange('');
+                                  }}
+                                />
+                              )}
+                              {field.value && !uploadedImageSrc && (
+                                <div className="space-y-2">
+                                  <div className="relative w-32 h-32 border rounded-lg overflow-hidden">
+                                    <img src={field.value} alt="Badge preview" className="w-full h-full object-contain" />
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setUploadedImageSrc(field.value);
+                                      }}
+                                    >
+                                      Edit Image
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-red-400 hover:text-red-300"
+                                      onClick={() => {
+                                        field.onChange('');
+                                      }}
+                                    >
+                                      Remove
+                                    </Button>
+                                  </div>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="w-full border border-gray-600 rounded px-2 py-1 bg-gray-800 text-gray-200 file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer cursor-pointer"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        const reader = new FileReader();
+                                        reader.onload = (e) => {
+                                          setUploadedImageSrc(e.target.result);
+                                        };
+                                        reader.readAsDataURL(file);
+                                      }
+                                    }}
+                                  />
+                                </div>
+                              )}
+                              <FormDescription>
+                                Upload an image for this badge. It will be cropped to 128x128 (1:1 ratio) and stored as base64.
+                              </FormDescription>
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {editingBadge && (
+                      <div className="space-y-2">
+                        <FormLabel>Users with this badge ({badgeUsers.length})</FormLabel>
+                        {loadingBadgeUsers ? (
+                          <div className="text-sm text-muted-foreground py-2">Loading...</div>
+                        ) : badgeUsers.length === 0 ? (
+                          <div className="text-sm text-muted-foreground py-2">No users have this badge yet.</div>
+                        ) : (
+                          <div className="border border-gray-700 rounded-lg max-h-60 overflow-y-auto">
+                            <table className="w-full text-sm">
+                              <thead className="bg-gray-800 sticky top-0">
+                                <tr>
+                                  <th className="text-left px-3 py-2">User</th>
+                                  <th className="text-left px-3 py-2">League</th>
+                                  <th className="text-left px-3 py-2">Earned</th>
+                                  <th className="text-right px-3 py-2">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {badgeUsers.map((user) => (
+                                  <tr key={user.user_badge_id} className="border-t border-gray-700">
+                                    <td className="px-3 py-2">{user.username}</td>
+                                    <td className="px-3 py-2 text-muted-foreground">{user.league_name || 'Global'}</td>
+                                    <td className="px-3 py-2 text-muted-foreground">
+                                      {user.earned_at ? format(new Date(user.earned_at), 'MMM d, yyyy') : '-'}
+                                    </td>
+                                    <td className="px-3 py-2 text-right">
+                                      <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        className="bg-red-600 hover:bg-red-700 text-white"
+                                        onClick={() => handleRevokeBadge(user.id, editingBadge.id, user.username)}
+                                      >
+                                        Revoke
+                                      </Button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setBadgeFormOpen(false)}>Cancel</Button>
+                      <Button type="submit" disabled={submitting}>
+                        {submitting ? 'Saving...' : editingBadge ? 'Update Badge' : 'Create Badge'}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">{t('admin.moreAdminCopy')}</p>
+          {loadingBadges ? (
+            <div className="py-8"><LoadingSpinner /></div>
+          ) : badges.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No badges created yet. Create your first badge!</div>
+          ) : (
+            <>
+              <div className="overflow-x-auto rounded-md border">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-muted/40 text-muted-foreground">
+                    <tr>
+                      <th className="text-left font-medium px-3 py-2">Image</th>
+                      <th className="text-left font-medium px-3 py-2">Name</th>
+                      <th className="text-left font-medium px-3 py-2">Icon</th>
+                      <th className="text-left font-medium px-3 py-2">Type</th>
+                      <th className="text-left font-medium px-3 py-2">Times Awarded</th>
+                      <th className="text-left font-medium px-3 py-2">Created</th>
+                      <th className="text-right font-medium px-3 py-2">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {badges.map((badge) => (
+                      <tr key={badge.id} className="border-t">
+                        <td className="px-3 py-3">
+                          {badge.image_url ? (
+                            <div className="w-12 h-12 rounded overflow-hidden border border-gray-600 flex items-center justify-center bg-gray-800">
+                              <img 
+                                src={badge.image_url} 
+                                alt={badge.name}
+                                className="w-full h-full object-contain"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  e.target.nextSibling.style.display = 'flex';
+                                }}
+                              />
+                              <div className="hidden text-xs text-muted-foreground items-center justify-center w-full h-full">
+                                No image
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="w-12 h-12 rounded border border-gray-600 flex items-center justify-center bg-gray-800 text-xs text-muted-foreground">
+                              {badge.icon || 'N/A'}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="font-medium">{badge.name}</div>
+                          {badge.description && (
+                            <div className="text-xs text-muted-foreground mt-1">{badge.description}</div>
+                          )}
+                        </td>
+                        <td className="px-3 py-3">{badge.icon}</td>
+                        <td className="px-3 py-3">{badge.badge_type?.replace('_', ' ') || '-'}</td>
+                        <td className="px-3 py-3">{badge.times_awarded || 0}</td>
+                        <td className="px-3 py-3 text-muted-foreground">
+                          {badge.created_at ? format(new Date(badge.created_at), 'MMM d, yyyy') : '-'}
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button size="sm" variant="outline" onClick={() => openEditBadge(badge)}>
+                              <Edit className="h-3 w-3 mr-1" />Edit
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => openAwardDialog(badge)}>
+                              <Gift className="h-3 w-3 mr-1" />Award
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="sm" variant="destructive" className="bg-red-600 hover:bg-red-700 text-white">
+                                  <Trash2 className="h-3 w-3 mr-1" />Delete
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent className="bg-gray-900 border-2 border-gray-700">
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Badge</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete "{badge.name}"? 
+                                    {badge.times_awarded > 0 && ` This badge has been awarded to ${badge.times_awarded} user(s) and cannot be deleted.`}
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction 
+                                    onClick={() => handleDeleteBadge(badge.id)}
+                                    disabled={badge.times_awarded > 0}
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {badgePages > 1 && (
+                <div className="mt-4">
+                  <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
+                    <span>Total: {badgeTotal}</span>
+                    <span>Page {badgePage} of {badgePages}</span>
+                  </div>
+                  <Pagination>
+                    <PaginationContent>
+                      {badgePage > 1 && (
+                        <PaginationItem>
+                          <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); setBadgePage((p) => Math.max(1, p - 1)); }} />
+                        </PaginationItem>
+                      )}
+                      <PaginationItem>
+                        <PaginationLink isActive>{badgePage}</PaginationLink>
+                      </PaginationItem>
+                      <span className="px-1 self-center text-sm text-muted-foreground">/ {badgePages}</span>
+                      {badgePage < badgePages && (
+                        <PaginationItem>
+                          <PaginationNext href="#" onClick={(e) => { e.preventDefault(); setBadgePage((p) => Math.min(badgePages, p + 1)); }} />
+                        </PaginationItem>
+                      )}
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
+
+      {/* Award Badge Dialog */}
+      <Dialog open={awardDialogOpen} onOpenChange={setAwardDialogOpen}>
+        <DialogContent className="bg-gray-900 border-2 border-gray-700">
+          <DialogHeader>
+            <DialogTitle>Award Badge: {selectedBadgeForAward?.name}</DialogTitle>
+            <DialogDescription>
+              Award this badge to a user. You can optionally associate it with a league and season.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">User</label>
+              <Select value={awardUserId} onValueChange={setAwardUserId} disabled={loadingUsers}>
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder={loadingUsers ? 'Loading users...' : 'Select user'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={String(user.id)}>
+                      {user.username} {user.first_name && user.last_name ? `(${user.first_name} ${user.last_name})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">League (optional)</label>
+              <Select value={awardLeagueId || undefined} onValueChange={(value) => setAwardLeagueId(value || '')}>
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Select league (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {leagues.map((league) => (
+                    <SelectItem key={league.id} value={String(league.id)}>
+                      {league.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {awardLeagueId && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="mt-1 text-xs"
+                  onClick={() => setAwardLeagueId('')}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+            <div>
+              <label className="text-sm font-medium">Season (optional)</label>
+              <Input
+                value={awardSeason}
+                onChange={(e) => setAwardSeason(e.target.value)}
+                placeholder="e.g., 2025"
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setAwardDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleAwardBadge} disabled={awarding || !awardUserId}>
+              {awarding ? 'Awarding...' : 'Award Badge'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
