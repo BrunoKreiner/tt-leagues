@@ -130,6 +130,37 @@ class Database {
         }
     }
 
+    async addBadgeImageUrlColumn() {
+        try {
+            // Check if badges table exists first
+            if (this.isPg) {
+                // PostgreSQL: check if column exists
+                const columnExists = await this.get(`
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'badges' AND column_name = 'image_url'
+                    ) as exists
+                `);
+                if (!columnExists.exists) {
+                    await this.run('ALTER TABLE badges ADD COLUMN image_url TEXT');
+                    console.log('Added image_url column to badges table');
+                }
+            } else {
+                // SQLite: try to select from column, if it fails, add it
+                try {
+                    await this.run('SELECT image_url FROM badges LIMIT 1');
+                } catch (err) {
+                    // Column doesn't exist, add it
+                    await this.run('ALTER TABLE badges ADD COLUMN image_url TEXT');
+                    console.log('Added image_url column to badges table');
+                }
+            }
+        } catch (err) {
+            // Table might not exist yet, that's okay
+            console.warn('Could not add image_url column to badges table (table might not exist):', err.message);
+        }
+    }
+
     async createAdminUser() {
         const bcrypt = require('bcryptjs');
 
