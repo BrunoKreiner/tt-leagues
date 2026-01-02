@@ -16,10 +16,8 @@ router.get('/', authenticateToken, requireAdmin, validatePagination, async (req,
         const offset = (page - 1) * limit;
         
         // Check if badges table exists first
-        let tableExists = false;
         try {
             await database.get('SELECT 1 FROM badges LIMIT 1');
-            tableExists = true;
         } catch (tableError) {
             console.warn('Badges table might not exist yet:', tableError.message);
             // Return empty result if table doesn't exist
@@ -34,17 +32,40 @@ router.get('/', authenticateToken, requireAdmin, validatePagination, async (req,
             });
         }
         
-        // Use subquery for times_awarded to avoid GROUP BY issues in PostgreSQL
-        const badges = await database.all(`
-            SELECT 
-                b.id, b.name, b.description, b.icon, b.badge_type, b.image_url, b.created_at,
-                COALESCE((SELECT COUNT(*) FROM user_badges ub WHERE ub.badge_id = b.id), 0) as times_awarded
-            FROM badges b
-            ORDER BY b.created_at DESC
-            LIMIT ? OFFSET ?
-        `, [limit, offset]);
-        
-        const totalCount = await database.get('SELECT COUNT(*) as count FROM badges');
+        // Try to get badges with image_url, fallback if column doesn't exist
+        let badges;
+        let totalCount;
+        try {
+            // Use subquery for times_awarded to avoid GROUP BY issues in PostgreSQL
+            badges = await database.all(`
+                SELECT 
+                    b.id, b.name, b.description, b.icon, b.badge_type, b.image_url, b.created_at,
+                    COALESCE((SELECT COUNT(*) FROM user_badges ub WHERE ub.badge_id = b.id), 0) as times_awarded
+                FROM badges b
+                ORDER BY b.created_at DESC
+                LIMIT ? OFFSET ?
+            `, [limit, offset]);
+            
+            totalCount = await database.get('SELECT COUNT(*) as count FROM badges');
+        } catch (queryError) {
+            // If image_url column doesn't exist, try without it
+            if (queryError.message && queryError.message.includes('image_url')) {
+                console.warn('image_url column not found, querying without it:', queryError.message);
+                badges = await database.all(`
+                    SELECT 
+                        b.id, b.name, b.description, b.icon, b.badge_type, b.created_at,
+                        COALESCE((SELECT COUNT(*) FROM user_badges ub WHERE ub.badge_id = b.id), 0) as times_awarded
+                    FROM badges b
+                    ORDER BY b.created_at DESC
+                    LIMIT ? OFFSET ?
+                `, [limit, offset]);
+                // Add null image_url for compatibility
+                badges = badges.map(b => ({ ...b, image_url: null }));
+                totalCount = await database.get('SELECT COUNT(*) as count FROM badges');
+            } else {
+                throw queryError;
+            }
+        }
         
         res.json({
             badges,
