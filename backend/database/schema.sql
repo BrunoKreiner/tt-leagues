@@ -175,8 +175,5 @@ VALUES ('admin', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
 
 -- Insert some default badges
 INSERT OR IGNORE INTO badges (name, description, icon, badge_type) VALUES
-('League Champion', 'Winner of a league season', 'trophy', 'league_winner'),
-('First Victory', 'Won your first match', 'star', 'achievement'),
-('Streak Master', 'Won 5 matches in a row', 'fire', 'achievement'),
-('Comeback King', 'Won a match after being 2 sets down', 'comeback', 'achievement');
+('League Champion', 'Winner of a league season', 'trophy', 'league_winner');
 
