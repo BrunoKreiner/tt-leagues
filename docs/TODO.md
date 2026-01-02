@@ -159,10 +159,19 @@ Quick facts (current state):
   - Action: Ensure consistent columns, defaults, indexes, and constraints. Confirm all entities are created with `IF NOT EXISTS`. Document any expected dialect differences (e.g., autoincrement vs serial/identity; datetime types).
   - Acceptance: Feature parity across DBs; initialization succeeds in both modes.
 
-- [ ] Indexing review for critical queries
-  - Files: same as above
+- [x] Indexing review for critical queries
+  - Files: `backend/database/schema.sql`, `backend/database/schema.pg.sql`
   - Action: Verify indexes for frequent lookups (user by username/email, memberships, pending matches, elo history).
   - Acceptance: No obvious slow queries due to missing indexes.
+  - Status: ✅ **COMPLETED** - Added 30+ additional indexes covering:
+    - Matches: is_accepted, winner_id, elo_applied, composite indexes for common query patterns
+    - Leagues: is_active, is_public, updated_at, created_by, composite indexes
+    - League members: current_elo (for leaderboard sorting), composite indexes
+    - League invites: league_id, invited_user_id, status, composite indexes
+    - User badges: user_id, badge_id, league_id, earned_at, composite indexes
+    - Notifications: created_at, composite for user+read+created queries
+    - ELO history: match_id, composite for user+league+recorded queries
+    - Match sets: match_id
 
 ---
 

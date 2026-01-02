@@ -156,6 +156,7 @@ CREATE TABLE IF NOT EXISTS league_invites (
 );
 
 -- Indexes for performance
+-- Basic indexes
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_league_members_league_id ON league_members(league_id);
@@ -168,6 +169,52 @@ CREATE INDEX IF NOT EXISTS idx_elo_history_user_league ON elo_history(user_id, l
 CREATE INDEX IF NOT EXISTS idx_elo_history_recorded_at ON elo_history(recorded_at);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
+
+-- Additional performance indexes
+-- Matches table
+CREATE INDEX IF NOT EXISTS idx_matches_is_accepted ON matches(is_accepted);
+CREATE INDEX IF NOT EXISTS idx_matches_league_accepted ON matches(league_id, is_accepted);
+CREATE INDEX IF NOT EXISTS idx_matches_winner_id ON matches(winner_id);
+CREATE INDEX IF NOT EXISTS idx_matches_elo_applied ON matches(elo_applied);
+CREATE INDEX IF NOT EXISTS idx_matches_created_at ON matches(created_at);
+CREATE INDEX IF NOT EXISTS idx_matches_player1_accepted ON matches(player1_id, is_accepted);
+CREATE INDEX IF NOT EXISTS idx_matches_player2_accepted ON matches(player2_id, is_accepted);
+
+-- Leagues table
+CREATE INDEX IF NOT EXISTS idx_leagues_is_active ON leagues(is_active);
+CREATE INDEX IF NOT EXISTS idx_leagues_is_public ON leagues(is_public);
+CREATE INDEX IF NOT EXISTS idx_leagues_active_public ON leagues(is_active, is_public);
+CREATE INDEX IF NOT EXISTS idx_leagues_updated_at ON leagues(updated_at);
+CREATE INDEX IF NOT EXISTS idx_leagues_created_by ON leagues(created_by);
+
+-- League members table
+CREATE INDEX IF NOT EXISTS idx_league_members_current_elo ON league_members(current_elo);
+CREATE INDEX IF NOT EXISTS idx_league_members_league_elo ON league_members(league_id, current_elo);
+CREATE INDEX IF NOT EXISTS idx_league_members_is_admin ON league_members(is_admin);
+
+-- League invites table
+CREATE INDEX IF NOT EXISTS idx_league_invites_league_id ON league_invites(league_id);
+CREATE INDEX IF NOT EXISTS idx_league_invites_invited_user_id ON league_invites(invited_user_id);
+CREATE INDEX IF NOT EXISTS idx_league_invites_status ON league_invites(status);
+CREATE INDEX IF NOT EXISTS idx_league_invites_league_user_status ON league_invites(league_id, invited_user_id, status);
+
+-- User badges table
+CREATE INDEX IF NOT EXISTS idx_user_badges_user_id ON user_badges(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_badges_badge_id ON user_badges(badge_id);
+CREATE INDEX IF NOT EXISTS idx_user_badges_league_id ON user_badges(league_id);
+CREATE INDEX IF NOT EXISTS idx_user_badges_earned_at ON user_badges(earned_at);
+CREATE INDEX IF NOT EXISTS idx_user_badges_user_league ON user_badges(user_id, league_id);
+
+-- Notifications table
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_read_created ON notifications(user_id, is_read, created_at);
+
+-- ELO history table
+CREATE INDEX IF NOT EXISTS idx_elo_history_match_id ON elo_history(match_id);
+CREATE INDEX IF NOT EXISTS idx_elo_history_user_league_recorded ON elo_history(user_id, league_id, recorded_at);
+
+-- Match sets table
+CREATE INDEX IF NOT EXISTS idx_match_sets_match_id ON match_sets(match_id);
 
 -- Insert default admin user (password: admin123)
 INSERT OR IGNORE INTO users (username, password_hash, first_name, last_name, email, is_admin) 
