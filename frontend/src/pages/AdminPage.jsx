@@ -150,16 +150,13 @@ const AdminPage = () => {
     const nextPage = opts.page ?? badgePage;
     try {
       setLoadingBadges(true);
-      const { data } = await badgesAPI.getAll({ page: nextPage, limit: 10 });
+      const { data } = await badgesAPI.getAll({ page: nextPage, limit: 20 });
       setBadges(data.badges || []);
       setBadgePages(data.pagination?.pages || 1);
       setBadgeTotal(data.pagination?.total || 0);
     } catch (e) {
       console.error('Failed to load badges', e);
-      // Don't show error toast - badges are optional, just log and continue
-      setBadges([]);
-      setBadgePages(1);
-      setBadgeTotal(0);
+      toast.error('Failed to load badges');
     } finally {
       setLoadingBadges(false);
     }
