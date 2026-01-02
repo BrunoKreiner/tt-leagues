@@ -1,5 +1,25 @@
 # Development Progress Log
 
+Date: 2026-01-02
+
+Summary: Fixed badge image cropper overlay rendering issue and cancel button behavior. Implemented comprehensive badge image upload and cropping functionality.
+
+Changes:
+- Fixed `InlineImageCropper` component overlay rendering:
+  - Changed from using `clearRect()` (which cleared both overlay and image) to drawing overlay in four rectangles around crop area (top, bottom, left, right)
+  - Image is now clearly visible inside the crop area for both new uploads and editing existing images
+  - Overlay opacity set to 30% for good contrast while keeping image visible
+- Fixed cancel button behavior:
+  - Added `onCancel` prop to `InlineImageCropper` component
+  - Cancel button now preserves existing images when editing (only closes cropper) instead of deleting them
+  - When uploading new images, cancel still removes the image as expected
+- Previously completed: Badge image upload with inline cropper, database schema updates (image_url column), badge image display in profiles and leaderboards
+
+Result:
+- Badge image cropper now works correctly: image is visible in crop area, overlay provides clear visual distinction, cancel button behaves correctly for both new uploads and edits
+
+---
+
 Date: 2025-08-27 (later)
 
 Summary: Added ELO consolidation setting per league with deferred application and consolidation endpoint.
