@@ -79,6 +79,14 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Name and badge_type are required' });
         }
         
+        // Check if badges table exists
+        try {
+            await database.get('SELECT 1 FROM badges LIMIT 1');
+        } catch (tableError) {
+            console.error('Badges table does not exist:', tableError.message);
+            return res.status(500).json({ error: 'Badges table not found. Please ensure database is initialized.' });
+        }
+        
         // Check if badge with same name already exists
         const existingBadge = await database.get(
             'SELECT id FROM badges WHERE name = ?',
@@ -89,7 +97,7 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
             return res.status(409).json({ error: 'Badge with this name already exists' });
         }
         
-        // Insert new badge
+        // Insert new badge (handle image_url column potentially not existing)
         const result = await database.run(`
             INSERT INTO badges (name, description, icon, badge_type, image_url)
             VALUES (?, ?, ?, ?, ?)
@@ -107,7 +115,12 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
         });
     } catch (error) {
         console.error('Create badge error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        console.error('Error details:', {
+            message: error.message,
+            stack: error.stack,
+            code: error.code
+        });
+        res.status(500).json({ error: 'Internal server error', details: process.env.NODE_ENV === 'development' ? error.message : undefined });
     }
 });
 
