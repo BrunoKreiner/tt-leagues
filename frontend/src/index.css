@@ -135,6 +135,12 @@ body {
   column-gap: 0.75rem;
 }
 
+/* Touch optimization for mobile */
+.touch-manipulation {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* Cyberpunk Typography */
 .cyberpunk-title {
   font-family: 'Orbitron', monospace;

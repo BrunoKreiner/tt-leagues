@@ -395,7 +395,7 @@ export default function RecordMatchPage() {
                   control={form.control}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Your sets won</FormLabel>
+                      <FormLabel>{t('recordMatch.yourSetsWon')}</FormLabel>
                       <FormControl>
                         <Input type="number" min={0} max={4} {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
                       </FormControl>
@@ -408,7 +408,7 @@ export default function RecordMatchPage() {
                   control={form.control}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Opponent sets won</FormLabel>
+                      <FormLabel>{t('recordMatch.opponentSetsWon')}</FormLabel>
                       <FormControl>
                         <Input type="number" min={0} max={4} {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
                       </FormControl>

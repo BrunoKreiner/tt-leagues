@@ -7,7 +7,7 @@ const HamburgerButton = ({ isOpen, onClick }) => {
       variant="ghost"
       size="sm"
       onClick={onClick}
-      className="md:hidden h-8 w-8 p-0 flex items-center justify-center hover:bg-transparent active:bg-transparent focus-visible:ring-0 focus:outline-none relative top-[1px]"
+      className="md:hidden h-11 w-11 p-0 flex items-center justify-center hover:bg-transparent active:bg-transparent focus-visible:ring-0 focus:outline-none relative top-[1px] touch-manipulation"
       aria-label={isOpen ? 'Close menu' : 'Open menu'}
       aria-expanded={isOpen}
     >

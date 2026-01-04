@@ -312,6 +312,8 @@
     "selectLeagueOpponentSetsToPreview": "Select league, opponent, and sets to preview",
     "you": "You",
     "opponent": "Opponent",
+    "yourSetsWon": "Your sets won",
+    "opponentSetsWon": "Opponent sets won",
     "submitMatch": "Submit Match",
     "matchRecordedSuccess": "Match recorded successfully",
     "failedToRecordMatch": "Failed to record match"

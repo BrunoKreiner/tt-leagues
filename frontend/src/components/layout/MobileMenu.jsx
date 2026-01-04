@@ -94,15 +94,15 @@ const MobileMenu = ({
             variant="ghost"
             size="sm"
             onClick={onClose}
-            className="h-8 w-8 p-0"
+            className="h-11 w-11 p-0 touch-manipulation"
             aria-label="Close menu"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </Button>
         </div>
 
         {/* User Profile Section */}
-        <Link to="/profile" onClick={onClose} className="block p-4 border-b border-gray-700 hover:bg-gray-800/50 transition-colors cursor-pointer">
+        <Link to="/profile" onClick={onClose} className="block p-4 border-b border-gray-700 hover:bg-gray-800/50 transition-colors cursor-pointer touch-manipulation min-h-[64px]">
           <div className="flex items-center space-x-3">
             <Avatar className="h-10 w-10">
               {user?.avatar_url && (
@@ -135,7 +135,7 @@ const MobileMenu = ({
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors min-h-[44px] touch-manipulation ${
                     isActive 
                       ? 'bg-blue-600 text-white' 
                       : 'text-gray-200 hover:bg-gray-700'
@@ -158,7 +158,7 @@ const MobileMenu = ({
           <div className="p-2">
             <Link
               to="/profile"
-              className="flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-700 transition-colors"
+              className="flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-700 transition-colors min-h-[44px] touch-manipulation"
               onClick={onClose}
             >
               <User className="h-5 w-5" />
@@ -166,7 +166,7 @@ const MobileMenu = ({
             </Link>
             <Link
               to="/settings"
-              className="flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-700 transition-colors"
+              className="flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-700 transition-colors min-h-[44px] touch-manipulation"
               onClick={onClose}
             >
               <Settings className="h-5 w-5" />
@@ -229,7 +229,7 @@ const MobileMenu = ({
                               variant="ghost" 
                               size="sm" 
                               onClick={() => onMarkAsRead(n.id)}
-                              className="h-6 px-2 text-xs"
+                              className="min-h-[44px] px-3 text-xs touch-manipulation"
                             >
                               Read
                             </Button>
@@ -245,7 +245,7 @@ const MobileMenu = ({
                               size="sm" 
                               onClick={() => onAcceptInvite(n)} 
                               disabled={!!acceptLoading[n.id]}
-                              className="flex-1 h-8 text-xs"
+                              className="flex-1 min-h-[44px] text-xs touch-manipulation"
                             >
                               {acceptLoading[n.id] ? t('status.joining') : t('actions.accept')}
                             </Button>
@@ -253,7 +253,7 @@ const MobileMenu = ({
                               size="sm" 
                               variant="outline" 
                               onClick={() => onDenyInvite(n)}
-                              className="flex-1 h-8 text-xs"
+                              className="flex-1 min-h-[44px] text-xs touch-manipulation"
                             >
                               Deny
                             </Button>
@@ -296,7 +296,7 @@ const MobileMenu = ({
           <Button 
             variant="ghost" 
             onClick={onLogout} 
-            className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-red-900/20"
+            className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-red-900/20 min-h-[44px] touch-manipulation"
           >
             <LogOut className="mr-3 h-4 w-4" />
             <span>Log out</span>

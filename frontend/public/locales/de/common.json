@@ -311,6 +311,8 @@
     "selectLeagueOpponentSetsToPreview": "Liga, Gegner und Sätze wählen, um Vorschau zu sehen",
     "you": "Du",
     "opponent": "Gegner",
+    "yourSetsWon": "Deine gewonnenen Sätze",
+    "opponentSetsWon": "Gegner gewonnene Sätze",
     "submitMatch": "Spiel einreichen",
     "matchRecordedSuccess": "Spiel erfolgreich eingetragen",
     "failedToRecordMatch": "Spiel konnte nicht eingetragen werden"

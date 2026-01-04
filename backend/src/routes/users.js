@@ -6,29 +6,82 @@ const database = require('../models/database');
 const router = express.Router();
 
 /**
- * Get all users (admin only)
+ * Get all users (admin only, or for league admin invite purposes)
  * GET /api/users
  */
-router.get('/', authenticateToken, requireAdmin, validatePagination, async (req, res) => {
+router.get('/', authenticateToken, validatePagination, async (req, res) => {
     try {
+        // Only admin can access full user list, but allow search for invite purposes
+        // If search is provided, allow any authenticated user (for league invite search)
+        // Otherwise, require admin
+        const search = req.query.search?.trim();
+        if (!search && !req.user.is_admin) {
+            return res.status(403).json({ error: 'Access denied. Admin only or search required.' });
+        }
+        
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
         const offset = (page - 1) * limit;
         
-        const users = await database.all(`
-            SELECT 
-                u.id, u.username, u.first_name, u.last_name, u.email, u.is_admin, u.created_at,
-                COUNT(DISTINCT lm.league_id) as leagues_count,
-                COUNT(DISTINCT CASE WHEN m.player1_id = u.id OR m.player2_id = u.id THEN m.id END) as matches_played
-            FROM users u
-            LEFT JOIN league_members lm ON u.id = lm.user_id
-            LEFT JOIN matches m ON (m.player1_id = u.id OR m.player2_id = u.id) AND m.is_accepted = ?
-            GROUP BY u.id
-            ORDER BY u.created_at DESC
-            LIMIT ? OFFSET ?
-        `, [true, limit, offset]);
+        // Build WHERE clause for search
+        let whereClause = '';
+        let params = [];
         
-        const totalCount = await database.get('SELECT COUNT(*) as count FROM users');
+        if (search) {
+            whereClause = `WHERE (
+                u.username LIKE ? OR 
+                u.first_name LIKE ? OR 
+                u.last_name LIKE ? OR 
+                u.email LIKE ?
+            )`;
+            const searchPattern = `%${search}%`;
+            params = [searchPattern, searchPattern, searchPattern, searchPattern];
+        }
+        
+        // When searching (for invites), return minimal user info with simpler query
+        // When admin viewing all, return full info with aggregations
+        let users;
+        if (search) {
+            // Simple query for search
+            users = await database.all(`
+                SELECT 
+                    u.id, u.username, u.first_name, u.last_name, u.email
+                FROM users u
+                ${whereClause}
+                ORDER BY u.username ASC
+                LIMIT ? OFFSET ?
+            `, [...params, limit, offset]);
+        } else {
+            // Full query with aggregations for admin view
+            users = await database.all(`
+                SELECT 
+                    u.id, u.username, u.first_name, u.last_name, u.email, u.is_admin, u.created_at,
+                    COUNT(DISTINCT lm.league_id) as leagues_count,
+                    COUNT(DISTINCT CASE WHEN m.player1_id = u.id OR m.player2_id = u.id THEN m.id END) as matches_played
+                FROM users u
+                LEFT JOIN league_members lm ON u.id = lm.user_id
+                LEFT JOIN matches m ON (m.player1_id = u.id OR m.player2_id = u.id) AND m.is_accepted = ?
+                ${whereClause}
+                GROUP BY u.id, u.username, u.first_name, u.last_name, u.email, u.is_admin, u.created_at
+                ORDER BY u.created_at DESC
+                LIMIT ? OFFSET ?
+            `, [true, ...params, limit, offset]);
+        }
+        
+        // Get total count with same search filter
+        let countQuery = 'SELECT COUNT(*) as count FROM users u';
+        const countParams = [];
+        if (search) {
+            countQuery += ` WHERE (
+                u.username LIKE ? OR 
+                u.first_name LIKE ? OR 
+                u.last_name LIKE ? OR 
+                u.email LIKE ?
+            )`;
+            const searchPattern = `%${search}%`;
+            countParams.push(searchPattern, searchPattern, searchPattern, searchPattern);
+        }
+        const totalCount = await database.get(countQuery, countParams);
         
         res.json({
             users,

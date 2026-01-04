@@ -22,6 +22,7 @@ import EloSparkline from '@/components/EloSparkline';
 import MedalIcon from '@/components/MedalIcon';
 import { BadgeList } from '@/components/BadgeDisplay';
 import RecordMatchForm from '@/components/RecordMatchForm';
+import UserSearchSelect from '@/components/UserSearchSelect';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useTranslation } from 'react-i18next';
 import {
@@ -60,7 +61,7 @@ const LeagueDetailPage = () => {
   const { isAuthenticated } = useAuth();
   const [inviteCode, setInviteCode] = useState('');
   const [joinLoading, setJoinLoading] = useState(false);
-  const [inviteUsername, setInviteUsername] = useState('');
+  const [inviteUserId, setInviteUserId] = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteResult, setInviteResult] = useState(null);
   const [leaveLoading, setLeaveLoading] = useState(false);
@@ -391,29 +392,34 @@ const LeagueDetailPage = () => {
 
   const handleInvite = async (e) => {
     e.preventDefault();
-    if (!inviteUsername.trim()) {
-      toast.error(t('leagues.usernameRequired'));
+    if (!inviteUserId) {
+      toast.error(t('leagues.userRequired'));
       return;
     }
     try {
       setInviteLoading(true);
       setInviteResult(null);
-      const res = await leaguesAPI.invite(id, { username: inviteUsername.trim() });
+      const res = await leaguesAPI.invite(id, { user_id: inviteUserId });
       const { message, invite_code, expires_at } = res.data || {};
       toast.success(message || t('leagues.inviteSent'));
       setInviteResult({ invite_code, expires_at });
-      setInviteUsername('');
+      setInviteUserId(null);
+      // Refresh invites list
+      fetchInvites();
     } catch (err) {
       const status = err.response?.status;
-      const msg = err.response?.data?.error || t('leagues.inviteError');
+      const msg = err.response?.data?.error || err.response?.data?.details || t('leagues.inviteError');
+      console.error('Invite error:', err);
       if (status === 404) {
-        toast.error(t('leagues.userNotFound'));
+        toast.error(msg || t('leagues.userNotFound'));
       } else if (status === 409) {
-        toast.error(t('leagues.userAlreadyMember'));
+        toast.error(msg || t('leagues.userAlreadyMember'));
       } else if (status === 403) {
-        toast.error(t('leagues.onlyAdminsInvite'));
+        toast.error(msg || t('leagues.onlyAdminsInvite'));
+      } else if (status === 400) {
+        toast.error(msg || 'Invalid request');
       } else {
-        toast.error(msg);
+        toast.error(msg || 'Failed to invite user. Please check the console for details.');
       }
     } finally {
       setInviteLoading(false);
@@ -812,14 +818,16 @@ const LeagueDetailPage = () => {
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-300">Invite Users</h4>
                 <form className="flex gap-2" onSubmit={handleInvite}>
-                  <Input
-                    placeholder={t('profile.username')}
-                    value={inviteUsername}
-                    onChange={(e) => setInviteUsername(e.target.value)}
-                    disabled={inviteLoading}
-                    className="flex-1"
-                  />
-                  <Button type="submit" disabled={inviteLoading}>
+                  <div className="flex-1">
+                    <UserSearchSelect
+                      value={inviteUserId ? String(inviteUserId) : ''}
+                      onValueChange={(userId) => setInviteUserId(userId ? parseInt(userId) : null)}
+                      placeholder="Search and select user..."
+                      disabled={inviteLoading}
+                      excludeUserIds={members.map(m => m.id)}
+                    />
+                  </div>
+                  <Button type="submit" disabled={inviteLoading || !inviteUserId}>
                     {inviteLoading ? t('status.inviting') : 'Send Invite'}
                   </Button>
                 </form>
@@ -827,6 +835,11 @@ const LeagueDetailPage = () => {
                   <div className="text-sm bg-gray-800 p-3 rounded border border-gray-700">
                     <div className="text-gray-400 mb-1">Invite Code:</div>
                     <div className="font-mono text-blue-400 text-lg">{inviteResult.invite_code}</div>
+                    {inviteResult.expires_at && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        Expires: {format(new Date(inviteResult.expires_at), 'PPp')}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
