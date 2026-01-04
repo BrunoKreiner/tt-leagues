@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Users, ListChecks, Calendar, Lock, Globe, Trophy } from 'lucide-react';
+import { Users, ListChecks, Calendar, Lock, Globe, Trophy, Swords, ChevronDown, ChevronUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { useForm } from 'react-hook-form';
@@ -21,6 +21,8 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, FormDes
 import EloSparkline from '@/components/EloSparkline';
 import MedalIcon from '@/components/MedalIcon';
 import { BadgeList } from '@/components/BadgeDisplay';
+import RecordMatchForm from '@/components/RecordMatchForm';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useTranslation } from 'react-i18next';
 import {
   Pagination,
@@ -68,6 +70,7 @@ const LeagueDetailPage = () => {
   const [roleChanging, setRoleChanging] = useState({}); // { [userId]: true }
   const [revokingInvite, setRevokingInvite] = useState({}); // { [inviteId]: true }
   const [eloMode, setEloMode] = useState('immediate');
+  const [showRecordMatch, setShowRecordMatch] = useState(false);
 
   const [consolidating, setConsolidating] = useState(false);
 
@@ -220,6 +223,15 @@ const LeagueDetailPage = () => {
     } catch (e) {
       console.error('Failed to load leaderboard', e);
       toast.error(t('leagues.leaderboardError'));
+    }
+  };
+
+  const fetchMatches = async () => {
+    try {
+      const res = await leaguesAPI.getMatches(id, { page: 1, limit: 10 });
+      setMatches(res.data.matches || []);
+    } catch (e) {
+      console.error('Failed to load matches', e);
     }
   };
 
@@ -895,6 +907,47 @@ const LeagueDetailPage = () => {
           </Card>
         </div>
       ) : null}
+
+      {/* Record Match Section - Collapsible */}
+      {isAuthenticated && userMembership && (
+        <Card className="vg-card">
+          <Collapsible open={showRecordMatch} onOpenChange={setShowRecordMatch}>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-gray-800/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="cyberpunk-subtitle flex items-center gap-2 text-lg">
+                    <Swords className="h-5 w-5 text-blue-400" />
+                    {t('recordMatch.title')}
+                  </CardTitle>
+                  {showRecordMatch ? (
+                    <ChevronUp className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-gray-400" />
+                  )}
+                </div>
+                <CardDescription className="text-gray-400">
+                  {t('recordMatch.subtitle')}
+                </CardDescription>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent>
+                <RecordMatchForm
+                  initialLeagueId={parseInt(id)}
+                  hideLeagueSelector={true}
+                  leagueName={league.name}
+                  onSuccess={() => {
+                    setShowRecordMatch(false);
+                    // Refresh matches and leaderboard
+                    fetchMatches();
+                    fetchLeaderboard(leaderboardPagination.page);
+                  }}
+                />
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
+      )}
     </div>
   );
 };

@@ -32,6 +32,7 @@ The Table Tennis League App is a comprehensive full-stack web application design
 - **Match Validation**: Admin approval system for official matches
 - **Match History**: Complete history of all matches played
 - **Real-time Updates**: Immediate ELO calculation after match approval
+- **Quick Record from League Page**: Collapsible match recording form directly on league detail pages for convenient match entry without navigating away
 
 ### 📊 Advanced ELO Rating System
 - **Sophisticated Algorithm**: Custom ELO calculation considering multiple factors

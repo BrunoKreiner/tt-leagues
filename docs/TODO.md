@@ -30,6 +30,7 @@ Quick facts (current state):
   - Actions: Record match with set scores; pending/approve/reject admin flow; history list with filters
   - Acceptance: Recording and approvals update ELO; audit trail visible; UX validated
   - Status: Backend endpoints implemented; duplicate `/pending` and `/preview-elo` routes deduplicated in `backend/src/routes/matches.js`. Added league ELO consolidation feature: schema fields `leagues.elo_update_mode` and `matches.elo_applied(_at)`; `POST /api/matches/:id/accept` now respects `elo_update_mode` (immediate vs deferred weekly/monthly); added `POST /api/matches/leagues/:leagueId/consolidate?force=true`. FE: Matches list with tabs/pagination; Record Match form with live ELO preview; Admin Pending Approvals UI; Match Detail view with pre-accept editing + inline ELO preview; cross-linking from lists; ELO Applied/Deferred badges surfaced. Admin UI added on League Detail to set `elo_update_mode` and run consolidation. Dockerized tests added (Jest + supertest), CI workflow created.
+  - Progress: Record Match form extracted into reusable `RecordMatchForm` component; integrated into `LeagueDetailPage` as collapsible section at bottom of page; form pre-populates league ID and hides league selector when used from league page; opponent dropdown properly loads members when `initialLeagueId` is provided.
 
 - [x] Leaderboards & ELO history
   - Files: `backend/src/routes/leagues.js` (leaderboard endpoint), ELO history endpoint; FE leaderboard + chart
@@ -233,14 +234,12 @@ These are not implemented; capture next steps at a high level.
   - Next steps: Move or duplicate "View Profile" CTA into welcome header area and recent matches empty state; consider avatar click opening profile
   - Acceptance: Profile is discoverable in top section; click-through rate improves
 
-- [ ] Profile enhancements (editable equipment & playstyle)
-  - Backend:
-    - Schema: add nullable columns to `users` (or a `user_profiles` table): `forehand_rubber`, `backhand_rubber`, `blade_wood`, `playstyle`, `strengths`, `weaknesses`, `goals`
-    - Endpoints: extend `PUT /api/users/:id` to accept/update these fields; include in `GET /api/users/:id` and public profile output where appropriate
-  - Frontend:
-    - Add editable section on `/profile` (own profile only) with form validation and save/cancel
-    - Display these attributes on public profile view
-  - Acceptance: Users can view and update these fields; values persist and render on public profiles
+- [x] Profile enhancements (editable equipment & playstyle)
+  - Status: ✅ **COMPLETED** - All equipment and playstyle fields are implemented and functional
+  - Backend: Schema columns added (`forehand_rubber`, `backhand_rubber`, `blade_wood`, `playstyle`, `strengths`, `weaknesses`, `goals`); endpoints updated in `PUT /api/users/:id` and included in profile responses
+  - Frontend: Editable form on own profile, display on public profiles; translations added for EN/DE
+  - Files: `backend/database/schema.sql`, `backend/database/schema.pg.sql`, `backend/src/routes/users.js`, `frontend/src/pages/ProfilePage.jsx`
+  - Acceptance: ✅ Users can view and update these fields; values persist and render on public profiles
 
 ---
 
@@ -464,8 +463,94 @@ Based on the reference images showing modern dark-themed video game dashboards, 
 ## 9) User List of Small Fixes
 
 - [ ] "Your sets won" and "Opponent sets won" needs to be translated too in german.
+
+---
+
+## 10) Next Implementation Priorities
+
+**Current Status**: Record Match on League Detail Page completed. Ready for next feature implementation.
+
+### High Priority Quick Wins
+
+#### 1. Profile Enhancements (Editable Equipment & Playstyle) - ✅ COMPLETED
+- **Status**: ✅ Already implemented and functional
+- **Description**: Equipment fields (forehand/backhand rubber, blade wood) and playstyle descriptions are fully implemented
+- **Implementation Details**:
+  - Database schema includes all fields: `forehand_rubber`, `backhand_rubber`, `blade_wood`, `playstyle`, `strengths`, `weaknesses`, `goals`
+  - Backend endpoints support reading and updating these fields
+  - Frontend has editable form on own profile and display on public profiles
+  - Translations exist for EN/DE
+- **Files**: Already implemented in `backend/database/schema.sql`, `backend/src/routes/users.js`, `frontend/src/pages/ProfilePage.jsx`
+
+#### 2. Cross-link Profiles Across App - NOT IMPLEMENTED
+- **Status**: ❌ Not implemented
+- **Description**: Make all usernames clickable to navigate to user profiles, improving discoverability and navigation
+- **Tasks**:
+  - Make usernames clickable in league members tables (`LeagueDetailPage.jsx`)
+  - Make usernames clickable in leaderboards (league detail and dashboard)
+  - Make usernames clickable in match lists (player names)
+  - Ensure navigation preserves auth context
+- **Files to Modify**:
+  - `frontend/src/pages/LeagueDetailPage.jsx` (leaderboard and members table)
+  - `frontend/src/pages/DashboardPage.jsx` (leaderboard rows)
+  - `frontend/src/pages/MatchesPage.jsx` (match player names)
+  - Any other components displaying usernames
+- **Acceptance Criteria**: Clicking any username navigates to `/profile/:username` public profile page
+
+#### 3. Dashboard Profile CTA Placement - NOT IMPLEMENTED
+- **Status**: ❌ Not implemented
+- **Description**: Improve profile discoverability by adding CTA in welcome section; consider making avatar clickable to open profile
+- **Tasks**:
+  - Add "View Profile" CTA button in welcome header area on dashboard
+  - Add profile link in recent matches empty state
+  - Make avatar/username in header clickable to open profile
+  - Consider duplicate CTA in recent matches section
+- **Files to Modify**:
+  - `frontend/src/pages/DashboardPage.jsx` (welcome section, empty states)
+  - `frontend/src/components/layout/Layout.jsx` (avatar click handler)
+- **Acceptance Criteria**: Profile is easily discoverable in top section; click-through rate improves
+
+### Medium Priority
+
+#### 4. Translation Completion - PARTIALLY IMPLEMENTED
+- **Status**: ⚠️ Partially implemented (EN/DE exist, some strings missing)
+- **Description**: Complete German translations for all remaining strings
+- **Tasks**:
+  - Review all frontend strings and ensure they have translation keys
+  - Complete German translations in `frontend/src/locales/de.json`
+  - Test language switching and verify no untranslated strings appear
+- **Files to Modify**:
+  - `frontend/src/locales/de.json`
+  - Various frontend components (ensure all strings use `t()`)
+- **Known Missing**: "Your sets won" and "Opponent sets won" need German translation
+
+#### 5. Mobile Responsiveness Polish - MOSTLY DONE, NEEDS VERIFICATION
+- **Status**: ⚠️ Mostly implemented, needs final verification
+- **Description**: Finalize responsive design for all components; test and optimize for mobile devices
+- **Tasks**:
+  - Test all pages on mobile devices (various screen sizes)
+  - Verify touch targets are adequate (44x44px minimum)
+  - Check form layouts on mobile
+  - Test navigation menu on mobile
+  - Verify tables are scrollable on mobile
+- **Files to Review**:
+  - All frontend components and pages
+- **Acceptance Criteria**: Site is fully responsive on all device sizes with good UX
+
+### Lower Priority (Future Enhancements)
+
+#### 6. Advanced Statistics Dashboard - NOT IMPLEMENTED
+- **Description**: Win streaks, head-to-head records, performance trends over time
+- **Files**: New dashboard components, backend aggregation endpoints
+- **Complexity**: High - requires new backend aggregations and charting components
+
+#### 7. Tournament System - NOT IMPLEMENTED
+- **Description**: Bracket-style tournaments with rounds and bracket visualization
+- **Files**: New schema (tournaments, rounds), tournament management UI
+- **Complexity**: High - major feature requiring new database schema and UI components
  - [x] Registration: make email truly optional (FE strips empty; BE ignores empty)
  - [x] Login: remove demo admin credentials from login card
  - [x] Login/Register: improve dark mode styling (cards, labels, backgrounds)
- - [x] Dashboard: average ELO now reads from normalized stats and updates
- - [x] Header: replace hamburger with icon and align with logo/title
+- [x] Dashboard: average ELO now reads from normalized stats and updates
+- [x] Header: replace hamburger with icon and align with logo/title
+- [x] Record Match on League Detail Page: Added collapsible Record Match form at bottom of league detail page; form pre-populates league and hides selector
