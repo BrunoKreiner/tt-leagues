@@ -202,7 +202,7 @@ export default function MatchDetailPage() {
           } else {
             setEloPreview(null);
           }
-        } catch (e) {
+        } catch {
           setEloPreview(null);
         }
       }, 300);

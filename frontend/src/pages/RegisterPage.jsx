@@ -76,7 +76,8 @@ const RegisterPage = () => {
       return;
     }
 
-    const { confirmPassword, ...registrationData } = formData;
+    const registrationData = { ...formData };
+    delete registrationData.confirmPassword;
     if (!registrationData.email) {
       delete registrationData.email; // omit empty email so BE treats it as truly optional
     }

@@ -145,7 +145,7 @@ export default function RecordMatchPage() {
   }, [setScores, form]);
 
   // Style helper: highlight close sets with orange→red gradient
-  const getSetClosenessStyle = (p1, p2) => {
+  const _getSetClosenessStyle = (p1, p2) => {
     const a = Number(p1);
     const b = Number(p2);
     if (!Number.isFinite(a) || !Number.isFinite(b)) return {};
@@ -242,7 +242,7 @@ export default function RecordMatchPage() {
           };
           const { data } = await matchesAPI.previewElo(payload);
           setEloPreview(data);
-        } catch (e) {
+        } catch {
           // Ignore preview errors silently (e.g., opponent not selected or not a member)
           setEloPreview(null);
         }

@@ -62,7 +62,7 @@ export default function NotificationsPage() {
     try {
       await notificationsAPI.markAsRead(id);
       await fetchData();
-    } catch (e) {
+    } catch {
       toast.error(t('notifications.markReadError'));
     }
   };
@@ -74,7 +74,7 @@ export default function NotificationsPage() {
       // if filter=unread, go back to page 1 since it may be empty now
       setPage(1);
       await fetchData({ page: 1 });
-    } catch (e) {
+    } catch {
       toast.error(t('notifications.markAllError'));
     } finally {
       setMarkingAll(false);
@@ -105,7 +105,7 @@ export default function NotificationsPage() {
     try {
       await notificationsAPI.markAsRead(n.id);
       await fetchData();
-    } catch (e) {
+    } catch {
       toast.error(t('notifications.denyError'));
     }
   };
@@ -116,7 +116,7 @@ export default function NotificationsPage() {
       await notificationsAPI.delete(id);
       toast.success(t('notifications.deleted'));
       await fetchData();
-    } catch (e) {
+    } catch {
       toast.error(t('notifications.deleteError'));
     } finally {
       setDeleteLoading((s) => ({ ...s, [id]: false }));
