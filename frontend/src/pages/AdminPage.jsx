@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { Shield, PlusCircle, Award, Edit, Trash2, Gift } from 'lucide-react';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import InlineImageCropper from '@/components/InlineImageCropper';
+import UserSearchSelect from '@/components/UserSearchSelect';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -86,8 +87,6 @@ const AdminPage = () => {
   const [badgeFormOpen, setBadgeFormOpen] = useState(false);
   const [awardDialogOpen, setAwardDialogOpen] = useState(false);
   const [selectedBadgeForAward, setSelectedBadgeForAward] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
   const [awardUserId, setAwardUserId] = useState('');
   const [awardLeagueId, setAwardLeagueId] = useState('');
   const [awardSeason, setAwardSeason] = useState('');
@@ -98,7 +97,6 @@ const AdminPage = () => {
   const [badgeUsers, setBadgeUsers] = useState([]);
   const [loadingBadgeUsers, setLoadingBadgeUsers] = useState(false);
   const [uploadedImageSrc, setUploadedImageSrc] = useState(null);
-  const [userSearch, setUserSearch] = useState(''); // Search filter for users
 
   const form = useForm({
     resolver: zodResolver(schema),
@@ -174,19 +172,6 @@ const AdminPage = () => {
     }
   };
 
-  const fetchUsers = async (search = '') => {
-    try {
-      setLoadingUsers(true);
-      const { data } = await usersAPI.getAll({ page: 1, limit: 50, search });
-      setUsers(data.users || []);
-    } catch (e) {
-      console.error('Failed to load users', e);
-      toast.error('Failed to load users');
-    } finally {
-      setLoadingUsers(false);
-    }
-  };
-
   // Fetch leagues for a specific user
   const fetchUserLeagues = async (userId) => {
     if (!userId) {
@@ -195,18 +180,10 @@ const AdminPage = () => {
     }
     try {
       setLoadingUserLeagues(true);
-      const selectedUser = users.find(u => u.id === parseInt(userId));
-      if (!selectedUser) {
-        setUserLeagues([]);
-        return;
-      }
-      
-      const { data } = await usersAPI.getPublicProfile(selectedUser.username);
-      // Extract and normalize leagues from the response
-      const rawLeagues = data?.by_league || data?.league_rankings || [];
-      const userLeaguesData = rawLeagues.map(league => ({
-        id: league.id || league.league_id,
-        name: league.name || league.league_name
+      const { data } = await usersAPI.getById(Number(userId));
+      const userLeaguesData = (data?.leagues || []).map((league) => ({
+        id: league.id,
+        name: league.name,
       }));
       setUserLeagues(userLeaguesData);
       // Clear selected league if it's not in user's leagues
@@ -222,16 +199,8 @@ const AdminPage = () => {
     }
   };
 
-  // Filter users based on search
-  const filteredUsers = users.filter(user => 
-    user.username.toLowerCase().includes(userSearch.toLowerCase()) ||
-    (user.first_name && user.first_name.toLowerCase().includes(userSearch.toLowerCase())) ||
-    (user.last_name && user.last_name.toLowerCase().includes(userSearch.toLowerCase())) ||
-    (user.email && user.email.toLowerCase().includes(userSearch.toLowerCase()))
-  );
-
-  // Get available leagues (either user's leagues if user selected, or all leagues)
-  const availableLeagues = awardUserId && userLeagues.length > 0 ? userLeagues : leagues;
+  // Get available leagues (either selected user's leagues, or all leagues)
+  const availableLeagues = awardUserId ? userLeagues : leagues;
 
   const handleCreateBadge = async (values) => {
     try {
@@ -374,18 +343,17 @@ const AdminPage = () => {
     setAwardUserId('');
     setAwardLeagueId('');
     setAwardSeason('');
-    setUserSearch('');
     setUserLeagues([]);
     setAwardDialogOpen(true);
-    fetchUsers();
   };
 
   // Handle user selection change
   const handleUserIdChange = (userId) => {
-    setAwardUserId(userId);
+    const nextUserId = userId ? String(userId) : '';
+    setAwardUserId(nextUserId);
     setAwardLeagueId(''); // Clear league selection when user changes
-    if (userId) {
-      fetchUserLeagues(userId);
+    if (nextUserId) {
+      fetchUserLeagues(nextUserId);
     } else {
       setUserLeagues([]);
     }
@@ -998,30 +966,14 @@ const AdminPage = () => {
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium">User</label>
-              <Input
-                placeholder="Search users..."
-                value={userSearch}
-                onChange={(e) => setUserSearch(e.target.value)}
-                className="mb-2"
-              />
-              <Select value={awardUserId} onValueChange={handleUserIdChange} disabled={loadingUsers}>
-                <SelectTrigger className="w-full mt-1">
-                  <SelectValue placeholder={loadingUsers ? 'Loading users...' : 'Select user'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredUsers.length === 0 ? (
-                    <SelectItem disabled value="0">
-                      {userSearch ? 'No users found' : 'No users available'}
-                    </SelectItem>
-                  ) : (
-                    filteredUsers.map((user) => (
-                      <SelectItem key={user.id} value={String(user.id)}>
-                        {user.username} {user.first_name && user.last_name ? `(${user.first_name} ${user.last_name})` : ''}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+              <div className="mt-1">
+                <UserSearchSelect
+                  value={awardUserId}
+                  onValueChange={handleUserIdChange}
+                  placeholder="Search and select user..."
+                  disabled={awarding}
+                />
+              </div>
             </div>
             <div>
               <label className="text-sm font-medium">
@@ -1051,8 +1003,8 @@ const AdminPage = () => {
                     </SelectItem>
                   ) : (
                     availableLeagues.map((league) => (
-                      <SelectItem key={league.id || league.league_id} value={String(league.id || league.league_id)}>
-                        {league.name || league.league_name}
+                      <SelectItem key={league.id} value={String(league.id)}>
+                        {league.name}
                       </SelectItem>
                     ))
                   )}
