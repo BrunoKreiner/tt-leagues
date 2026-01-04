@@ -30,7 +30,12 @@ const TimelineStats = ({ userId }) => {
       try {
         setLoading(true);
         const res = await usersAPI.getTimelineStats(userId);
-        setTimelineData(res.data.timeline || []);
+        const timeline = res.data.timeline || [];
+        console.log('Timeline stats data:', timeline);
+        // Log ELO data specifically
+        const eloData = timeline.filter(d => d.avg_elo !== null && d.avg_elo !== undefined);
+        console.log('ELO data points:', eloData.length, eloData);
+        setTimelineData(timeline);
       } catch (error) {
         console.error('Failed to fetch timeline stats:', error);
         setTimelineData([]);
@@ -78,7 +83,21 @@ const TimelineStats = ({ userId }) => {
     const isSinglePoint = data.length === 1;
     const values = data.map(d => d[dataKey]).filter(v => v !== null && v !== undefined);
     
-    if (values.length === 0) return null;
+    // For ELO chart, show even if no data (but with a message)
+    if (values.length === 0) {
+      if (dataKey === 'avg_elo') {
+        // Show placeholder for ELO chart even when no data
+        return (
+          <div className="w-full">
+            <div className="text-sm font-medium text-gray-300 text-center mb-2">{title}</div>
+            <div className="h-[75px] flex items-center justify-center pt-0">
+              <div className="text-xs text-gray-500">No ELO data available yet</div>
+            </div>
+          </div>
+        );
+      }
+      return null;
+    }
 
     const minVal = Math.min(...values);
     const maxVal = Math.max(...values);
@@ -171,7 +190,7 @@ const TimelineStats = ({ userId }) => {
         'Average ELO Over Time', 
         'avg_elo', 
         chartConfig.elo.color,
-        formattedData.filter(d => d.avg_elo !== null)
+        formattedData
       )}
     </div>
   );

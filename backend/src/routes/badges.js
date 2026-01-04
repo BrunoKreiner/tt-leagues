@@ -306,15 +306,27 @@ router.post('/users/:id/badges', authenticateToken, requireAdmin, validateId, as
             return res.status(404).json({ error: 'Badge not found' });
         }
         
-        // Check if league exists (if provided)
+        // Check if league exists (if provided) and validate membership
         if (league_id) {
             const league = await database.get(
-                'SELECT name FROM leagues WHERE id = ?',
-                [league_id]
+                'SELECT name FROM leagues WHERE id = ? AND is_active = ?',
+                [league_id, true]
             );
             
             if (!league) {
                 return res.status(404).json({ error: 'League not found' });
+            }
+            
+            // Validate user is a member of the league
+            const membership = await database.get(
+                'SELECT id FROM league_members WHERE league_id = ? AND user_id = ?',
+                [league_id, userId]
+            );
+            
+            if (!membership) {
+                return res.status(400).json({ 
+                    error: 'User is not a member of the specified league' 
+                });
             }
         }
         
@@ -324,22 +336,49 @@ router.post('/users/:id/badges', authenticateToken, requireAdmin, validateId, as
             WHERE user_id = ? AND badge_id = ? 
             AND (league_id = ? OR (league_id IS NULL AND ? IS NULL))
             AND (season = ? OR (season IS NULL AND ? IS NULL))
-        `, [userId, badge_id, league_id, league_id, season, season]);
+        `, [userId, badge_id, league_id || null, league_id || null, season || null, season || null]);
         
         if (existingAward) {
             return res.status(409).json({ error: 'User already has this badge' });
         }
         
         // Award the badge
-        const result = await database.run(`
-            INSERT INTO user_badges (user_id, badge_id, league_id, season)
-            VALUES (?, ?, ?, ?)
-        `, [userId, badge_id, league_id || null, season || null]);
+        let result;
+        try {
+            result = await database.run(`
+                INSERT INTO user_badges (user_id, badge_id, league_id, season)
+                VALUES (?, ?, ?, ?)
+            `, [userId, badge_id, league_id || null, season || null]);
+        } catch (insertError) {
+            console.error('Failed to insert badge award:', insertError);
+            console.error('Insert error details:', {
+                userId,
+                badge_id,
+                league_id,
+                season,
+                error: insertError.message,
+                stack: insertError.stack
+            });
+            return res.status(500).json({ 
+                error: 'Failed to award badge',
+                details: process.env.NODE_ENV === 'development' ? insertError.message : undefined
+            });
+        }
         
         // Get the awarded badge details
         const awardedBadgeId = result.id;
         if (!awardedBadgeId) {
-            return res.status(500).json({ error: 'Failed to get badge award ID' });
+            console.error('Badge award result missing ID:', {
+                result,
+                userId,
+                badge_id,
+                league_id,
+                isPg: database.isPg
+            });
+            return res.status(500).json({ 
+                error: 'Failed to get badge award ID',
+                details: process.env.NODE_ENV === 'development' ? 'Result ID was undefined after insert' : undefined
+            });
         }
         
         const awardedBadge = await database.get(`
@@ -354,19 +393,36 @@ router.post('/users/:id/badges', authenticateToken, requireAdmin, validateId, as
         `, [awardedBadgeId]);
         
         if (!awardedBadge) {
-            return res.status(500).json({ error: 'Failed to retrieve awarded badge' });
+            console.error('Failed to retrieve awarded badge after insert:', {
+                awardedBadgeId,
+                userId,
+                badge_id
+            });
+            return res.status(500).json({ 
+                error: 'Failed to retrieve awarded badge',
+                details: process.env.NODE_ENV === 'development' ? `Could not find badge award with ID ${awardedBadgeId}` : undefined
+            });
         }
         
-        // Create notification for the user
-        await database.run(`
-            INSERT INTO notifications (user_id, type, title, message, related_id)
-            VALUES (?, 'badge_earned', ?, ?, ?)
-        `, [
-            userId,
-            'Badge Earned!',
-            `Congratulations! You've earned the "${badge.name}" badge.`,
-            awardedBadge.id
-        ]);
+        // Create notification for the user (non-blocking)
+        try {
+            await database.run(`
+                INSERT INTO notifications (user_id, type, title, message, related_id)
+                VALUES (?, 'badge_earned', ?, ?, ?)
+            `, [
+                userId,
+                'Badge Earned!',
+                `Congratulations! You've earned the "${badge.name}" badge.`,
+                awardedBadge.id
+            ]);
+        } catch (notifError) {
+            // Notification failure shouldn't block badge award
+            console.warn('Failed to create notification for badge award (non-blocking):', {
+                userId,
+                badgeId: badge_id,
+                error: notifError.message
+            });
+        }
         
         res.status(201).json({
             message: `Badge "${badge.name}" awarded successfully to ${user.username}`,
@@ -374,7 +430,17 @@ router.post('/users/:id/badges', authenticateToken, requireAdmin, validateId, as
         });
     } catch (error) {
         console.error('Award badge error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        console.error('Award badge error details:', {
+            message: error.message,
+            stack: error.stack,
+            code: error.code,
+            userId: req.params.id,
+            body: req.body
+        });
+        res.status(500).json({ 
+            error: 'Internal server error',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
 });
 

@@ -254,11 +254,7 @@ const DashboardPage = () => {
                     {leagueLeaderboards[league.id].slice(0, 5).map((player) => (
                       <div 
                         key={player.id} 
-                        className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.location.href = `/profile/${player.username}`;
-                        }}
+                        className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-800 transition-colors"
                       >
                         <div className="flex items-center gap-2">
                           {player.rank <= 3 ? (
@@ -266,7 +262,13 @@ const DashboardPage = () => {
                           ) : (
                             <span className="text-sm text-gray-400 w-6 text-center">{player.rank}</span>
                           )}
-                          <span className="text-sm font-medium">{player.username}</span>
+                          <Link 
+                            to={`/profile/${player.username}`} 
+                            className="text-sm font-medium text-blue-400 hover:text-blue-300"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {player.username}
+                          </Link>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm text-gray-400">{player.current_elo}</span>

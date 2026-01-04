@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -93,9 +93,12 @@ const AdminPage = () => {
   const [awardSeason, setAwardSeason] = useState('');
   const [awarding, setAwarding] = useState(false);
   const [leagues, setLeagues] = useState([]);
+  const [userLeagues, setUserLeagues] = useState([]); // Leagues for selected user
+  const [loadingUserLeagues, setLoadingUserLeagues] = useState(false);
   const [badgeUsers, setBadgeUsers] = useState([]);
   const [loadingBadgeUsers, setLoadingBadgeUsers] = useState(false);
   const [uploadedImageSrc, setUploadedImageSrc] = useState(null);
+  const [userSearch, setUserSearch] = useState(''); // Search filter for users
 
   const form = useForm({
     resolver: zodResolver(schema),
@@ -183,6 +186,52 @@ const AdminPage = () => {
       setLoadingUsers(false);
     }
   };
+
+  // Fetch leagues for a specific user
+  const fetchUserLeagues = async (userId) => {
+    if (!userId) {
+      setUserLeagues([]);
+      return;
+    }
+    try {
+      setLoadingUserLeagues(true);
+      const selectedUser = users.find(u => u.id === parseInt(userId));
+      if (!selectedUser) {
+        setUserLeagues([]);
+        return;
+      }
+      
+      const { data } = await usersAPI.getPublicProfile(selectedUser.username);
+      // Extract and normalize leagues from the response
+      const rawLeagues = data?.by_league || data?.league_rankings || [];
+      const userLeaguesData = rawLeagues.map(league => ({
+        id: league.id || league.league_id,
+        name: league.name || league.league_name
+      }));
+      setUserLeagues(userLeaguesData);
+      // Clear selected league if it's not in user's leagues
+      if (awardLeagueId && !userLeaguesData.find(l => l.id === parseInt(awardLeagueId))) {
+        setAwardLeagueId('');
+      }
+    } catch (e) {
+      console.error('Failed to load user leagues', e);
+      // If profile fetch fails, clear user leagues (user might not be in any leagues)
+      setUserLeagues([]);
+    } finally {
+      setLoadingUserLeagues(false);
+    }
+  };
+
+  // Filter users based on search
+  const filteredUsers = users.filter(user => 
+    user.username.toLowerCase().includes(userSearch.toLowerCase()) ||
+    (user.first_name && user.first_name.toLowerCase().includes(userSearch.toLowerCase())) ||
+    (user.last_name && user.last_name.toLowerCase().includes(userSearch.toLowerCase())) ||
+    (user.email && user.email.toLowerCase().includes(userSearch.toLowerCase()))
+  );
+
+  // Get available leagues (either user's leagues if user selected, or all leagues)
+  const availableLeagues = awardUserId && userLeagues.length > 0 ? userLeagues : leagues;
 
   const handleCreateBadge = async (values) => {
     try {
@@ -325,8 +374,21 @@ const AdminPage = () => {
     setAwardUserId('');
     setAwardLeagueId('');
     setAwardSeason('');
+    setUserSearch('');
+    setUserLeagues([]);
     setAwardDialogOpen(true);
     fetchUsers();
+  };
+
+  // Handle user selection change
+  const handleUserIdChange = (userId) => {
+    setAwardUserId(userId);
+    setAwardLeagueId(''); // Clear league selection when user changes
+    if (userId) {
+      fetchUserLeagues(userId);
+    } else {
+      setUserLeagues([]);
+    }
   };
 
   const acceptMatch = async (id) => {
@@ -501,7 +563,11 @@ const AdminPage = () => {
                     <tr key={m.id} className="border-t">
                       <td className="px-3 py-2">{(() => { try { return format(new Date(m.played_at || m.created_at), 'PP p'); } catch { return String(m.played_at || m.created_at || '-'); } })()}</td>
                       <td className="px-3 py-2">{m.league_name}</td>
-                      <td className="px-3 py-2">{m.player1_username} vs {m.player2_username}</td>
+                      <td className="px-3 py-2">
+                        <Link to={`/profile/${m.player1_username}`} className="text-blue-400 hover:text-blue-300 underline hover:no-underline">{m.player1_username}</Link>
+                        {' vs '}
+                        <Link to={`/profile/${m.player2_username}`} className="text-blue-400 hover:text-blue-300 underline hover:no-underline">{m.player2_username}</Link>
+                      </td>
                       <td className="px-3 py-2">{m.player1_sets_won}-{m.player2_sets_won}</td>
                       <td className="px-3 py-2">
                         <div className="flex gap-2">
@@ -755,7 +821,9 @@ const AdminPage = () => {
                               <tbody>
                                 {badgeUsers.map((user) => (
                                   <tr key={user.user_badge_id} className="border-t border-gray-700">
-                                    <td className="px-3 py-2">{user.username}</td>
+                                    <td className="px-3 py-2">
+                                      <Link to={`/profile/${user.username}`} className="text-blue-400 hover:text-blue-300 underline hover:no-underline">{user.username}</Link>
+                                    </td>
                                     <td className="px-3 py-2 text-muted-foreground">{user.league_name || 'Global'}</td>
                                     <td className="px-3 py-2 text-muted-foreground">
                                       {user.earned_at ? format(new Date(user.earned_at), 'MMM d, yyyy') : '-'}
@@ -930,31 +998,64 @@ const AdminPage = () => {
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium">User</label>
-              <Select value={awardUserId} onValueChange={setAwardUserId} disabled={loadingUsers}>
+              <Input
+                placeholder="Search users..."
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                className="mb-2"
+              />
+              <Select value={awardUserId} onValueChange={handleUserIdChange} disabled={loadingUsers}>
                 <SelectTrigger className="w-full mt-1">
                   <SelectValue placeholder={loadingUsers ? 'Loading users...' : 'Select user'} />
                 </SelectTrigger>
                 <SelectContent>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={String(user.id)}>
-                      {user.username} {user.first_name && user.last_name ? `(${user.first_name} ${user.last_name})` : ''}
+                  {filteredUsers.length === 0 ? (
+                    <SelectItem disabled value="0">
+                      {userSearch ? 'No users found' : 'No users available'}
                     </SelectItem>
-                  ))}
+                  ) : (
+                    filteredUsers.map((user) => (
+                      <SelectItem key={user.id} value={String(user.id)}>
+                        {user.username} {user.first_name && user.last_name ? `(${user.first_name} ${user.last_name})` : ''}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium">League (optional)</label>
-              <Select value={awardLeagueId || undefined} onValueChange={(value) => setAwardLeagueId(value || '')}>
+              <label className="text-sm font-medium">
+                League (optional)
+                {awardUserId && userLeagues.length > 0 && (
+                  <span className="text-xs text-gray-400 ml-2">(Only showing leagues where user is a member)</span>
+                )}
+              </label>
+              <Select 
+                value={awardLeagueId || undefined} 
+                onValueChange={(value) => setAwardLeagueId(value || '')}
+                disabled={loadingUserLeagues}
+              >
                 <SelectTrigger className="w-full mt-1">
-                  <SelectValue placeholder="Select league (optional)" />
+                  <SelectValue placeholder={
+                    loadingUserLeagues 
+                      ? 'Loading user leagues...' 
+                      : awardUserId && userLeagues.length === 0
+                      ? 'User is not a member of any leagues'
+                      : 'Select league (optional)'
+                  } />
                 </SelectTrigger>
                 <SelectContent>
-                  {leagues.map((league) => (
-                    <SelectItem key={league.id} value={String(league.id)}>
-                      {league.name}
+                  {availableLeagues.length === 0 ? (
+                    <SelectItem disabled value="0">
+                      {awardUserId ? 'User is not a member of any leagues' : 'No leagues available'}
                     </SelectItem>
-                  ))}
+                  ) : (
+                    availableLeagues.map((league) => (
+                      <SelectItem key={league.id || league.league_id} value={String(league.id || league.league_id)}>
+                        {league.name || league.league_name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
               {awardLeagueId && (

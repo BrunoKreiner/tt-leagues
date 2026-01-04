@@ -154,6 +154,13 @@ router.get('/:id', optionalAuth, validateId, async (req, res) => {
     try {
         const leagueId = parseInt(req.params.id);
         
+        // Debug: Check actual members in database
+        const memberCheck = await database.all(
+            'SELECT user_id, joined_at, is_admin FROM league_members WHERE league_id = ?',
+            [leagueId]
+        );
+        console.log(`[League ${leagueId}] Actual members in database:`, memberCheck.length, memberCheck);
+        
         const league = await database.get(`
             SELECT 
                 l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at,
@@ -167,6 +174,17 @@ router.get('/:id', optionalAuth, validateId, async (req, res) => {
             WHERE l.id = ? AND l.is_active = ?
             GROUP BY l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at, u.username
         `, [true, leagueId, true]);
+        
+        // Debug: Log the query result
+        if (league) {
+            console.log(`[League ${leagueId}] Query result member_count:`, league.member_count);
+            console.log(`[League ${leagueId}] Actual members:`, memberCheck.length, 'Query count:', league.member_count);
+            // If there's a discrepancy, use actual count
+            if (parseInt(league.member_count) !== memberCheck.length) {
+                console.warn(`[League ${leagueId}] Member count mismatch! Using actual count: ${memberCheck.length}`);
+                league.member_count = memberCheck.length;
+            }
+        }
         
         if (!league) {
             return res.status(404).json({ error: 'League not found' });
