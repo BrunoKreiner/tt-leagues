@@ -422,8 +422,8 @@ router.post('/:id/invite', authenticateToken, requireLeagueAdmin, validateId, as
         
         // Check if there's already a pending invite
         const existingInvite = await database.get(
-            'SELECT id FROM league_invites WHERE league_id = ? AND invited_user_id = ? AND status = "pending"',
-            [leagueId, targetUserId]
+            'SELECT id FROM league_invites WHERE league_id = ? AND invited_user_id = ? AND status = ?',
+            [leagueId, targetUserId, 'pending']
         );
         
         if (existingInvite) {
@@ -527,14 +527,14 @@ router.post('/:id/join', authenticateToken, validateId, async (req, res) => {
         if (invite_code) {
             // Code-based join (existing flow)
             invite = await database.get(
-                'SELECT id, expires_at FROM league_invites WHERE league_id = ? AND invited_user_id = ? AND invite_code = ? AND status = "pending"',
-                [leagueId, req.user.id, invite_code]
+                'SELECT id, expires_at FROM league_invites WHERE league_id = ? AND invited_user_id = ? AND invite_code = ? AND status = ?',
+                [leagueId, req.user.id, invite_code, 'pending']
             );
         } else {
             // Code-less join triggered from notification: use any pending invite for this league and user
             invite = await database.get(
-                'SELECT id, expires_at FROM league_invites WHERE league_id = ? AND invited_user_id = ? AND status = "pending"',
-                [leagueId, req.user.id]
+                'SELECT id, expires_at FROM league_invites WHERE league_id = ? AND invited_user_id = ? AND status = ?',
+                [leagueId, req.user.id, 'pending']
             );
         }
         
@@ -555,8 +555,8 @@ router.post('/:id/join', authenticateToken, validateId, async (req, res) => {
         
         // Update invite status
         await database.run(
-            'UPDATE league_invites SET status = "accepted", responded_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [invite.id]
+            'UPDATE league_invites SET status = ?, responded_at = CURRENT_TIMESTAMP WHERE id = ?',
+            ['accepted', invite.id]
         );
         
         // Get league info
@@ -821,8 +821,8 @@ router.delete('/:id/invites/:inviteId', authenticateToken, requireLeagueAdmin, v
         }
 
         await database.run(
-            'UPDATE league_invites SET status = "revoked", responded_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [inviteId]
+            'UPDATE league_invites SET status = ?, responded_at = CURRENT_TIMESTAMP WHERE id = ?',
+            ['revoked', inviteId]
         );
 
         res.json({ message: 'Invite revoked' });
