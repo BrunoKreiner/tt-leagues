@@ -197,25 +197,24 @@ const Layout = () => {
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-96 bg-gray-800 border-gray-700" align="end" forceMount>
-                <div className="px-2 py-2 flex items-center justify-between">
-                  <span className="text-sm font-medium">{t('notifications.title')}</span>
-                  <Button variant="ghost" size="sm" onClick={markAllAsRead} disabled={notifLoading || unreadCount === 0}>
+              <DropdownMenuContent className="w-96 bg-gray-900 border-2 border-gray-700 shadow-xl" align="end" forceMount>
+                <div className="px-4 py-3 flex items-center justify-between border-b border-gray-700">
+                  <span className="text-sm font-semibold text-gray-200">{t('notifications.title')}</span>
+                  <Button variant="ghost" size="sm" onClick={markAllAsRead} disabled={notifLoading || unreadCount === 0} className="h-7 px-2 text-xs">
                     {t('actions.markAllRead')}
                   </Button>
                 </div>
-                <DropdownMenuSeparator />
-                <div className="max-h-96 overflow-auto">
+                <div className="max-h-96 overflow-y-auto">
                   {notifLoading ? (
-                    <div className="p-4 text-sm text-muted-foreground">{t('common.loading')}</div>
+                    <div className="p-6 text-center text-sm text-gray-400">{t('common.loading')}</div>
                   ) : notifications.length === 0 ? (
-                    <div className="p-4 text-sm text-muted-foreground">{t('notifications.none')}</div>
+                    <div className="p-6 text-center text-sm text-gray-400">{t('notifications.none')}</div>
                   ) : (
                     notifications.map((n) => (
-                      <div key={n.id} className={`px-3 py-2 border-b border-gray-700 last:border-b-0 ${!n.is_read ? 'bg-gray-700/40' : 'bg-gray-800'}`}>
+                      <div key={n.id} className={`px-4 py-3 border-b border-gray-800 last:border-b-0 hover:bg-gray-800/50 transition-colors ${!n.is_read ? 'bg-gray-800/30' : ''}`}>
                         <div className="flex items-start gap-3">
                           {/* Icon */}
-                          <div className="mt-0.5 text-muted-foreground">
+                          <div className={`mt-0.5 flex-shrink-0 ${n.type === 'league_invite' ? 'text-blue-400' : 'text-gray-400'}`}>
                             {n.type === 'league_invite' ? (
                               <UserPlus className="h-4 w-4" />
                             ) : (
@@ -223,19 +222,19 @@ const Layout = () => {
                             )}
                           </div>
                           {/* Content */}
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2">
-                              <div>
-                                <div className={`text-sm ${!n.is_read ? 'font-semibold' : 'font-medium'}`}>{n.title}</div>
-                                <div className="text-xs text-muted-foreground">{n.message}</div>
+                              <div className="flex-1 min-w-0">
+                                <div className={`text-sm mb-1 ${!n.is_read ? 'font-semibold text-gray-100' : 'font-medium text-gray-300'}`}>{n.title}</div>
+                                <div className="text-xs text-gray-400 mb-1.5 leading-relaxed">{n.message}</div>
                                 {n.created_at && (
-                                  <div className="text-[10px] text-muted-foreground mt-1">
+                                  <div className="text-[10px] text-gray-500">
                                     {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
                                   </div>
                                 )}
                               </div>
                               {!n.is_read && (
-                                <Button variant="ghost" size="sm" onClick={() => markAsRead(n.id)}>{t('actions.read')}</Button>
+                                <Button variant="ghost" size="sm" onClick={() => markAsRead(n.id)} className="h-7 px-2 text-xs flex-shrink-0">{t('actions.read')}</Button>
                               )}
                             </div>
                           </div>

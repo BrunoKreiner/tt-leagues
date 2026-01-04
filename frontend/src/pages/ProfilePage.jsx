@@ -79,7 +79,20 @@ const ProfilePage = () => {
         } else {
           // Fetch public profile data
           const publicProfileRes = await usersAPI.getPublicProfile(username);
-          setStats(publicProfileRes.data);
+          // Transform league_rankings to by_league format for consistency
+          const transformedData = {
+            ...publicProfileRes.data,
+            by_league: (publicProfileRes.data.league_rankings || []).map(league => ({
+              id: league.league_id,
+              name: league.league_name,
+              current_elo: league.current_elo,
+              matches_played: league.matches_played,
+              matches_won: league.matches_won,
+              win_rate: league.win_rate,
+              is_league_admin: league.is_league_admin
+            }))
+          };
+          setStats(transformedData);
           setAvatarUrl(publicProfileRes.data?.user?.avatar_url || '');
           setUserLeagues(publicProfileRes.data.league_rankings || []);
           setProfileFields({
@@ -511,9 +524,16 @@ const ProfilePage = () => {
            <CardContent>
              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                {stats.by_league.map(league => (
-                 <Card key={league.id} className="p-3">
+                 <Card key={league.id || league.league_id} className="p-3">
                    <div className="space-y-1.5">
-                     <h3 className="font-semibold">{league.name}</h3>
+                     <div className="flex items-center justify-between gap-2">
+                       <h3 className="font-semibold">{league.name || league.league_name}</h3>
+                       {(league.is_league_admin || league.is_admin) && (
+                         <Badge variant="default" className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                           Admin
+                         </Badge>
+                       )}
+                     </div>
                      <div className="flex items-center justify-between">
                        <span className="text-sm text-muted-foreground">ELO</span>
                        <Badge variant="secondary">{league.current_elo}</Badge>

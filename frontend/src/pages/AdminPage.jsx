@@ -548,10 +548,10 @@ const AdminPage = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="flex items-center">
+          <CardTitle className="flex items-center">
                 <Award className="h-5 w-5 mr-2" />
                 Badge Management
-              </CardTitle>
+          </CardTitle>
               <CardDescription>Create, edit, and award badges to users</CardDescription>
             </div>
             <Dialog open={badgeFormOpen} onOpenChange={setBadgeFormOpen}>

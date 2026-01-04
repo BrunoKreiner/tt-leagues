@@ -269,14 +269,14 @@ router.get('/:id/stats', authenticateToken, validateId, async (req, res) => {
         const leagueStats = await database.all(`
             SELECT 
                 l.id, l.name, l.season,
-                lm.current_elo,
+                lm.current_elo, lm.is_admin as is_league_admin,
                 COUNT(CASE WHEN m.player1_id = ? OR m.player2_id = ? THEN m.id END) as matches_played,
                 COUNT(CASE WHEN m.winner_id = ? THEN m.id END) as matches_won
             FROM leagues l
             JOIN league_members lm ON l.id = lm.league_id
             LEFT JOIN matches m ON m.league_id = l.id AND (m.player1_id = ? OR m.player2_id = ?) AND m.is_accepted = ?
             WHERE lm.user_id = ?
-            GROUP BY l.id, l.name, l.season, lm.current_elo
+            GROUP BY l.id, l.name, l.season, lm.current_elo, lm.is_admin
             ORDER BY lm.current_elo DESC
         `, [userId, userId, userId, userId, userId, true, userId]);
         
@@ -322,6 +322,164 @@ router.get('/:id/stats', authenticateToken, validateId, async (req, res) => {
         });
     } catch (error) {
         console.error('Get user stats error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Get user timeline statistics (monthly stats)
+ * GET /api/users/:id/timeline-stats
+ */
+router.get('/:id/timeline-stats', authenticateToken, validateId, async (req, res) => {
+    try {
+        const userId = parseInt(req.params.id);
+        
+        // Users can only view their own stats unless they're admin
+        if (userId !== req.user.id && !req.user.is_admin) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        const isPg = database.isPg;
+        
+        // Get monthly statistics
+        // For SQLite: use strftime('%Y-%m', date) to group by month
+        // For PostgreSQL: use to_char(date_trunc('month', date), 'YYYY-MM') to format as YYYY-MM
+        // Database abstraction converts ? to $1, $2, etc. automatically for PostgreSQL
+        
+        // 1. Monthly leagues count (distinct leagues joined per month - will be cumulative in processing)
+        let leaguesQuery;
+        if (isPg) {
+            leaguesQuery = `
+                SELECT 
+                    TO_CHAR(DATE_TRUNC('month', lm.joined_at), 'YYYY-MM') as month,
+                    COUNT(DISTINCT lm.league_id) as leagues_count
+                FROM league_members lm
+                WHERE lm.user_id = ?
+                GROUP BY DATE_TRUNC('month', lm.joined_at)
+                ORDER BY month ASC
+            `;
+        } else {
+            leaguesQuery = `
+                SELECT 
+                    strftime('%Y-%m', lm.joined_at) as month,
+                    COUNT(DISTINCT lm.league_id) as leagues_count
+                FROM league_members lm
+                WHERE lm.user_id = ?
+                GROUP BY strftime('%Y-%m', lm.joined_at)
+                ORDER BY month ASC
+            `;
+        }
+        
+        // 2. Monthly matches count and win rate
+        let matchesQuery;
+        if (isPg) {
+            matchesQuery = `
+                SELECT 
+                    TO_CHAR(DATE_TRUNC('month', m.played_at), 'YYYY-MM') as month,
+                    COUNT(*) as matches_played,
+                    COUNT(CASE WHEN m.winner_id = ? THEN 1 END) as matches_won
+                FROM matches m
+                WHERE (m.player1_id = ? OR m.player2_id = ?) 
+                    AND m.is_accepted = true
+                GROUP BY DATE_TRUNC('month', m.played_at)
+                ORDER BY month ASC
+            `;
+        } else {
+            matchesQuery = `
+                SELECT 
+                    strftime('%Y-%m', m.played_at) as month,
+                    COUNT(*) as matches_played,
+                    COUNT(CASE WHEN m.winner_id = ? THEN 1 END) as matches_won
+                FROM matches m
+                WHERE (m.player1_id = ? OR m.player2_id = ?) 
+                    AND m.is_accepted = 1
+                GROUP BY strftime('%Y-%m', m.played_at)
+                ORDER BY month ASC
+            `;
+        }
+        
+        // 3. Monthly average ELO (from elo_history)
+        let eloQuery;
+        if (isPg) {
+            eloQuery = `
+                SELECT 
+                    TO_CHAR(DATE_TRUNC('month', eh.recorded_at), 'YYYY-MM') as month,
+                    AVG(eh.elo_after) as avg_elo
+                FROM elo_history eh
+                WHERE eh.user_id = ?
+                GROUP BY DATE_TRUNC('month', eh.recorded_at)
+                ORDER BY month ASC
+            `;
+        } else {
+            eloQuery = `
+                SELECT 
+                    strftime('%Y-%m', eh.recorded_at) as month,
+                    AVG(eh.elo_after) as avg_elo
+                FROM elo_history eh
+                WHERE eh.user_id = ?
+                GROUP BY strftime('%Y-%m', eh.recorded_at)
+                ORDER BY month ASC
+            `;
+        }
+        
+        // Execute queries - database abstraction handles ? to $1 conversion automatically
+        const [leaguesData, matchesData, eloData] = await Promise.all([
+            database.all(leaguesQuery, [userId]),
+            database.all(matchesQuery, [userId, userId, userId]),
+            database.all(eloQuery, [userId])
+        ]);
+        
+        // Convert to objects keyed by month for easier merging
+        const leaguesByMonth = {};
+        leaguesData.forEach(row => {
+            leaguesByMonth[row.month] = parseInt(row.leagues_count) || 0;
+        });
+        
+        const matchesByMonth = {};
+        matchesData.forEach(row => {
+            matchesByMonth[row.month] = {
+                matches_played: parseInt(row.matches_played) || 0,
+                matches_won: parseInt(row.matches_won) || 0,
+                win_rate: row.matches_played > 0 ? 
+                    Math.round((row.matches_won / row.matches_played) * 100) : 0
+            };
+        });
+        
+        const eloByMonth = {};
+        eloData.forEach(row => {
+            eloByMonth[row.month] = Math.round(parseFloat(row.avg_elo) || 1200);
+        });
+        
+        // Get all unique months and create cumulative/aggregated timeline
+        const allMonths = new Set([
+            ...Object.keys(leaguesByMonth),
+            ...Object.keys(matchesByMonth),
+            ...Object.keys(eloByMonth)
+        ]);
+        
+        // Sort months chronologically
+        const sortedMonths = Array.from(allMonths).sort();
+        
+        // Build timeline data with cumulative leagues and monthly stats
+        let cumulativeLeagues = 0;
+        const timeline = sortedMonths.map(month => {
+            cumulativeLeagues += leaguesByMonth[month] || 0;
+            const matchStats = matchesByMonth[month] || { matches_played: 0, matches_won: 0, win_rate: 0 };
+            
+            return {
+                month,
+                leagues_count: cumulativeLeagues,
+                matches_per_month: matchStats.matches_played,
+                win_rate: matchStats.win_rate,
+                avg_elo: eloByMonth[month] || null
+            };
+        });
+        
+        res.json({
+            timeline
+        });
+    } catch (error) {
+        console.error('Get timeline stats error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -495,14 +653,14 @@ router.get('/profile/:username', async (req, res) => {
         // Get user's league rankings
         const leagueRankings = await database.all(`
             SELECT 
-                l.id as league_id, l.name as league_name, lm.current_elo,
+                l.id as league_id, l.name as league_name, lm.current_elo, lm.is_admin as is_league_admin,
                 COUNT(CASE WHEN m.player1_id = ? OR m.player2_id = ? THEN m.id END) as matches_played,
                 COUNT(CASE WHEN m.winner_id = ? THEN m.id END) as matches_won
             FROM leagues l
             JOIN league_members lm ON l.id = lm.league_id
             LEFT JOIN matches m ON m.league_id = l.id AND (m.player1_id = ? OR m.player2_id = ?) AND m.is_accepted = ?
             WHERE lm.user_id = ? AND l.is_active = ?
-            GROUP BY l.id, l.name, lm.current_elo
+            GROUP BY l.id, l.name, lm.current_elo, lm.is_admin
             ORDER BY lm.current_elo DESC
         `, [user.id, user.id, user.id, user.id, user.id, true, user.id, true]);
         

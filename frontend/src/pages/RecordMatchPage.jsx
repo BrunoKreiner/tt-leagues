@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useTranslation } from 'react-i18next';
+import RecordMatchForm from '@/components/RecordMatchForm';
 
 const GAME_TYPES = [
   { value: 'best_of_1', label: 'best_of_1', labelKey: 'recordMatch.gameTypeBestOf1' },

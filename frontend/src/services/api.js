@@ -53,6 +53,7 @@ export const usersAPI = {
   update: (id, userData) => api.put(`/users/${id}`, userData),
   delete: (id) => api.delete(`/users/${id}`),
   getStats: (id) => api.get(`/users/${id}/stats`),
+  getTimelineStats: (id) => api.get(`/users/${id}/timeline-stats`),
   getBadges: (id) => api.get(`/users/${id}/badges`),
   getEloHistory: (id, params) => api.get(`/users/${id}/elo-history`, { params }),
       getPublicProfile: (username) => api.get(`/users/profile/${username}`),

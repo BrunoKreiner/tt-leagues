@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Trophy, Users, Swords, TrendingUp, Plus, Calendar, Target, Award, ArrowRight, User } from 'lucide-react';
 import MedalIcon from '@/components/MedalIcon';
 import EloSparkline from '@/components/EloSparkline';
+import TimelineStats from '@/components/TimelineStats';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { leaguesAPI, matchesAPI, authAPI, usersAPI } from '../services/api';
 import { useTranslation } from 'react-i18next';
@@ -96,225 +97,198 @@ const DashboardPage = () => {
     });
   };
 
-  const avgElo = Math.round(
-    (stats?.avg_elo ?? stats?.overall?.average_elo ?? stats?.average_elo ?? 1200)
-  );
-
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Main Dashboard Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Left Column: Username + Stats (2/5 width) */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Username - Centered */}
-          <div className="flex items-center justify-center gap-3">
-            <h1 className="cyberpunk-title text-4xl text-blue-300">
-              {user?.first_name || user?.username}
-            </h1>
-            <Link to="/profile" className="text-blue-400 hover:text-blue-300 transition-colors">
-              <User className="h-6 w-6" />
-            </Link>
-          </div>
+    <div className="space-y-8 animate-fade-in">
+      {/* Header: Username */}
+      <div className="flex items-center justify-center gap-3">
+        <h1 className="cyberpunk-title text-4xl text-blue-300">
+          {user?.first_name || user?.username}
+        </h1>
+        <Link to="/profile" className="text-blue-400 hover:text-blue-300 transition-colors">
+          <User className="h-6 w-6" />
+        </Link>
+      </div>
 
-          {/* Stats Circles - Centered */}
-          <div className="flex gap-6 justify-center">
-            <div className="text-center">
-              <div className="circular-progress glow-purple text-purple-300 mb-2">
-                {stats?.leagues_count || 0}
-              </div>
-              <p className="text-sm text-gray-300">Leagues</p>
-            </div>
-            <div className="text-center">
-              <div className="circular-progress glow-blue text-blue-300 mb-2">
-                {stats?.matches_played || 0}
-              </div>
-              <p className="text-sm text-gray-300">Matches</p>
-            </div>
-            <div className="text-center">
-              <div className="circular-progress glow-green text-green-300 mb-2">
-                {stats?.win_rate || 0}%
-              </div>
-              <p className="text-sm text-gray-300">Win Rate</p>
-            </div>
-            <div className="text-center">
-              <div className="circular-progress glow-blue text-blue-300 mb-2">
-                {avgElo}
-              </div>
-              <p className="text-sm text-gray-300">Avg ELO</p>
-            </div>
-          </div>
-        </div>
+      {/* Divider */}
+      <div className="border-t border-gray-800"></div>
 
-        {/* Right Column: Recent Matches + Leaderboards (3/5 width) */}
-        <div className="lg:col-span-3 space-y-6">
-          {/* Recent Matches */}
-          <div>
-            {recentMatches.length > 0 ? (
-              <div className="relative mx-2">
-                {/* Left Arrow */}
-                <button 
-                  className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 text-gray-400 hover:text-gray-300 text-xl font-bold bg-gray-900/80 rounded-full w-6 h-6 flex items-center justify-center"
-                  onClick={() => {
-                    const container = document.getElementById('dashboard-matches-scroll');
-                    if (container) container.scrollLeft -= 200;
-                  }}
-                >
-                  ‹
-                </button>
-                
-                {/* Right Arrow */}
-                <button 
-                  className="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 text-gray-400 hover:text-gray-300 text-xl font-bold bg-gray-900/80 rounded-full w-6 h-6 flex items-center justify-center"
-                  onClick={() => {
-                    const container = document.getElementById('dashboard-matches-scroll');
-                    if (container) container.scrollLeft += 200;
-                  }}
-                >
-                  ›
-                </button>
-                
-                {/* Matches Container */}
-                <div 
-                  id="dashboard-matches-scroll"
-                  className="overflow-x-auto scrollbar-hide px-8"
-                  style={{ scrollBehavior: 'smooth' }}
-                >
-                  <div className="flex gap-3 min-w-max py-2 justify-center">
-                    {recentMatches.slice(0, 5).map((match) => {
-                      const player1Won = match.player1_sets_won > match.player2_sets_won;
-                      const player2Won = match.player2_sets_won > match.player1_sets_won;
+      {/* Section 1: Timeline Statistics */}
+      <div>
+        <TimelineStats userId={user?.id} />
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-gray-800"></div>
+
+      {/* Section 2: Recent Matches */}
+      <div>
+        {recentMatches.length > 0 ? (
+          <div className="relative mx-2">
+            {/* Left Arrow */}
+            <button 
+              className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 text-gray-400 hover:text-gray-300 text-xl font-bold bg-gray-900/80 rounded-full w-6 h-6 flex items-center justify-center"
+              onClick={() => {
+                const container = document.getElementById('dashboard-matches-scroll');
+                if (container) container.scrollLeft -= 200;
+              }}
+            >
+              ‹
+            </button>
+            
+            {/* Right Arrow */}
+            <button 
+              className="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 text-gray-400 hover:text-gray-300 text-xl font-bold bg-gray-900/80 rounded-full w-6 h-6 flex items-center justify-center"
+              onClick={() => {
+                const container = document.getElementById('dashboard-matches-scroll');
+                if (container) container.scrollLeft += 200;
+              }}
+            >
+              ›
+            </button>
+            
+            {/* Matches Container */}
+            <div 
+              id="dashboard-matches-scroll"
+              className="overflow-x-auto scrollbar-hide px-8"
+              style={{ scrollBehavior: 'smooth' }}
+            >
+              <div className="flex gap-3 min-w-max py-2 justify-center">
+                {recentMatches.slice(0, 5).map((match) => {
+                  const player1Won = match.player1_sets_won > match.player2_sets_won;
+                  const player2Won = match.player2_sets_won > match.player1_sets_won;
+                  
+                  return (
+                    <div key={match.id} className="flex flex-col items-center min-w-fit px-1">
+                      {/* Score Line */}
+                      <div className="flex items-center gap-1 text-sm whitespace-nowrap">
+                        <Link to={`/profile/${match.player1_username}`} className="text-blue-400 hover:text-blue-300">
+                          {match.player1_username}
+                        </Link>
+                        <span className="text-gray-300 font-bold">{match.player1_sets_won}</span>
+                        <span className="text-gray-500">:</span>
+                        <span className="text-gray-300 font-bold">{match.player2_sets_won}</span>
+                        <Link to={`/profile/${match.player2_username}`} className="text-blue-400 hover:text-blue-300">
+                          {match.player2_username}
+                        </Link>
+                      </div>
                       
-                      return (
-                        <div key={match.id} className="flex flex-col items-center min-w-fit px-1">
-                          {/* Score Line */}
-                          <div className="flex items-center gap-1 text-sm whitespace-nowrap">
-                            <Link to={`/profile/${match.player1_username}`} className="text-blue-400 hover:text-blue-300">
-                              {match.player1_username}
-                            </Link>
-                            <span className="text-gray-300 font-bold">{match.player1_sets_won}</span>
-                            <span className="text-gray-500">:</span>
-                            <span className="text-gray-300 font-bold">{match.player2_sets_won}</span>
-                            <Link to={`/profile/${match.player2_username}`} className="text-blue-400 hover:text-blue-300">
-                              {match.player2_username}
-                            </Link>
-                          </div>
-                          
-                          {/* ELO Points Line */}
-                          <div className="flex items-center gap-1 text-xs whitespace-nowrap mt-0.5">
-                            {match.elo_applied ? (
-                              <>
-                                <span className={`font-medium ${player1Won ? 'text-green-400' : player2Won ? 'text-red-400' : 'text-gray-400'}`}>
-                                  {match.player1_elo_before || 'N/A'}
-                                  {match.player1_elo_after && match.player1_elo_before && (
-                                    <span className={match.player1_elo_after > match.player1_elo_before ? 'text-green-400' : 'text-red-400'}>
-                                      {match.player1_elo_after > match.player1_elo_before ? ' (+' : ' ('}
-                                      {match.player1_elo_after - match.player1_elo_before}
-                                      {match.player1_elo_after > match.player1_elo_before ? ')' : ')'}
-                                    </span>
-                                  )}
+                      {/* ELO Points Line */}
+                      <div className="flex items-center gap-1 text-xs whitespace-nowrap mt-0.5">
+                        {match.elo_applied ? (
+                          <>
+                            <span className={`font-medium ${player1Won ? 'text-green-400' : player2Won ? 'text-red-400' : 'text-gray-400'}`}>
+                              {match.player1_elo_before || 'N/A'}
+                              {match.player1_elo_after && match.player1_elo_before && (
+                                <span className={match.player1_elo_after > match.player1_elo_before ? 'text-green-400' : 'text-red-400'}>
+                                  {match.player1_elo_after > match.player1_elo_before ? ' (+' : ' ('}
+                                  {match.player1_elo_after - match.player1_elo_before}
+                                  {match.player1_elo_after > match.player1_elo_before ? ')' : ')'}
                                 </span>
-                                <span className="text-gray-500">vs</span>
-                                <span className={`font-medium ${player2Won ? 'text-green-400' : player1Won ? 'text-red-400' : 'text-gray-400'}`}>
-                                  {match.player2_elo_before || 'N/A'}
-                                  {match.player2_elo_after && match.player2_elo_before && (
-                                    <span className={match.player2_elo_after > match.player2_elo_before ? 'text-green-400' : 'text-red-400'}>
-                                      {match.player2_elo_after > match.player2_elo_before ? ' (+' : ' ('}
-                                      {match.player2_elo_after - match.player2_elo_before}
-                                      {match.player2_elo_after > match.player2_elo_before ? ')' : ')'}
-                                    </span>
-                                  )}
+                              )}
+                            </span>
+                            <span className="text-gray-500">vs</span>
+                            <span className={`font-medium ${player2Won ? 'text-green-400' : player1Won ? 'text-red-400' : 'text-gray-400'}`}>
+                              {match.player2_elo_before || 'N/A'}
+                              {match.player2_elo_after && match.player2_elo_before && (
+                                <span className={match.player2_elo_after > match.player2_elo_before ? 'text-green-400' : 'text-red-400'}>
+                                  {match.player2_elo_after > match.player2_elo_before ? ' (+' : ' ('}
+                                  {match.player2_elo_after - match.player2_elo_before}
+                                  {match.player2_elo_after > match.player2_elo_before ? ')' : ')'}
                                 </span>
-                              </>
-                            ) : (
-                              <span className="text-yellow-400 font-medium">Pending ELO calculation</span>
-                            )}
-                          </div>
-                          
-                          {/* Date and League Line */}
-                          <div className="text-xs text-gray-500 mt-0.5 text-center">
-                            {formatDate(match.played_at)} • {match.league_name || 'Unknown'}
+                              )}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-yellow-400 font-medium">Pending ELO calculation</span>
+                        )}
+                      </div>
+                      
+                      {/* Date and League Line */}
+                      <div className="text-xs text-gray-500 mt-0.5 text-center">
+                        {formatDate(match.played_at)} • {match.league_name || 'Unknown'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-4">
+            <Swords className="h-6 w-6 text-gray-600 mx-auto mb-2" />
+            <p className="text-gray-500 text-sm">No matches yet</p>
+          </div>
+        )}
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-gray-800"></div>
+
+      {/* Section 3: Leaderboards */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="cyberpunk-title text-2xl text-purple-300">Leaderboards</h2>
+          <Link to="/leagues" className="text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2">
+            Browse all leagues <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {userLeagues.map((league) => (
+            <Card 
+              key={league.id} 
+              className="vg-card cursor-pointer hover:scale-105 transition-transform"
+              onClick={() => window.location.href = `/leagues/${league.id}`}
+            >
+              <CardHeader className="compact-card-header">
+                <CardTitle className="cyberpunk-subtitle flex items-center gap-2 text-lg">
+                  <Trophy className="h-5 w-5 text-yellow-400" />
+                  {league.name}
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  {league.member_count} members • {league.match_count} matches
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {leagueLeaderboards[league.id]?.length > 0 ? (
+                  <div className="space-y-2">
+                    {leagueLeaderboards[league.id].slice(0, 5).map((player) => (
+                      <div 
+                        key={player.id} 
+                        className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.location.href = `/profile/${player.username}`;
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          {player.rank <= 3 ? (
+                            <MedalIcon rank={player.rank} size={24} userAvatar={player.avatar_url} />
+                          ) : (
+                            <span className="text-sm text-gray-400 w-6 text-center">{player.rank}</span>
+                          )}
+                          <span className="text-sm font-medium">{player.username}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-400">{player.current_elo}</span>
+                          <div className="w-12 h-6">
+                            <EloSparkline 
+                              userId={player.id} 
+                              leagueId={league.id} 
+                              width={48} 
+                              height={16} 
+                              points={15} 
+                            />
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-4">
-                <Swords className="h-6 w-6 text-gray-600 mx-auto mb-2" />
-                <p className="text-gray-500 text-sm">No matches yet</p>
-              </div>
-            )}
-          </div>
-
-          {/* Leaderboards */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="cyberpunk-title text-2xl text-purple-300">Leaderboards</h2>
-              <Link to="/leagues" className="text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2">
-                Browse all leagues <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {userLeagues.map((league) => (
-                <Card 
-                  key={league.id} 
-                  className="vg-card cursor-pointer hover:scale-105 transition-transform"
-                  onClick={() => window.location.href = `/leagues/${league.id}`}
-                >
-                  <CardHeader className="compact-card-header">
-                    <CardTitle className="cyberpunk-subtitle flex items-center gap-2 text-lg">
-                      <Trophy className="h-5 w-5 text-yellow-400" />
-                      {league.name}
-                    </CardTitle>
-                    <CardDescription className="text-gray-400">
-                      {league.member_count} members • {league.match_count} matches
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    {leagueLeaderboards[league.id]?.length > 0 ? (
-                      <div className="space-y-2">
-                        {leagueLeaderboards[league.id].slice(0, 5).map((player) => (
-                          <div 
-                            key={player.id} 
-                            className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              window.location.href = `/profile/${player.username}`;
-                            }}
-                          >
-                            <div className="flex items-center gap-2">
-                              {player.rank <= 3 ? (
-                                <MedalIcon rank={player.rank} size={24} userAvatar={player.avatar_url} />
-                              ) : (
-                                <span className="text-sm text-gray-400 w-6 text-center">{player.rank}</span>
-                              )}
-                              <span className="text-sm font-medium">{player.username}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-gray-400">{player.current_elo}</span>
-                              <div className="w-12 h-6">
-                                <EloSparkline 
-                                  userId={player.id} 
-                                  leagueId={league.id} 
-                                  width={48} 
-                                  height={16} 
-                                  points={15} 
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        ))}
                       </div>
-                    ) : (
-                      <p className="text-sm text-gray-400">{t('leagues.noPlayers')}</p>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400">{t('leagues.noPlayers')}</p>
+                )}
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
 
