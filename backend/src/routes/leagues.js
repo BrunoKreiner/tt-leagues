@@ -435,23 +435,51 @@ router.post('/:id/invite', authenticateToken, requireLeagueAdmin, validateId, as
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
         
         // Create invite
-        await database.run(
-            'INSERT INTO league_invites (league_id, invited_user_id, invited_by, invite_code, expires_at) VALUES (?, ?, ?, ?, ?)',
-            [leagueId, targetUserId, req.user.id, inviteCode, expiresAt.toISOString()]
-        );
-        
-        // Create notification
-        const league = await database.get('SELECT name FROM leagues WHERE id = ?', [leagueId]);
-        await database.run(
-            'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
-            [
+        let inviteResult;
+        try {
+            inviteResult = await database.run(
+                'INSERT INTO league_invites (league_id, invited_user_id, invited_by, invite_code, expires_at) VALUES (?, ?, ?, ?, ?)',
+                [leagueId, targetUserId, req.user.id, inviteCode, expiresAt.toISOString()]
+            );
+        } catch (insertError) {
+            console.error('Failed to insert league invite:', insertError);
+            console.error('Insert error details:', {
+                leagueId,
                 targetUserId,
-                'league_invite',
-                'League Invitation',
-                `You have been invited to join the league "${league.name}"`,
-                leagueId
-            ]
-        );
+                invited_by: req.user.id,
+                error: insertError.message,
+                stack: insertError.stack,
+                code: insertError.code
+            });
+            return res.status(500).json({ 
+                error: 'Failed to create invite',
+                details: process.env.NODE_ENV === 'development' ? insertError.message : undefined
+            });
+        }
+        
+        // Get league name for notification
+        const league = await database.get('SELECT name FROM leagues WHERE id = ?', [leagueId]);
+        
+        // Create notification (non-blocking)
+        try {
+            await database.run(
+                'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
+                [
+                    targetUserId,
+                    'league_invite',
+                    'League Invitation',
+                    `You have been invited to join the league "${league?.name || 'Unknown'}"`,
+                    leagueId
+                ]
+            );
+        } catch (notifError) {
+            // Notification failure shouldn't block invite creation
+            console.warn('Failed to create notification for league invite (non-blocking):', {
+                userId: targetUserId,
+                leagueId,
+                error: notifError.message
+            });
+        }
         
         res.json({
             message: 'User invited successfully',
@@ -460,7 +488,18 @@ router.post('/:id/invite', authenticateToken, requireLeagueAdmin, validateId, as
         });
     } catch (error) {
         console.error('Invite user error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        console.error('Invite user error details:', {
+            message: error.message,
+            stack: error.stack,
+            code: error.code,
+            leagueId: req.params.id,
+            body: req.body,
+            userId: req.user?.id
+        });
+        res.status(500).json({ 
+            error: 'Internal server error',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
 });
 

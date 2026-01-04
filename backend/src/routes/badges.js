@@ -331,12 +331,23 @@ router.post('/users/:id/badges', authenticateToken, requireAdmin, validateId, as
         }
         
         // Check if user already has this badge (for the same league/season if applicable)
-        const existingAward = await database.get(`
-            SELECT id FROM user_badges 
-            WHERE user_id = ? AND badge_id = ? 
-            AND (league_id = ? OR (league_id IS NULL AND ? IS NULL))
-            AND (season = ? OR (season IS NULL AND ? IS NULL))
-        `, [userId, badge_id, league_id || null, league_id || null, season || null, season || null]);
+        let existingAward;
+        try {
+            existingAward = await database.get(`
+                SELECT id FROM user_badges 
+                WHERE user_id = ? AND badge_id = ? 
+                AND (league_id = ? OR (league_id IS NULL AND ? IS NULL))
+                AND (season = ? OR (season IS NULL AND ? IS NULL))
+            `, [userId, badge_id, league_id || null, league_id || null, season || null, season || null]);
+        } catch (checkError) {
+            console.error('Failed to check existing badge award:', checkError);
+            console.error('Check error details:', {
+                userId,
+                badge_id,
+                league_id,
+                error: checkError.message
+            });
+        }
         
         if (existingAward) {
             return res.status(409).json({ error: 'User already has this badge' });
@@ -357,8 +368,17 @@ router.post('/users/:id/badges', authenticateToken, requireAdmin, validateId, as
                 league_id,
                 season,
                 error: insertError.message,
-                stack: insertError.stack
+                stack: insertError.stack,
+                code: insertError.code,
+                constraint: insertError.constraint
             });
+            // Check if it's a foreign key constraint error
+            if (insertError.code === '23503' || insertError.message?.includes('FOREIGN KEY')) {
+                return res.status(400).json({ 
+                    error: 'Invalid user, badge, or league ID',
+                    details: process.env.NODE_ENV === 'development' ? insertError.message : undefined
+                });
+            }
             return res.status(500).json({ 
                 error: 'Failed to award badge',
                 details: process.env.NODE_ENV === 'development' ? insertError.message : undefined
