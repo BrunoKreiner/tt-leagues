@@ -102,7 +102,7 @@ const MobileMenu = ({
         </div>
 
         {/* User Profile Section */}
-        <div className="p-4 border-b border-gray-700">
+        <Link to="/profile" onClick={onClose} className="block p-4 border-b border-gray-700 hover:bg-gray-800/50 transition-colors cursor-pointer">
           <div className="flex items-center space-x-3">
             <Avatar className="h-10 w-10">
               {user?.avatar_url && (
@@ -121,7 +121,7 @@ const MobileMenu = ({
               </p>
             </div>
           </div>
-        </div>
+        </Link>
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto">
