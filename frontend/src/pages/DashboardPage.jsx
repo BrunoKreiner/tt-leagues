@@ -100,13 +100,18 @@ const DashboardPage = () => {
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Header: Username */}
-      <div className="flex items-center justify-center gap-3">
+      <div className="flex items-center justify-center gap-3 flex-wrap">
         <h1 className="cyberpunk-title text-4xl text-blue-300">
           {user?.first_name || user?.username}
         </h1>
         <Link to="/profile" className="text-blue-400 hover:text-blue-300 transition-colors">
           <User className="h-6 w-6" />
         </Link>
+        <Button asChild variant="outline" className="ml-2">
+          <Link to="/profile">
+            {t('cta.viewProfile')}
+          </Link>
+        </Button>
       </div>
 
       {/* Divider */}
@@ -216,7 +221,12 @@ const DashboardPage = () => {
         ) : (
           <div className="text-center py-4">
             <Swords className="h-6 w-6 text-gray-600 mx-auto mb-2" />
-            <p className="text-gray-500 text-sm">No matches yet</p>
+            <p className="text-gray-500 text-sm mb-3">No matches yet</p>
+            <Button asChild variant="outline">
+              <Link to="/profile">
+                {t('cta.viewProfile')}
+              </Link>
+            </Button>
           </div>
         )}
       </div>

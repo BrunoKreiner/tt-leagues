@@ -276,7 +276,7 @@ const Layout = () => {
             {/* User menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full cursor-pointer">
                   <Avatar className="h-8 w-8" key={user?.avatar_url}>
                     {user?.avatar_url && (
                       <AvatarImage src={user.avatar_url} alt="Profile" />
@@ -288,14 +288,24 @@ const Layout = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56 bg-gray-800 border-gray-700" align="end" forceMount>
-                <div className="flex items-center justify-start gap-2 p-2">
-                  <div className="flex flex-col space-y-1 leading-none">
-                    <p className="font-medium text-gray-200">{user?.first_name} {user?.last_name}</p>
-                    <p className="w-[200px] truncate text-sm text-gray-400">
-                      @{user?.username}
-                    </p>
-                  </div>
-                </div>
+                <DropdownMenuItem asChild className="text-gray-200 hover:bg-gray-700 p-2 cursor-pointer">
+                  <Link to="/profile" className="flex items-center justify-start gap-2 w-full">
+                    <Avatar className="h-10 w-10" key={user?.avatar_url}>
+                      {user?.avatar_url && (
+                        <AvatarImage src={user.avatar_url} alt="Profile" />
+                      )}
+                      <AvatarFallback className="text-sm bg-gray-700 text-gray-200">
+                        {getUserInitials(user)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col space-y-1 leading-none">
+                      <p className="font-medium">{user?.first_name} {user?.last_name}</p>
+                      <p className="w-[200px] truncate text-sm text-gray-400">
+                        @{user?.username}
+                      </p>
+                    </div>
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild className="text-gray-200 hover:bg-gray-700">
                   <Link to="/profile" className="flex items-center">
