@@ -443,14 +443,14 @@ const LeagueDetailPage = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="cyberpunk-title text-3xl text-blue-300">{league.name}</h1>
           <p className="cyberpunk-text text-gray-400">{t('leagues.createdBy', { user: '' })}<Link to={`/profile/${league.created_by_username}`} className="text-blue-400 hover:text-blue-300">{league.created_by_username}</Link> • {format(new Date(league.created_at), 'PPP')}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {league.description && (
-            <span className="text-sm text-gray-300 px-2 py-1 bg-gray-800 rounded border border-gray-700">
+            <span className="max-w-full text-sm text-gray-300 px-2 py-1 bg-gray-800 rounded border border-gray-700 break-words">
               {league.description}
             </span>
           )}
@@ -582,24 +582,92 @@ const LeagueDetailPage = () => {
       )}
 
       {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-3 min-w-0">
         {/* Leaderboard - Takes 2/3 width */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 min-w-0">
           <Card className="vg-card">
             <CardHeader className="py-4">
               <CardTitle className="cyberpunk-subtitle text-lg">{t('leagues.leaderboard')}</CardTitle>
               <CardDescription className="text-gray-400">{t('leagues.rankedByElo', { count: leaderboardPagination.total })}</CardDescription>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent className="pt-0 min-w-0">
               {leaderboard.length === 0 ? (
                 <p className="text-sm text-gray-400">{t('leagues.noPlayers')}</p>
               ) : (
                 <>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-base">
+                  {/* Mobile leaderboard: stacked rows (no horizontal overflow) */}
+                  <div className="sm:hidden space-y-2">
+                    {leaderboard.map((p) => (
+                      <div
+                        key={p.id}
+                        className="rounded-lg border border-gray-800 bg-gray-900/30 p-3"
+                      >
+                        <div className="flex items-start gap-3 min-w-0">
+                          <div className="shrink-0">
+                            {p.rank <= 3 ? (
+                              <MedalIcon rank={p.rank} size={40} userAvatar={p.avatar_url} />
+                            ) : (
+                              <div className="h-10 w-10 rounded-full border border-gray-800 bg-gray-900/60 flex items-center justify-center">
+                                <span className="text-gray-200 text-base font-bold">{p.rank}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-baseline justify-between gap-2 min-w-0">
+                              <Link
+                                to={`/profile/${p.username}`}
+                                className="min-w-0 truncate text-blue-400 hover:text-blue-300 font-medium"
+                                title={p.username}
+                              >
+                                {p.username}
+                              </Link>
+                              <div className="shrink-0 text-sm text-gray-200 font-semibold tabular-nums">
+                                {p.current_elo}
+                              </div>
+                            </div>
+
+                            {p.badges && p.badges.length > 0 && (
+                              <BadgeList
+                                badges={p.badges}
+                                size="sm"
+                                showDate={false}
+                                showLeague={false}
+                                className="mt-1"
+                              />
+                            )}
+
+                            <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                              <div className="rounded-md border border-gray-800 bg-gray-950/30 p-2">
+                                <div className="text-gray-400">{t('leagues.wl')}</div>
+                                <div className="text-gray-200 font-medium tabular-nums">
+                                  {p.matches_won}/{p.matches_played - p.matches_won}
+                                </div>
+                              </div>
+                              <div className="rounded-md border border-gray-800 bg-gray-950/30 p-2">
+                                <div className="text-gray-400">{t('leagues.winPercent')}</div>
+                                <div className="text-gray-200 font-medium tabular-nums">
+                                  {p.win_rate}%
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="mt-2 flex items-center justify-between gap-2">
+                              <div className="text-xs text-gray-400">{t('leagues.trend')}</div>
+                              <EloSparkline userId={p.id} leagueId={id} width={84} height={18} points={15} />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Desktop/tablet leaderboard */}
+                  <div className="hidden sm:block overflow-x-auto max-w-full">
+                    <table className="w-full text-sm">
                       <thead>
                         <tr className="text-left text-gray-400 border-b border-gray-700">
-                          <th className="px-3 py-2 font-medium text-lg">{t('leagues.rank')}</th>
+                          <th className="px-3 py-2 font-medium">{t('leagues.rank')}</th>
                           <th className="px-3 py-2 font-medium">{t('leagues.player')}</th>
                           <th className="px-3 py-2 font-medium">{t('leagues.elo')}</th>
                           <th className="px-3 py-2 font-medium">{t('leagues.trend')}</th>
@@ -610,19 +678,25 @@ const LeagueDetailPage = () => {
                       <tbody>
                         {leaderboard.map((p) => (
                           <tr key={p.id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
-                            <td className="px-3 py-4">
+                            <td className="px-3 py-3">
                               {p.rank <= 3 ? (
-                                <MedalIcon rank={p.rank} size={48} userAvatar={p.avatar_url} />
+                                <MedalIcon rank={p.rank} size={40} userAvatar={p.avatar_url} />
                               ) : (
-                                <span className="text-gray-300 text-2xl font-bold">{p.rank}</span>
+                                <span className="text-gray-300 text-lg font-bold">{p.rank}</span>
                               )}
                             </td>
-                            <td className="px-3 py-4">
-                              <div className="flex flex-col gap-1">
-                                <Link to={`/profile/${p.username}`} className="text-blue-400 hover:text-blue-300 text-lg">{p.username}</Link>
+                            <td className="px-3 py-3 min-w-0">
+                              <div className="flex flex-col gap-1 min-w-0">
+                                <Link
+                                  to={`/profile/${p.username}`}
+                                  className="text-blue-400 hover:text-blue-300 font-medium truncate"
+                                  title={p.username}
+                                >
+                                  {p.username}
+                                </Link>
                                 {p.badges && p.badges.length > 0 && (
-                                  <BadgeList 
-                                    badges={p.badges} 
+                                  <BadgeList
+                                    badges={p.badges}
                                     size="sm"
                                     showDate={false}
                                     showLeague={false}
@@ -631,12 +705,14 @@ const LeagueDetailPage = () => {
                                 )}
                               </div>
                             </td>
-                            <td className="px-3 py-4 text-gray-300 text-lg">{p.current_elo}</td>
-                            <td className="px-3 py-4">
-                              <EloSparkline userId={p.id} leagueId={id} width={50} height={16} points={15} />
+                            <td className="px-3 py-3 text-gray-200 font-medium tabular-nums">{p.current_elo}</td>
+                            <td className="px-3 py-3">
+                              <EloSparkline userId={p.id} leagueId={id} width={60} height={18} points={15} />
                             </td>
-                            <td className="px-3 py-4 text-gray-300 text-lg">{p.matches_won}/{p.matches_played - p.matches_won}</td>
-                            <td className="px-3 py-4 text-gray-300 text-lg">{p.win_rate}%</td>
+                            <td className="px-3 py-3 text-gray-200 tabular-nums whitespace-nowrap">
+                              {p.matches_won}/{p.matches_played - p.matches_won}
+                            </td>
+                            <td className="px-3 py-3 text-gray-200 tabular-nums whitespace-nowrap">{p.win_rate}%</td>
                           </tr>
                         ))}
                       </tbody>
@@ -692,7 +768,7 @@ const LeagueDetailPage = () => {
         </div>
 
         {/* Sidebar - Takes 1/3 width */}
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0">
           {/* Overview */}
           <Card className="vg-card">
             <CardHeader className="py-3">
