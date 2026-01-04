@@ -25,6 +25,19 @@ A full-stack table tennis league management application with ELO rating system. 
 - **i18n**: react-i18next (EN/DE)
 - **Forms**: react-hook-form + zod
 
+## Project Map (Quick Reference)
+
+Key entry points and files:
+
+- **Backend entrypoint**: `backend/src/app.js`
+- **DB wrapper / initialization**: `backend/src/models/database.js`
+  - Uses Postgres when `DATABASE_URL` is set, otherwise SQLite at `DATABASE_PATH`
+  - Runs schema from `backend/database/schema.pg.sql` (PG) or `backend/database/schema.sql` (SQLite)
+- **Backend routes**: `backend/src/routes/*`
+- **Vercel serverless entry**: `backend/api/index.js`
+- **Frontend API client**: `frontend/src/services/api.js`
+- **CI backend tests workflow**: `.github/workflows/backend-tests.yml`
+
 ## Project Structure
 
 ```
@@ -58,16 +71,16 @@ A full-stack table tennis league management application with ELO rating system. 
 
 ### Backend
 ```bash
-cd backend
-npm install
+cd backend; npm install
 npm start          # Production mode
 npm run dev        # Development with nodemon
 ```
 
+The API serves at `http://localhost:3001` and has a health check at `/health`.
+
 ### Frontend
 ```bash
-cd frontend
-pnpm install
+cd frontend; pnpm install
 pnpm run dev       # Development server at localhost:5173
 pnpm run build     # Production build
 pnpm run lint      # ESLint
@@ -77,12 +90,23 @@ pnpm run lint      # ESLint
 
 ### Backend Tests (Required before completing tasks)
 ```bash
-cd backend
-npm test                    # Run all tests
-npm run test:watch          # Watch mode
+cd backend; npm test                    # Run all tests
+npm run test:watch                      # Watch mode
 ```
 
 Tests use Jest with SQLite test database. Test files are in `backend/tests/`.
+
+### CI Parity
+
+CI runs backend tests with:
+- `NODE_ENV=test`
+- `DATABASE_PATH=./database/test.db`
+- `npm test -- --runInBand`
+
+To match CI locally:
+```bash
+cd backend; NODE_ENV=test DATABASE_PATH=./database/test.db npm test -- --runInBand
+```
 
 ### CI Pipeline
 Backend tests run automatically on push/PR via `.github/workflows/backend-tests.yml`.
@@ -104,6 +128,22 @@ cd backend && npm test
 ### Dual Database Support
 - **SQLite**: Used locally when `DATABASE_URL` is not set
 - **PostgreSQL**: Used in production when `DATABASE_URL` is set
+
+### Vercel Behavior (Important)
+- If `VERCEL=1`, the backend **requires** `DATABASE_URL` (no SQLite in serverless runtime)
+
+### SQL Query Patterns
+- **Prefer SQLite-style `?` placeholders** when using `database.get/run/all(...)`
+  - The DB layer automatically converts `?` to `$1, $2, ...` for Postgres
+  - Example: `db.all('SELECT * FROM matches WHERE is_accepted = ?', [true])`
+- **For multi-step updates**, prefer `database.withTransaction(...)` so the same code works for both DBs:
+```javascript
+await database.withTransaction(async (tx) => {
+  await tx.run('UPDATE ...', [params1]);
+  await tx.run('INSERT ...', [params2]);
+  return result;
+});
+```
 
 ### Boolean Compatibility
 Use parameterized booleans in queries (not `0/1` literals):
@@ -169,6 +209,19 @@ All user-facing strings must be translated:
 ## Environment Variables
 
 ### Backend (`.env`)
+
+Copy `backend/.env.example` to `backend/.env` and edit.
+
+Key variables:
+- **`PORT`**: API port (default 3001)
+- **`FRONTEND_URL`**: comma-separated allowed origins for CORS
+- **`DATABASE_URL`**: when set, the backend uses Postgres
+- **`DATABASE_PATH`**: SQLite file path when `DATABASE_URL` is not set
+- **`JWT_SECRET`**: required for auth
+- **`JWT_EXPIRES_IN`**: JWT expiration (default 7d)
+- **Admin seeding**: `ADMIN_USERNAME` and `ADMIN_PASSWORD` variables are used to create/update the admin user on startup
+
+Example:
 ```
 PORT=3001
 DATABASE_PATH=backend/database/league.db  # SQLite path
@@ -180,7 +233,12 @@ ADMIN_USERNAME=admin
 ADMIN_PASSWORD=admin123
 ```
 
+**Vercel behavior**: If `VERCEL=1`, the backend **requires** `DATABASE_URL` (no SQLite in serverless runtime).
+
 ### Frontend (`.env`)
+- **`VITE_API_URL`**: backend API base URL (e.g. `http://localhost:3001/api`)
+
+Example:
 ```
 VITE_API_URL=http://localhost:3001/api
 ```
@@ -215,10 +273,11 @@ VITE_API_URL=http://localhost:3001/api
 - Don't use `bcrypt` - use `bcryptjs`
 - Don't use `&&` in shell commands - use `;`
 - Don't hardcode strings - use i18n `t()` function
-- Don't add fallbacks when implementing new functionality
+- Don't add fallbacks when implementing new functionality - if new behavior needs config, make it explicit (clear env var/parameter requirements) rather than silently "doing something else"
 - Don't commit directly to main branch
 - Don't run long-lived/watch processes (dev servers, etc.)
 - Don't use interactive git commands (`git rebase -i`, `git add -i`)
+- Don't start long-running servers inside test paths (backend already avoids starting the HTTP server when `NODE_ENV=test`)
 
 ## Testing Checklist
 
@@ -227,6 +286,11 @@ Before completing any task:
 2. Run frontend lint: `cd frontend; pnpm run lint`
 3. Verify no TypeScript/ESLint errors
 4. Test affected functionality manually if possible
+
+**Note**: To match CI test environment exactly, use:
+```bash
+cd backend; NODE_ENV=test DATABASE_PATH=./database/test.db npm test -- --runInBand
+```
 
 ## Documentation
 
