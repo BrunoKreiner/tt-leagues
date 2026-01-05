@@ -98,6 +98,15 @@ const AdminPage = () => {
   const [loadingBadgeUsers, setLoadingBadgeUsers] = useState(false);
   const [uploadedImageSrc, setUploadedImageSrc] = useState(null);
 
+  // League roster management (placeholders + assignment)
+  const [rosterLeagueId, setRosterLeagueId] = useState('');
+  const [rosterMembers, setRosterMembers] = useState([]);
+  const [loadingRosterMembers, setLoadingRosterMembers] = useState(false);
+  const [placeholderDisplayName, setPlaceholderDisplayName] = useState('');
+  const [creatingPlaceholder, setCreatingPlaceholder] = useState(false);
+  const [assignUserByRosterId, setAssignUserByRosterId] = useState({});
+  const [assigningRosterId, setAssigningRosterId] = useState(null);
+
   const form = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -172,6 +181,76 @@ const AdminPage = () => {
     }
   };
 
+  const fetchRosterMembers = async (leagueId) => {
+    if (!leagueId) {
+      setRosterMembers([]);
+      return;
+    }
+    try {
+      setLoadingRosterMembers(true);
+      const { data } = await leaguesAPI.getMembers(Number(leagueId));
+      setRosterMembers(data.members || []);
+    } catch (e) {
+      console.error('Failed to load roster members', e);
+      toast.error('Failed to load roster members');
+      setRosterMembers([]);
+    } finally {
+      setLoadingRosterMembers(false);
+    }
+  };
+
+  const handleCreatePlaceholder = async () => {
+    if (!rosterLeagueId) {
+      toast.error('Please select a league first');
+      return;
+    }
+    const name = placeholderDisplayName.trim();
+    if (!name) {
+      toast.error('Please enter a name for the placeholder');
+      return;
+    }
+    try {
+      setCreatingPlaceholder(true);
+      await leaguesAPI.createRosterMember(Number(rosterLeagueId), name);
+      setPlaceholderDisplayName('');
+      toast.success('Placeholder member added');
+      await fetchRosterMembers(rosterLeagueId);
+    } catch (e) {
+      const msg = e.response?.data?.error || 'Failed to create placeholder member';
+      toast.error(msg);
+    } finally {
+      setCreatingPlaceholder(false);
+    }
+  };
+
+  const handleAssignRoster = async (rosterId) => {
+    if (!rosterLeagueId) {
+      toast.error('Please select a league first');
+      return;
+    }
+    const userId = assignUserByRosterId?.[rosterId];
+    if (!userId) {
+      toast.error('Please select a user to assign');
+      return;
+    }
+    try {
+      setAssigningRosterId(rosterId);
+      await leaguesAPI.assignRosterMember(Number(rosterLeagueId), rosterId, Number(userId));
+      toast.success('Roster entry assigned');
+      setAssignUserByRosterId((prev) => {
+        const next = { ...(prev || {}) };
+        delete next[rosterId];
+        return next;
+      });
+      await fetchRosterMembers(rosterLeagueId);
+    } catch (e) {
+      const msg = e.response?.data?.error || 'Failed to assign roster entry';
+      toast.error(msg);
+    } finally {
+      setAssigningRosterId(null);
+    }
+  };
+
   // Fetch leagues for a specific user
   const fetchUserLeagues = async (userId) => {
     if (!userId) {
@@ -201,6 +280,7 @@ const AdminPage = () => {
 
   // Get available leagues (either selected user's leagues, or all leagues)
   const availableLeagues = awardUserId ? userLeagues : leagues;
+  const rosterAssignedUserIds = rosterMembers.filter((m) => m.user_id != null).map((m) => m.user_id);
 
   const handleCreateBadge = async (values) => {
     try {
@@ -501,6 +581,154 @@ const AdminPage = () => {
               </div>
             </form>
           </Form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Shield className="h-5 w-5 mr-2" />
+            Roster management (placeholders)
+          </CardTitle>
+          <CardDescription>
+            Add placeholder members to a league (no account yet), then assign them to real users later.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <div className="text-sm font-medium mb-1">League</div>
+              <Select
+                value={rosterLeagueId || undefined}
+                onValueChange={(value) => {
+                  setRosterLeagueId(value || '');
+                  setAssignUserByRosterId({});
+                  fetchRosterMembers(value || '');
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a league" />
+                </SelectTrigger>
+                <SelectContent>
+                  {leagues.map((league) => (
+                    <SelectItem key={league.id} value={String(league.id)}>
+                      {league.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <div className="text-sm font-medium mb-1">Add placeholder member</div>
+              <div className="flex gap-2">
+                <Input
+                  value={placeholderDisplayName}
+                  onChange={(e) => setPlaceholderDisplayName(e.target.value)}
+                  placeholder="e.g. Alex (unassigned)"
+                  disabled={!rosterLeagueId || creatingPlaceholder}
+                />
+                <Button
+                  type="button"
+                  onClick={handleCreatePlaceholder}
+                  disabled={!rosterLeagueId || creatingPlaceholder}
+                >
+                  {creatingPlaceholder ? 'Adding...' : 'Add'}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              {rosterLeagueId ? `Members: ${rosterMembers.length}` : 'Select a league to manage its roster.'}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => fetchRosterMembers(rosterLeagueId)}
+              disabled={!rosterLeagueId || loadingRosterMembers}
+            >
+              {loadingRosterMembers ? 'Refreshing...' : 'Refresh'}
+            </Button>
+          </div>
+
+          {loadingRosterMembers ? (
+            <div className="py-6"><LoadingSpinner /></div>
+          ) : !rosterLeagueId ? null : rosterMembers.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No roster members found for this league.</div>
+          ) : (
+            <div className="overflow-x-auto rounded-md border">
+              <table className="min-w-full text-sm">
+                <thead className="bg-muted/40 text-muted-foreground">
+                  <tr>
+                    <th className="text-left font-medium px-3 py-2">Display name</th>
+                    <th className="text-left font-medium px-3 py-2">Assigned user</th>
+                    <th className="text-left font-medium px-3 py-2">ELO</th>
+                    <th className="text-left font-medium px-3 py-2">Assign</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rosterMembers.map((m) => {
+                    const isAssigned = m.user_id != null;
+                    return (
+                      <tr key={m.roster_id} className="border-t">
+                        <td className="px-3 py-2">
+                          <div className="font-medium">{m.display_name}</div>
+                          <div className="text-xs text-muted-foreground">Roster ID: {m.roster_id}</div>
+                        </td>
+                        <td className="px-3 py-2">
+                          {isAssigned ? (
+                            m.username ? (
+                              <Link
+                                to={`/profile/${m.username}`}
+                                className="text-blue-400 hover:text-blue-300 underline hover:no-underline"
+                              >
+                                {m.username}
+                              </Link>
+                            ) : (
+                              <span className="text-muted-foreground">Assigned (no username)</span>
+                            )
+                          ) : (
+                            <span className="text-muted-foreground">Unassigned</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">{m.current_elo}</td>
+                        <td className="px-3 py-2">
+                          {isAssigned ? (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          ) : (
+                            <div className="flex gap-2 items-center min-w-[420px]">
+                              <UserSearchSelect
+                                value={assignUserByRosterId?.[m.roster_id] || ''}
+                                onValueChange={(userId) => {
+                                  const nextUserId = userId ? String(userId) : '';
+                                  setAssignUserByRosterId((prev) => ({
+                                    ...(prev || {}),
+                                    [m.roster_id]: nextUserId,
+                                  }));
+                                }}
+                                placeholder="Select user to assign..."
+                                excludeUserIds={rosterAssignedUserIds}
+                                disabled={assigningRosterId === m.roster_id}
+                              />
+                              <Button
+                                type="button"
+                                onClick={() => handleAssignRoster(m.roster_id)}
+                                disabled={assigningRosterId === m.roster_id}
+                              >
+                                {assigningRosterId === m.roster_id ? 'Assigning...' : 'Assign'}
+                              </Button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
