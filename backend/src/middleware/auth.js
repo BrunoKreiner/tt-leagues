@@ -61,7 +61,7 @@ async function requireLeagueAdmin(req, res, next) {
         
         // Check if user is league admin
         const membership = await database.get(
-            'SELECT is_admin FROM league_members WHERE league_id = ? AND user_id = ?',
+            'SELECT is_admin FROM league_roster WHERE league_id = ? AND user_id = ?',
             [leagueId, req.user.id]
         );
         

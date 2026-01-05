@@ -91,6 +91,9 @@ class Database {
             // Add image_url column to badges table if it doesn't exist (both SQLite and Postgres)
             await this.addBadgeImageUrlColumn();
 
+            // Ensure roster + roster-based matches/ELO schema exists (SQLite + Postgres) and migrate legacy data.
+            await this.ensureRosterSchema();
+
             // Create/update admin user from env
             await this.createAdminUser();
 
@@ -159,6 +162,326 @@ class Database {
             // Table might not exist yet, that's okay
             console.warn('Could not add image_url column to badges table (table might not exist):', err.message);
         }
+    }
+
+    async ensureRosterSchema() {
+        // This method is intentionally idempotent: safe to run on every startup.
+        // It supports:
+        // - Placeholder roster entries (no user_id)
+        // - Matches + ELO history referencing roster entries
+        // - Migration from legacy league_members + user-based matches
+        await this.ensureLeagueRosterTable();
+        await this.ensureMatchesRosterColumns();
+        await this.ensureEloHistoryRosterColumn();
+        await this.ensureRosterLegacyNullability();
+        await this.ensureRosterIndexes();
+        await this.migrateLegacyLeagueMembersToRoster();
+        await this.migrateLegacyMatchesToRoster();
+        await this.migrateLegacyEloHistoryToRoster();
+    }
+
+    async ensureRosterLegacyNullability() {
+        // Roster-based matches allow opponents without user accounts, so the legacy user_id columns
+        // on matches/elo_history must be nullable.
+        if (this.isPg) {
+            try { await this.run('ALTER TABLE matches ALTER COLUMN player1_id DROP NOT NULL'); } catch (_) {}
+            try { await this.run('ALTER TABLE matches ALTER COLUMN player2_id DROP NOT NULL'); } catch (_) {}
+            try { await this.run('ALTER TABLE elo_history ALTER COLUMN user_id DROP NOT NULL'); } catch (_) {}
+            return;
+        }
+
+        // SQLite: if existing tables were created with NOT NULL constraints, recreate them.
+        const matchesNeedsRebuild = await this.sqliteColumnIsNotNull('matches', 'player1_id')
+            || await this.sqliteColumnIsNotNull('matches', 'player2_id');
+        if (matchesNeedsRebuild) {
+            await this.rebuildSQLiteMatchesTable();
+        }
+
+        const eloNeedsRebuild = await this.sqliteColumnIsNotNull('elo_history', 'user_id');
+        if (eloNeedsRebuild) {
+            await this.rebuildSQLiteEloHistoryTable();
+        }
+    }
+
+    async sqliteColumnIsNotNull(tableName, columnName) {
+        if (this.isPg) return false;
+        try {
+            const rows = await this.all(`PRAGMA table_info(${tableName})`);
+            const col = rows.find(r => r.name === columnName);
+            return !!col?.notnull;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    async rebuildSQLiteMatchesTable() {
+        // Create a new matches table with nullable player1_id/player2_id and roster columns.
+        // Preserve existing data and swap tables.
+        await this.withTransaction(async (tx) => {
+            await tx.run(`
+                CREATE TABLE IF NOT EXISTS matches_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    league_id INTEGER NOT NULL,
+                    player1_id INTEGER,
+                    player2_id INTEGER,
+                    player1_roster_id INTEGER,
+                    player2_roster_id INTEGER,
+                    winner_roster_id INTEGER,
+                    player1_sets_won INTEGER DEFAULT 0,
+                    player2_sets_won INTEGER DEFAULT 0,
+                    player1_points_total INTEGER DEFAULT 0,
+                    player2_points_total INTEGER DEFAULT 0,
+                    game_type VARCHAR(20) NOT NULL,
+                    winner_id INTEGER,
+                    player1_elo_before INTEGER,
+                    player2_elo_before INTEGER,
+                    player1_elo_after INTEGER,
+                    player2_elo_after INTEGER,
+                    is_accepted BOOLEAN DEFAULT FALSE,
+                    accepted_by INTEGER,
+                    accepted_at DATETIME,
+                    elo_applied BOOLEAN DEFAULT FALSE,
+                    elo_applied_at DATETIME,
+                    played_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE,
+                    FOREIGN KEY (player1_id) REFERENCES users(id),
+                    FOREIGN KEY (player2_id) REFERENCES users(id),
+                    FOREIGN KEY (winner_id) REFERENCES users(id),
+                    FOREIGN KEY (accepted_by) REFERENCES users(id)
+                )
+            `);
+
+            // Copy known columns from old table; roster columns may not exist yet (NULLs are fine).
+            await tx.run(`
+                INSERT INTO matches_new (
+                    id, league_id, player1_id, player2_id,
+                    player1_roster_id, player2_roster_id, winner_roster_id,
+                    player1_sets_won, player2_sets_won, player1_points_total, player2_points_total,
+                    game_type, winner_id,
+                    player1_elo_before, player2_elo_before, player1_elo_after, player2_elo_after,
+                    is_accepted, accepted_by, accepted_at, elo_applied, elo_applied_at, played_at, created_at
+                )
+                SELECT
+                    id, league_id, player1_id, player2_id,
+                    player1_roster_id, player2_roster_id, winner_roster_id,
+                    player1_sets_won, player2_sets_won, player1_points_total, player2_points_total,
+                    game_type, winner_id,
+                    player1_elo_before, player2_elo_before, player1_elo_after, player2_elo_after,
+                    is_accepted, accepted_by, accepted_at, elo_applied, elo_applied_at, played_at, created_at
+                FROM matches
+            `);
+
+            await tx.run('DROP TABLE matches');
+            await tx.run('ALTER TABLE matches_new RENAME TO matches');
+        });
+    }
+
+    async rebuildSQLiteEloHistoryTable() {
+        await this.withTransaction(async (tx) => {
+            await tx.run(`
+                CREATE TABLE IF NOT EXISTS elo_history_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER,
+                    league_id INTEGER NOT NULL,
+                    roster_id INTEGER,
+                    match_id INTEGER,
+                    elo_before INTEGER NOT NULL,
+                    elo_after INTEGER NOT NULL,
+                    elo_change INTEGER NOT NULL,
+                    recorded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    FOREIGN KEY (league_id) REFERENCES leagues(id),
+                    FOREIGN KEY (match_id) REFERENCES matches(id)
+                )
+            `);
+
+            await tx.run(`
+                INSERT INTO elo_history_new (
+                    id, user_id, league_id, roster_id, match_id, elo_before, elo_after, elo_change, recorded_at
+                )
+                SELECT
+                    id, user_id, league_id, roster_id, match_id, elo_before, elo_after, elo_change, recorded_at
+                FROM elo_history
+            `);
+
+            await tx.run('DROP TABLE elo_history');
+            await tx.run('ALTER TABLE elo_history_new RENAME TO elo_history');
+        });
+    }
+
+    async ensureLeagueRosterTable() {
+        if (this.isPg) {
+            await this.run(`
+                CREATE TABLE IF NOT EXISTS league_roster (
+                    id SERIAL PRIMARY KEY,
+                    league_id INTEGER NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
+                    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                    display_name VARCHAR(200) NOT NULL,
+                    current_elo INTEGER DEFAULT 1200,
+                    is_admin BOOLEAN DEFAULT FALSE,
+                    joined_at TIMESTAMP DEFAULT NOW(),
+                    UNIQUE(league_id, user_id)
+                )
+            `);
+            return;
+        }
+
+        // SQLite
+        await this.run(`
+            CREATE TABLE IF NOT EXISTS league_roster (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                league_id INTEGER NOT NULL,
+                user_id INTEGER,
+                display_name VARCHAR(200) NOT NULL,
+                current_elo INTEGER DEFAULT 1200,
+                is_admin BOOLEAN DEFAULT FALSE,
+                joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+                UNIQUE(league_id, user_id)
+            )
+        `);
+    }
+
+    async ensureMatchesRosterColumns() {
+        // We keep legacy user_id-based columns for compatibility/migration, but
+        // roster-based columns are the canonical fields for new code.
+        await this.ensureColumnExists('matches', 'player1_roster_id', this.isPg ? 'INTEGER' : 'INTEGER');
+        await this.ensureColumnExists('matches', 'player2_roster_id', this.isPg ? 'INTEGER' : 'INTEGER');
+        await this.ensureColumnExists('matches', 'winner_roster_id', this.isPg ? 'INTEGER' : 'INTEGER');
+    }
+
+    async ensureEloHistoryRosterColumn() {
+        await this.ensureColumnExists('elo_history', 'roster_id', this.isPg ? 'INTEGER' : 'INTEGER');
+    }
+
+    async ensureRosterIndexes() {
+        // Indexes are safe to create repeatedly.
+        await this.run('CREATE INDEX IF NOT EXISTS idx_league_roster_league_id ON league_roster(league_id)');
+        await this.run('CREATE INDEX IF NOT EXISTS idx_league_roster_user_id ON league_roster(user_id)');
+        await this.run('CREATE INDEX IF NOT EXISTS idx_league_roster_league_elo ON league_roster(league_id, current_elo)');
+        await this.run('CREATE INDEX IF NOT EXISTS idx_matches_roster_ids ON matches(league_id, player1_roster_id, player2_roster_id)');
+        await this.run('CREATE INDEX IF NOT EXISTS idx_elo_history_roster_id ON elo_history(roster_id)');
+    }
+
+    async ensureColumnExists(tableName, columnName, columnType) {
+        if (this.isPg) {
+            const row = await this.get(
+                `SELECT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = ? AND column_name = ?
+                ) as exists`,
+                [tableName, columnName]
+            );
+            if (row && row.exists) return;
+            await this.run(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnType}`);
+            return;
+        }
+
+        // SQLite: try to SELECT the column, add if it fails.
+        try {
+            await this.run(`SELECT ${columnName} FROM ${tableName} LIMIT 1`);
+        } catch (_) {
+            await this.run(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnType}`);
+        }
+    }
+
+    async migrateLegacyLeagueMembersToRoster() {
+        // If legacy league_members table exists and roster is empty, migrate.
+        const legacyExists = await this.tableExists('league_members');
+        if (!legacyExists) return;
+
+        const rosterCount = await this.get('SELECT COUNT(*) as count FROM league_roster');
+        if (rosterCount && Number(rosterCount.count) > 0) return;
+
+        const rows = await this.all(`
+            SELECT lm.league_id, lm.user_id, lm.current_elo, lm.is_admin, lm.joined_at,
+                   u.first_name, u.last_name
+            FROM league_members lm
+            JOIN users u ON lm.user_id = u.id
+        `);
+
+        for (const r of rows) {
+            const displayName = `${r.first_name} ${r.last_name}`.trim();
+            const existing = await this.get(
+                'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
+                [r.league_id, r.user_id]
+            );
+            if (existing) continue;
+            await this.run(
+                'INSERT INTO league_roster (league_id, user_id, display_name, current_elo, is_admin, joined_at) VALUES (?, ?, ?, ?, ?, ?)',
+                [r.league_id, r.user_id, displayName, r.current_elo ?? 1200, r.is_admin ?? false, r.joined_at]
+            );
+        }
+    }
+
+    async migrateLegacyMatchesToRoster() {
+        // Fill roster_id columns from legacy user_id columns if needed.
+        const candidates = await this.all(
+            'SELECT id, league_id, player1_id, player2_id, winner_id, player1_roster_id, player2_roster_id, winner_roster_id FROM matches'
+        );
+        for (const m of candidates) {
+            if (m.player1_roster_id && m.player2_roster_id) continue;
+            if (!m.player1_id || !m.player2_id) continue;
+
+            const p1 = await this.get(
+                'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
+                [m.league_id, m.player1_id]
+            );
+            const p2 = await this.get(
+                'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
+                [m.league_id, m.player2_id]
+            );
+            if (!p1 || !p2) continue;
+
+            let winnerRosterId = null;
+            if (m.winner_id) {
+                const w = await this.get(
+                    'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
+                    [m.league_id, m.winner_id]
+                );
+                winnerRosterId = w?.id ?? null;
+            }
+
+            await this.run(
+                'UPDATE matches SET player1_roster_id = ?, player2_roster_id = ?, winner_roster_id = ? WHERE id = ?',
+                [p1.id, p2.id, winnerRosterId, m.id]
+            );
+        }
+    }
+
+    async migrateLegacyEloHistoryToRoster() {
+        const rows = await this.all('SELECT id, league_id, user_id, roster_id FROM elo_history');
+        for (const r of rows) {
+            if (r.roster_id) continue;
+            if (!r.user_id) continue;
+
+            const roster = await this.get(
+                'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
+                [r.league_id, r.user_id]
+            );
+            if (!roster) continue;
+            await this.run('UPDATE elo_history SET roster_id = ? WHERE id = ?', [roster.id, r.id]);
+        }
+    }
+
+    async tableExists(tableName) {
+        if (this.isPg) {
+            const row = await this.get(
+                `SELECT EXISTS (
+                    SELECT 1 FROM information_schema.tables
+                    WHERE table_schema = 'public' AND table_name = ?
+                ) as exists`,
+                [tableName]
+            );
+            return !!row?.exists;
+        }
+        const row = await this.get(
+            `SELECT name FROM sqlite_master WHERE type='table' AND name = ?`,
+            [tableName]
+        );
+        return !!row;
     }
 
     async createAdminUser() {

@@ -1,10 +1,24 @@
 const express = require('express');
-const { authenticateToken, requireAdmin, requireLeagueAdmin } = require('../middleware/auth');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const { validateMatchCreation, validateId, validatePagination } = require('../middleware/validation');
-const { calculateNewElos, validateMatchResult, determineGameType, previewEloChange } = require('../utils/eloCalculator');
+const { calculateNewElos, validateMatchResult } = require('../utils/eloCalculator');
 const database = require('../models/database');
 
 const router = express.Router();
+
+async function getRosterByUser(leagueId, userId, tx = database) {
+    return tx.get(
+        'SELECT id, user_id, display_name, current_elo, is_admin FROM league_roster WHERE league_id = ? AND user_id = ?',
+        [leagueId, userId]
+    );
+}
+
+async function getRosterById(leagueId, rosterId, tx = database) {
+    return tx.get(
+        'SELECT id, user_id, display_name, current_elo, is_admin FROM league_roster WHERE league_id = ? AND id = ?',
+        [leagueId, rosterId]
+    );
+}
 
 /**
  * Get user's matches
@@ -16,10 +30,10 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
         const limit = parseInt(req.query.limit) || 20;
         const offset = (page - 1) * limit;
         const status = req.query.status; // 'pending', 'accepted', 'all'
-        
-        let whereClause = '(m.player1_id = ? OR m.player2_id = ?)';
+
+        let whereClause = '(r1.user_id = ? OR r2.user_id = ?)';
         const params = [req.user.id, req.user.id];
-        
+
         if (status === 'pending') {
             whereClause += ' AND m.is_accepted = ?';
             params.push(false);
@@ -27,32 +41,43 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
             whereClause += ' AND m.is_accepted = ?';
             params.push(true);
         }
-        
+
         const matches = await database.all(`
             SELECT 
-                m.id, m.league_id, m.player1_sets_won, m.player2_sets_won, 
-                m.player1_points_total, m.player2_points_total, m.game_type, 
-                m.winner_id, m.is_accepted, m.elo_applied, m.elo_applied_at, m.played_at, m.created_at,
+                m.id, m.league_id,
+                m.player1_roster_id, m.player2_roster_id, m.winner_roster_id,
+                m.player1_id, m.player2_id, m.winner_id,
+                m.player1_sets_won, m.player2_sets_won,
+                m.player1_points_total, m.player2_points_total,
+                m.game_type, m.is_accepted, m.elo_applied, m.elo_applied_at, m.played_at, m.created_at,
                 m.player1_elo_before, m.player2_elo_before, m.player1_elo_after, m.player2_elo_after,
                 l.name as league_name,
-                p1.username as player1_username, p1.first_name as player1_first_name, p1.last_name as player1_last_name,
-                p2.username as player2_username, p2.first_name as player2_first_name, p2.last_name as player2_last_name,
+                r1.display_name as player1_display_name,
+                r2.display_name as player2_display_name,
+                u1.id as player1_user_id, u1.username as player1_username,
+                u2.id as player2_user_id, u2.username as player2_username,
                 accepter.username as accepted_by_username
             FROM matches m
             JOIN leagues l ON m.league_id = l.id
-            JOIN users p1 ON m.player1_id = p1.id
-            JOIN users p2 ON m.player2_id = p2.id
+            JOIN league_roster r1 ON m.player1_roster_id = r1.id
+            JOIN league_roster r2 ON m.player2_roster_id = r2.id
+            LEFT JOIN users u1 ON r1.user_id = u1.id
+            LEFT JOIN users u2 ON r2.user_id = u2.id
             LEFT JOIN users accepter ON m.accepted_by = accepter.id
             WHERE ${whereClause}
             ORDER BY m.created_at DESC
             LIMIT ? OFFSET ?
         `, [...params, limit, offset]);
-        
+
         const totalCount = await database.get(
-            `SELECT COUNT(*) as count FROM matches m WHERE ${whereClause}`,
+            `SELECT COUNT(*) as count
+             FROM matches m
+             JOIN league_roster r1 ON m.player1_roster_id = r1.id
+             JOIN league_roster r2 ON m.player2_roster_id = r2.id
+             WHERE ${whereClause}`,
             params
         );
-        
+
         res.json({
             matches,
             pagination: {
@@ -76,75 +101,100 @@ router.post('/', authenticateToken, validateMatchCreation, async (req, res) => {
     try {
         const {
             league_id,
-            player2_id,
+            player2_roster_id,
             player1_sets_won,
             player2_sets_won,
             player1_points_total,
             player2_points_total,
             game_type,
-            sets
+            sets,
+            played_at
         } = req.body;
-        
-        // Check if user is member of the league
-        const membership = await database.get(
-            'SELECT current_elo FROM league_members WHERE league_id = ? AND user_id = ?',
-            [league_id, req.user.id]
-        );
-        
-        if (!membership) {
+
+        const player1Roster = await getRosterByUser(league_id, req.user.id);
+        if (!player1Roster) {
             return res.status(403).json({ error: 'You are not a member of this league' });
         }
-        
-        // Check if opponent is member of the league
-        const opponentMembership = await database.get(
-            'SELECT current_elo FROM league_members WHERE league_id = ? AND user_id = ?',
-            [league_id, player2_id]
-        );
-        
-        if (!opponentMembership) {
-            return res.status(400).json({ error: 'Opponent is not a member of this league' });
+
+        const player2Roster = await getRosterById(league_id, player2_roster_id);
+        if (!player2Roster) {
+            return res.status(400).json({ error: 'Opponent is not a roster member of this league' });
         }
-        
+
         // Validate match result
         const validation = validateMatchResult(player1_sets_won, player2_sets_won, game_type);
         if (!validation.isValid) {
             return res.status(400).json({ error: validation.error });
         }
-        
-        // Determine winner
-        const winnerId = player1_sets_won > player2_sets_won ? req.user.id : player2_id;
-        
-        // Get current ELO ratings
-        const player1Elo = membership.current_elo;
-        const player2Elo = opponentMembership.current_elo;
-        
-        // Calculate new ELO ratings (preview)
+
+        // Determine winner (roster)
+        const didP1Win = player1_sets_won > player2_sets_won;
+        const winnerRosterId = didP1Win ? player1Roster.id : player2Roster.id;
+        const winnerUserId = didP1Win ? req.user.id : (player2Roster.user_id || null);
+
+        // Current ELO ratings
+        const player1Elo = player1Roster.current_elo;
+        const player2Elo = player2Roster.current_elo;
+
         const eloResult = calculateNewElos(
             player1Elo,
             player2Elo,
             player1_points_total,
             player2_points_total,
-            player1_sets_won > player2_sets_won,
+            didP1Win,
             player1_sets_won,
             player2_sets_won
         );
-        
-        // Perform write operations in a transaction
-        const txResult = await database.withTransaction(async (tx) => {
-            // Create match
-            const matchResult = await tx.run(`
-                INSERT INTO matches (
-                    league_id, player1_id, player2_id, player1_sets_won, player2_sets_won,
-                    player1_points_total, player2_points_total, game_type, winner_id,
-                    player1_elo_before, player2_elo_before, player1_elo_after, player2_elo_after
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `, [
-                league_id, req.user.id, player2_id, player1_sets_won, player2_sets_won,
-                player1_points_total, player2_points_total, game_type, winnerId,
-                player1Elo, player2Elo, eloResult.newRating1, eloResult.newRating2
-            ]);
 
-            // Create match sets if provided
+        const txResult = await database.withTransaction(async (tx) => {
+            const columns = [
+                'league_id',
+                'player1_id',
+                'player2_id',
+                'player1_roster_id',
+                'player2_roster_id',
+                'winner_id',
+                'winner_roster_id',
+                'player1_sets_won',
+                'player2_sets_won',
+                'player1_points_total',
+                'player2_points_total',
+                'game_type',
+                'player1_elo_before',
+                'player2_elo_before',
+                'player1_elo_after',
+                'player2_elo_after'
+            ];
+            const values = [
+                league_id,
+                req.user.id,
+                player2Roster.user_id || null,
+                player1Roster.id,
+                player2Roster.id,
+                winnerUserId,
+                winnerRosterId,
+                player1_sets_won,
+                player2_sets_won,
+                player1_points_total,
+                player2_points_total,
+                game_type,
+                player1Elo,
+                player2Elo,
+                eloResult.newRating1,
+                eloResult.newRating2
+            ];
+
+            if (played_at) {
+                columns.push('played_at');
+                values.push(played_at);
+            }
+
+            const placeholders = columns.map(() => '?').join(', ');
+            const matchResult = await tx.run(
+                `INSERT INTO matches (${columns.join(', ')}) VALUES (${placeholders})`,
+                values
+            );
+
             if (sets && sets.length > 0) {
                 for (let i = 0; i < sets.length; i++) {
                     await tx.run(
@@ -154,48 +204,55 @@ router.post('/', authenticateToken, validateMatchCreation, async (req, res) => {
                 }
             }
 
-            // Create notification for opponent
-            const league = await tx.get('SELECT name FROM leagues WHERE id = ?', [league_id]);
-            await tx.run(
-                'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
-                [
-                    player2_id,
-                    'match_request',
-                    'New Match Result',
-                    `${req.user.username} has submitted a match result in "${league.name}"`,
-                    matchResult.id
-                ]
-            );
+            // Notification only for assigned opponent users
+            if (player2Roster.user_id) {
+                const league = await tx.get('SELECT name FROM leagues WHERE id = ?', [league_id]);
+                await tx.run(
+                    'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
+                    [
+                        player2Roster.user_id,
+                        'match_request',
+                        'New Match Result',
+                        `${req.user.username} has submitted a match result in "${league.name}"`,
+                        matchResult.id
+                    ]
+                );
+            }
 
             return { matchId: matchResult.id };
         });
 
-        // Get created match with details
         const match = await database.get(`
-                SELECT 
-                    m.id, m.league_id, m.player1_sets_won, m.player2_sets_won, 
-                    m.player1_points_total, m.player2_points_total, m.game_type, 
-                    m.winner_id, m.is_accepted, m.played_at, m.created_at,
-                    m.player1_elo_before, m.player2_elo_before, m.player1_elo_after, m.player2_elo_after,
-                    l.name as league_name,
-                    p1.username as player1_username,
-                    p2.username as player2_username
-                FROM matches m
-                JOIN leagues l ON m.league_id = l.id
-                JOIN users p1 ON m.player1_id = p1.id
-                JOIN users p2 ON m.player2_id = p2.id
-                WHERE m.id = ?
-            `, [txResult.matchId]);
-            
-            res.status(201).json({
-                message: 'Match created successfully. Waiting for admin approval.',
-                match,
-                elo_preview: {
-                    player1_change: eloResult.newRating1 - player1Elo,
-                    player2_change: eloResult.newRating2 - player2Elo
-                }
-            });
-        
+            SELECT 
+                m.id, m.league_id,
+                m.player1_roster_id, m.player2_roster_id, m.winner_roster_id,
+                m.player1_id, m.player2_id, m.winner_id,
+                m.player1_sets_won, m.player2_sets_won, 
+                m.player1_points_total, m.player2_points_total, m.game_type, 
+                m.is_accepted, m.played_at, m.created_at,
+                m.player1_elo_before, m.player2_elo_before, m.player1_elo_after, m.player2_elo_after,
+                l.name as league_name,
+                r1.display_name as player1_display_name,
+                r2.display_name as player2_display_name,
+                u1.username as player1_username,
+                u2.username as player2_username
+            FROM matches m
+            JOIN leagues l ON m.league_id = l.id
+            JOIN league_roster r1 ON m.player1_roster_id = r1.id
+            JOIN league_roster r2 ON m.player2_roster_id = r2.id
+            LEFT JOIN users u1 ON r1.user_id = u1.id
+            LEFT JOIN users u2 ON r2.user_id = u2.id
+            WHERE m.id = ?
+        `, [txResult.matchId]);
+
+        res.status(201).json({
+            message: 'Match created successfully. Waiting for admin approval.',
+            match,
+            elo_preview: {
+                player1_change: eloResult.newRating1 - player1Elo,
+                player2_change: eloResult.newRating2 - player2Elo
+            }
+        });
     } catch (error) {
         console.error('Create match error:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -217,7 +274,7 @@ router.get('/pending', authenticateToken, validatePagination, async (req, res) =
         
         // If not global admin, filter by leagues where user is league admin
         if (!req.user.is_admin) {
-            whereClause += ' AND EXISTS (SELECT 1 FROM league_members lm WHERE lm.league_id = m.league_id AND lm.user_id = ? AND lm.is_admin = ?)';
+            whereClause += ' AND EXISTS (SELECT 1 FROM league_roster lr WHERE lr.league_id = m.league_id AND lr.user_id = ? AND lr.is_admin = ?)';
             params.push(req.user.id, true);
         }
         
@@ -225,15 +282,19 @@ router.get('/pending', authenticateToken, validatePagination, async (req, res) =
             SELECT 
                 m.id, m.league_id, m.player1_sets_won, m.player2_sets_won, 
                 m.player1_points_total, m.player2_points_total, m.game_type, 
-                m.winner_id, m.played_at, m.created_at,
+                m.winner_id, m.winner_roster_id, m.played_at, m.created_at,
                 m.player1_elo_before, m.player2_elo_before, m.player1_elo_after, m.player2_elo_after,
                 l.name as league_name,
-                p1.username as player1_username, p1.first_name as player1_first_name, p1.last_name as player1_last_name,
-                p2.username as player2_username, p2.first_name as player2_first_name, p2.last_name as player2_last_name
+                r1.display_name as player1_display_name,
+                r2.display_name as player2_display_name,
+                u1.username as player1_username,
+                u2.username as player2_username
             FROM matches m
             JOIN leagues l ON m.league_id = l.id
-            JOIN users p1 ON m.player1_id = p1.id
-            JOIN users p2 ON m.player2_id = p2.id
+            JOIN league_roster r1 ON m.player1_roster_id = r1.id
+            JOIN league_roster r2 ON m.player2_roster_id = r2.id
+            LEFT JOIN users u1 ON r1.user_id = u1.id
+            LEFT JOIN users u2 ON r2.user_id = u2.id
             WHERE ${whereClause}
             ORDER BY m.created_at ASC
             LIMIT ? OFFSET ?
@@ -267,7 +328,7 @@ router.post('/preview-elo', authenticateToken, async (req, res) => {
     try {
         const {
             league_id,
-            player2_id,
+            player2_roster_id,
             player1_sets_won,
             player2_sets_won,
             player1_points_total,
@@ -275,23 +336,16 @@ router.post('/preview-elo', authenticateToken, async (req, res) => {
         } = req.body;
         
         // Get current ELO ratings
-        const player1Membership = await database.get(
-            'SELECT current_elo FROM league_members WHERE league_id = ? AND user_id = ?',
-            [league_id, req.user.id]
-        );
-        
-        const player2Membership = await database.get(
-            'SELECT current_elo FROM league_members WHERE league_id = ? AND user_id = ?',
-            [league_id, player2_id]
-        );
-        
-        if (!player1Membership || !player2Membership) {
-            return res.status(400).json({ error: 'One or both players are not members of this league' });
+        const player1Roster = await getRosterByUser(league_id, req.user.id);
+        const player2Roster = await getRosterById(league_id, player2_roster_id);
+
+        if (!player1Roster || !player2Roster) {
+            return res.status(400).json({ error: 'One or both players are not roster members of this league' });
         }
         
         const eloResult = calculateNewElos(
-            player1Membership.current_elo,
-            player2Membership.current_elo,
+            player1Roster.current_elo,
+            player2Roster.current_elo,
             player1_points_total || 0,
             player2_points_total || 0,
             player1_sets_won > player2_sets_won,
@@ -301,16 +355,16 @@ router.post('/preview-elo', authenticateToken, async (req, res) => {
         
         res.json({
             current_elos: {
-                player1: player1Membership.current_elo,
-                player2: player2Membership.current_elo
+                player1: player1Roster.current_elo,
+                player2: player2Roster.current_elo
             },
             new_elos: {
                 player1: eloResult.newRating1,
                 player2: eloResult.newRating2
             },
             changes: {
-                player1: eloResult.newRating1 - player1Membership.current_elo,
-                player2: eloResult.newRating2 - player2Membership.current_elo
+                player1: eloResult.newRating1 - player1Roster.current_elo,
+                player2: eloResult.newRating2 - player2Roster.current_elo
             },
             calculation_details: {
                 expected_score_player1: eloResult.expectedScore1,
@@ -336,16 +390,21 @@ router.get('/:id', authenticateToken, validateId, async (req, res) => {
             SELECT 
                 m.id, m.league_id, m.player1_sets_won, m.player2_sets_won, 
                 m.player1_points_total, m.player2_points_total, m.game_type, 
-                m.winner_id, m.is_accepted, m.elo_applied, m.elo_applied_at, m.played_at, m.created_at,
+                m.winner_id, m.winner_roster_id, m.is_accepted, m.elo_applied, m.elo_applied_at, m.played_at, m.created_at,
                 m.player1_elo_before, m.player2_elo_before, m.player1_elo_after, m.player2_elo_after,
                 l.name as league_name,
-                p1.id as player1_id, p1.username as player1_username, p1.first_name as player1_first_name, p1.last_name as player1_last_name,
-                p2.id as player2_id, p2.username as player2_username, p2.first_name as player2_first_name, p2.last_name as player2_last_name,
+                m.player1_roster_id, m.player2_roster_id,
+                r1.display_name as player1_display_name,
+                r2.display_name as player2_display_name,
+                u1.id as player1_user_id, u1.username as player1_username,
+                u2.id as player2_user_id, u2.username as player2_username,
                 accepter.username as accepted_by_username
             FROM matches m
             JOIN leagues l ON m.league_id = l.id
-            JOIN users p1 ON m.player1_id = p1.id
-            JOIN users p2 ON m.player2_id = p2.id
+            JOIN league_roster r1 ON m.player1_roster_id = r1.id
+            JOIN league_roster r2 ON m.player2_roster_id = r2.id
+            LEFT JOIN users u1 ON r1.user_id = u1.id
+            LEFT JOIN users u2 ON r2.user_id = u2.id
             LEFT JOIN users accepter ON m.accepted_by = accepter.id
             WHERE m.id = ?
         `, [matchId]);
@@ -355,10 +414,11 @@ router.get('/:id', authenticateToken, validateId, async (req, res) => {
         }
         
         // Check if user has access to this match
-        if (match.player1_id !== req.user.id && match.player2_id !== req.user.id && !req.user.is_admin) {
+        const isParticipant = match.player1_user_id === req.user.id || match.player2_user_id === req.user.id;
+        if (!isParticipant && !req.user.is_admin) {
             // Check if user is league admin
             const leagueAdmin = await database.get(
-                'SELECT is_admin FROM league_members WHERE league_id = ? AND user_id = ?',
+                'SELECT is_admin FROM league_roster WHERE league_id = ? AND user_id = ?',
                 [match.league_id, req.user.id]
             );
             
@@ -400,7 +460,7 @@ router.put('/:id', authenticateToken, validateId, async (req, res) => {
         } = req.body;
         
         const match = await database.get(
-            'SELECT player1_id, player2_id, is_accepted, league_id FROM matches WHERE id = ?',
+            'SELECT player1_id, player2_id, player1_roster_id, player2_roster_id, is_accepted, league_id FROM matches WHERE id = ?',
             [matchId]
         );
         
@@ -455,19 +515,19 @@ router.put('/:id', authenticateToken, validateId, async (req, res) => {
         
         // Recalculate winner and ELO if sets are updated
         if (player1_sets_won !== undefined && player2_sets_won !== undefined) {
-            const winnerId = player1_sets_won > player2_sets_won ? match.player1_id : match.player2_id;
-            updates.push('winner_id = ?');
-            values.push(winnerId);
+            const didP1Win = player1_sets_won > player2_sets_won;
+            const winnerRosterId = didP1Win ? match.player1_roster_id : match.player2_roster_id;
+            updates.push('winner_roster_id = ?');
+            values.push(winnerRosterId);
             
             // Get current ELO ratings and recalculate
             const player1Membership = await database.get(
-                'SELECT current_elo FROM league_members WHERE league_id = ? AND user_id = ?',
-                [match.league_id, match.player1_id]
+                'SELECT current_elo FROM league_roster WHERE league_id = ? AND id = ?',
+                [match.league_id, match.player1_roster_id]
             );
-            
             const player2Membership = await database.get(
-                'SELECT current_elo FROM league_members WHERE league_id = ? AND user_id = ?',
-                [match.league_id, match.player2_id]
+                'SELECT current_elo FROM league_roster WHERE league_id = ? AND id = ?',
+                [match.league_id, match.player2_roster_id]
             );
             
             const eloResult = calculateNewElos(
@@ -475,7 +535,7 @@ router.put('/:id', authenticateToken, validateId, async (req, res) => {
                 player2Membership.current_elo,
                 player1_points_total || 0,
                 player2_points_total || 0,
-                player1_sets_won > player2_sets_won,
+                didP1Win,
                 player1_sets_won,
                 player2_sets_won
             );
@@ -557,6 +617,7 @@ router.post('/:id/accept', authenticateToken, validateId, async (req, res) => {
         const match = await database.get(`
             SELECT 
                 m.id, m.league_id, m.player1_id, m.player2_id, m.is_accepted,
+                m.player1_roster_id, m.player2_roster_id, m.winner_roster_id,
                 m.player1_elo_after, m.player2_elo_after
             FROM matches m
             WHERE m.id = ?
@@ -573,7 +634,7 @@ router.post('/:id/accept', authenticateToken, validateId, async (req, res) => {
         // Check if user is admin or league admin
         if (!req.user.is_admin) {
             const leagueAdmin = await database.get(
-                'SELECT is_admin FROM league_members WHERE league_id = ? AND user_id = ?',
+                'SELECT is_admin FROM league_roster WHERE league_id = ? AND user_id = ?',
                 [match.league_id, req.user.id]
             );
             
@@ -596,13 +657,13 @@ router.post('/:id/accept', authenticateToken, validateId, async (req, res) => {
 
                 // Update player ELO ratings
                 await tx.run(
-                    'UPDATE league_members SET current_elo = ? WHERE league_id = ? AND user_id = ?',
-                    [match.player1_elo_after, match.league_id, match.player1_id]
+                    'UPDATE league_roster SET current_elo = ? WHERE league_id = ? AND id = ?',
+                    [match.player1_elo_after, match.league_id, match.player1_roster_id]
                 );
 
                 await tx.run(
-                    'UPDATE league_members SET current_elo = ? WHERE league_id = ? AND user_id = ?',
-                    [match.player2_elo_after, match.league_id, match.player2_id]
+                    'UPDATE league_roster SET current_elo = ? WHERE league_id = ? AND id = ?',
+                    [match.player2_elo_after, match.league_id, match.player2_roster_id]
                 );
 
                 // Record ELO history
@@ -614,38 +675,45 @@ router.post('/:id/accept', authenticateToken, validateId, async (req, res) => {
                 const player1EloChange = match.player1_elo_after - before.player1_elo_before;
                 const player2EloChange = match.player2_elo_after - before.player2_elo_before;
 
+                const p1User = await tx.get('SELECT user_id FROM league_roster WHERE id = ?', [match.player1_roster_id]);
+                const p2User = await tx.get('SELECT user_id FROM league_roster WHERE id = ?', [match.player2_roster_id]);
+
                 await tx.run(
-                    'INSERT INTO elo_history (user_id, league_id, match_id, elo_before, elo_after, elo_change, recorded_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
-                    [match.player1_id, match.league_id, matchId, before.player1_elo_before, match.player1_elo_after, player1EloChange]
+                    'INSERT INTO elo_history (user_id, league_id, roster_id, match_id, elo_before, elo_after, elo_change, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+                    [p1User?.user_id || null, match.league_id, match.player1_roster_id, matchId, before.player1_elo_before, match.player1_elo_after, player1EloChange]
                 );
 
                 await tx.run(
-                    'INSERT INTO elo_history (user_id, league_id, match_id, elo_before, elo_after, elo_change, recorded_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
-                    [match.player2_id, match.league_id, matchId, before.player2_elo_before, match.player2_elo_after, player2EloChange]
+                    'INSERT INTO elo_history (user_id, league_id, roster_id, match_id, elo_before, elo_after, elo_change, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+                    [p2User?.user_id || null, match.league_id, match.player2_roster_id, matchId, before.player2_elo_before, match.player2_elo_after, player2EloChange]
                 );
 
                 // Notifications
-                await tx.run(
-                    'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
-                    [
-                        match.player1_id,
-                        'match_accepted',
-                        'Match Accepted',
-                        `Your match result in "${league.name}" has been accepted. ELO change: ${player1EloChange > 0 ? '+' : ''}${player1EloChange}`,
-                        matchId
-                    ]
-                );
+                if (p1User?.user_id) {
+                    await tx.run(
+                        'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
+                        [
+                            p1User.user_id,
+                            'match_accepted',
+                            'Match Accepted',
+                            `Your match result in "${league.name}" has been accepted. ELO change: ${player1EloChange > 0 ? '+' : ''}${player1EloChange}`,
+                            matchId
+                        ]
+                    );
+                }
 
-                await tx.run(
-                    'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
-                    [
-                        match.player2_id,
-                        'match_accepted',
-                        'Match Accepted',
-                        `Your match result in "${league.name}" has been accepted. ELO change: ${player2EloChange > 0 ? '+' : ''}${player2EloChange}`,
-                        matchId
-                    ]
-                );
+                if (p2User?.user_id) {
+                    await tx.run(
+                        'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
+                        [
+                            p2User.user_id,
+                            'match_accepted',
+                            'Match Accepted',
+                            `Your match result in "${league.name}" has been accepted. ELO change: ${player2EloChange > 0 ? '+' : ''}${player2EloChange}`,
+                            matchId
+                        ]
+                    );
+                }
 
                 return { player1EloChange, player2EloChange };
             });
@@ -665,26 +733,32 @@ router.post('/:id/accept', authenticateToken, validateId, async (req, res) => {
             );
 
             // Notify players of acceptance with deferred application
-            await database.run(
-                'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
-                [
-                    match.player1_id,
-                    'match_accepted_deferred',
-                    'Match Accepted (Deferred ELO)',
-                    `Your match in "${league.name}" was accepted. ELO will be applied during ${mode} consolidation.`,
-                    matchId
-                ]
-            );
-            await database.run(
-                'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
-                [
-                    match.player2_id,
-                    'match_accepted_deferred',
-                    'Match Accepted (Deferred ELO)',
-                    `Your match in "${league.name}" was accepted. ELO will be applied during ${mode} consolidation.`,
-                    matchId
-                ]
-            );
+            const p1User = await database.get('SELECT user_id FROM league_roster WHERE id = ?', [match.player1_roster_id]);
+            const p2User = await database.get('SELECT user_id FROM league_roster WHERE id = ?', [match.player2_roster_id]);
+            if (p1User?.user_id) {
+                await database.run(
+                    'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
+                    [
+                        p1User.user_id,
+                        'match_accepted_deferred',
+                        'Match Accepted (Deferred ELO)',
+                        `Your match in "${league.name}" was accepted. ELO will be applied during ${mode} consolidation.`,
+                        matchId
+                    ]
+                );
+            }
+            if (p2User?.user_id) {
+                await database.run(
+                    'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
+                    [
+                        p2User.user_id,
+                        'match_accepted_deferred',
+                        'Match Accepted (Deferred ELO)',
+                        `Your match in "${league.name}" was accepted. ELO will be applied during ${mode} consolidation.`,
+                        matchId
+                    ]
+                );
+            }
 
             res.json({ message: 'Match accepted. ELO update deferred to consolidation.' });
         }
@@ -706,7 +780,7 @@ router.post('/leagues/:leagueId/consolidate', authenticateToken, async (req, res
         // Authorization: system admin or league admin
         if (!req.user.is_admin) {
             const adminRow = await database.get(
-                'SELECT is_admin FROM league_members WHERE league_id = ? AND user_id = ?',
+                'SELECT is_admin FROM league_roster WHERE league_id = ? AND user_id = ?',
                 [leagueId, req.user.id]
             );
             if (!adminRow || !adminRow.is_admin) {
@@ -736,7 +810,7 @@ router.post('/leagues/:leagueId/consolidate', authenticateToken, async (req, res
         // Fetch all accepted matches that haven't had ELO applied yet
         console.log(`Fetching matches for league ${leagueId}...`);
         const matches = await database.all(
-            'SELECT id, player1_id, player2_id FROM matches WHERE league_id = ? AND is_accepted = ? AND (elo_applied = ? OR elo_applied IS NULL) ORDER BY accepted_at ASC',
+            'SELECT id, player1_roster_id, player2_roster_id FROM matches WHERE league_id = ? AND is_accepted = ? AND (elo_applied = ? OR elo_applied IS NULL) ORDER BY accepted_at ASC',
             [leagueId, true, false]
         );
 
@@ -757,8 +831,8 @@ router.post('/leagues/:leagueId/consolidate', authenticateToken, async (req, res
                 await database.withTransaction(async (tx) => {
                     console.log(`Getting ELO data for match ${m.id}...`);
                     // Get current ELOs as of now
-                    const p1 = await tx.get('SELECT current_elo FROM league_members WHERE league_id = ? AND user_id = ?', [leagueId, m.player1_id]);
-                    const p2 = await tx.get('SELECT current_elo FROM league_members WHERE league_id = ? AND user_id = ?', [leagueId, m.player2_id]);
+                    const p1 = await tx.get('SELECT user_id, current_elo FROM league_roster WHERE league_id = ? AND id = ?', [leagueId, m.player1_roster_id]);
+                    const p2 = await tx.get('SELECT user_id, current_elo FROM league_roster WHERE league_id = ? AND id = ?', [leagueId, m.player2_roster_id]);
 
                     console.log(`Match ${m.id} ELO data: p1=${p1?.current_elo}, p2=${p2?.current_elo}`);
 
@@ -793,20 +867,21 @@ router.post('/leagues/:leagueId/consolidate', authenticateToken, async (req, res
 
                     // Update match with before/after at application time and mark applied
                     console.log(`Updating match ${m.id} with ELO data...`);
+                    const winnerRosterId = didP1Win ? m.player1_roster_id : m.player2_roster_id;
                     await tx.run(
-                        'UPDATE matches SET player1_elo_before = ?, player2_elo_before = ?, player1_elo_after = ?, player2_elo_after = ?, elo_applied = ?, elo_applied_at = CURRENT_TIMESTAMP WHERE id = ?',
-                        [p1.current_elo, p2.current_elo, eloResult.newRating1, eloResult.newRating2, true, m.id]
+                        'UPDATE matches SET player1_elo_before = ?, player2_elo_before = ?, player1_elo_after = ?, player2_elo_after = ?, winner_roster_id = ?, elo_applied = ?, elo_applied_at = CURRENT_TIMESTAMP WHERE id = ?',
+                        [p1.current_elo, p2.current_elo, eloResult.newRating1, eloResult.newRating2, winnerRosterId, true, m.id]
                     );
 
                     // Update league member elos
                     console.log(`Updating league member ELOs for match ${m.id}...`);
-                    await tx.run('UPDATE league_members SET current_elo = ? WHERE league_id = ? AND user_id = ?', [eloResult.newRating1, leagueId, m.player1_id]);
-                    await tx.run('UPDATE league_members SET current_elo = ? WHERE league_id = ? AND user_id = ?', [eloResult.newRating2, leagueId, m.player2_id]);
+                    await tx.run('UPDATE league_roster SET current_elo = ? WHERE league_id = ? AND id = ?', [eloResult.newRating1, leagueId, m.player1_roster_id]);
+                    await tx.run('UPDATE league_roster SET current_elo = ? WHERE league_id = ? AND id = ?', [eloResult.newRating2, leagueId, m.player2_roster_id]);
 
                     // Insert history
                     console.log(`Inserting ELO history for match ${m.id}...`);
-                    await tx.run('INSERT INTO elo_history (user_id, league_id, match_id, elo_before, elo_after, elo_change, recorded_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)', [m.player1_id, leagueId, m.id, p1.current_elo, eloResult.newRating1, eloResult.newRating1 - p1.current_elo]);
-                    await tx.run('INSERT INTO elo_history (user_id, league_id, match_id, elo_before, elo_after, elo_change, recorded_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)', [m.player2_id, leagueId, m.id, p2.current_elo, eloResult.newRating2, eloResult.newRating2 - p2.current_elo]);
+                    await tx.run('INSERT INTO elo_history (user_id, league_id, roster_id, match_id, elo_before, elo_after, elo_change, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)', [p1.user_id || null, leagueId, m.player1_roster_id, m.id, p1.current_elo, eloResult.newRating1, eloResult.newRating1 - p1.current_elo]);
+                    await tx.run('INSERT INTO elo_history (user_id, league_id, roster_id, match_id, elo_before, elo_after, elo_change, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)', [p2.user_id || null, leagueId, m.player2_roster_id, m.id, p2.current_elo, eloResult.newRating2, eloResult.newRating2 - p2.current_elo]);
                     
                     console.log(`Transaction completed successfully for match ${m.id}`);
                 });
@@ -842,7 +917,7 @@ router.get('/debug/consolidation/:leagueId', authenticateToken, async (req, res)
         // Check if user is admin or league admin
         if (!req.user.is_admin) {
             const adminRow = await database.get(
-                'SELECT is_admin FROM league_members WHERE league_id = ? AND user_id = ?',
+                'SELECT is_admin FROM league_roster WHERE league_id = ? AND user_id = ?',
                 [leagueId, req.user.id]
             );
             if (!adminRow || !adminRow.is_admin) {
@@ -858,13 +933,13 @@ router.get('/debug/consolidation/:leagueId', authenticateToken, async (req, res)
 
         // Get matches that need consolidation
         const matches = await database.all(
-            'SELECT id, player1_id, player2_id, is_accepted, elo_applied, accepted_at FROM matches WHERE league_id = ? AND is_accepted = ? AND (elo_applied = ? OR elo_applied IS NULL) ORDER BY accepted_at ASC',
+            'SELECT id, player1_roster_id, player2_roster_id, is_accepted, elo_applied, accepted_at FROM matches WHERE league_id = ? AND is_accepted = ? AND (elo_applied = ? OR elo_applied IS NULL) ORDER BY accepted_at ASC',
             [leagueId, true, false]
         );
 
         // Get league members with ELO
         const members = await database.all(
-            'SELECT user_id, current_elo FROM league_members WHERE league_id = ?',
+            'SELECT id as roster_id, user_id, display_name, current_elo FROM league_roster WHERE league_id = ?',
             [leagueId]
         );
 
@@ -895,7 +970,7 @@ router.post('/:id/reject', authenticateToken, validateId, async (req, res) => {
         const { reason } = req.body;
         
         const match = await database.get(
-            'SELECT league_id, player1_id, player2_id, is_accepted FROM matches WHERE id = ?',
+            'SELECT league_id, player1_roster_id, player2_roster_id, is_accepted FROM matches WHERE id = ?',
             [matchId]
         );
         
@@ -910,7 +985,7 @@ router.post('/:id/reject', authenticateToken, validateId, async (req, res) => {
         // Check if user is admin or league admin
         if (!req.user.is_admin) {
             const leagueAdmin = await database.get(
-                'SELECT is_admin FROM league_members WHERE league_id = ? AND user_id = ?',
+                'SELECT is_admin FROM league_roster WHERE league_id = ? AND user_id = ?',
                 [match.league_id, req.user.id]
             );
             
@@ -927,15 +1002,22 @@ router.post('/:id/reject', authenticateToken, validateId, async (req, res) => {
             const league = await tx.get('SELECT name FROM leagues WHERE id = ?', [match.league_id]);
             const rejectionMessage = `Your match result in "${league.name}" has been rejected${reason ? ': ' + reason : ''}`;
 
-            await tx.run(
-                'INSERT INTO notifications (user_id, type, title, message) VALUES (?, ?, ?, ?)',
-                [match.player1_id, 'match_rejected', 'Match Rejected', rejectionMessage]
-            );
+            const p1 = await tx.get('SELECT user_id FROM league_roster WHERE id = ?', [match.player1_roster_id]);
+            const p2 = await tx.get('SELECT user_id FROM league_roster WHERE id = ?', [match.player2_roster_id]);
 
-            await tx.run(
-                'INSERT INTO notifications (user_id, type, title, message) VALUES (?, ?, ?, ?)',
-                [match.player2_id, 'match_rejected', 'Match Rejected', rejectionMessage]
-            );
+            if (p1?.user_id) {
+                await tx.run(
+                    'INSERT INTO notifications (user_id, type, title, message) VALUES (?, ?, ?, ?)',
+                    [p1.user_id, 'match_rejected', 'Match Rejected', rejectionMessage]
+                );
+            }
+
+            if (p2?.user_id) {
+                await tx.run(
+                    'INSERT INTO notifications (user_id, type, title, message) VALUES (?, ?, ?, ?)',
+                    [p2.user_id, 'match_rejected', 'Match Rejected', rejectionMessage]
+                );
+            }
         });
 
         res.json({ message: 'Match rejected successfully' });
@@ -943,7 +1025,7 @@ router.post('/:id/reject', authenticateToken, validateId, async (req, res) => {
         console.error('Reject match error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
-    });
+});
 
 // Cleanup: Removed duplicate route definitions for '/pending' and '/preview-elo'.
 

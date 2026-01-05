@@ -319,7 +319,7 @@ router.post('/users/:id/badges', authenticateToken, requireAdmin, validateId, as
             
             // Validate user is a member of the league
             const membership = await database.get(
-                'SELECT id FROM league_members WHERE league_id = ? AND user_id = ?',
+                'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
                 [league_id, userId]
             );
             

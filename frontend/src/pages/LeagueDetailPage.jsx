@@ -527,15 +527,23 @@ const LeagueDetailPage = () => {
                   <div key={m.id} className="flex flex-col items-center min-w-fit px-2">
                     {/* Score Line */}
                     <div className="flex items-center gap-2 whitespace-nowrap">
-                      <Link to={`/profile/${m.player1_username}`} className="text-blue-400 hover:text-blue-300 font-medium">
-                        {m.player1_username}
-                      </Link>
+                      {m.player1_username ? (
+                        <Link to={`/profile/${m.player1_username}`} className="text-blue-400 hover:text-blue-300 font-medium">
+                          {m.player1_display_name || m.player1_username}
+                        </Link>
+                      ) : (
+                        <span className="text-gray-200 font-medium">{m.player1_display_name}</span>
+                      )}
                       <span className="text-gray-300 font-bold">{m.player1_sets_won}</span>
                       <span className="text-gray-500">:</span>
                       <span className="text-gray-300 font-bold">{m.player2_sets_won}</span>
-                      <Link to={`/profile/${m.player2_username}`} className="text-blue-400 hover:text-blue-300 font-medium">
-                        {m.player2_username}
-                      </Link>
+                      {m.player2_username ? (
+                        <Link to={`/profile/${m.player2_username}`} className="text-blue-400 hover:text-blue-300 font-medium">
+                          {m.player2_display_name || m.player2_username}
+                        </Link>
+                      ) : (
+                        <span className="text-gray-200 font-medium">{m.player2_display_name}</span>
+                      )}
                     </div>
                     
                     {/* ELO Points Line */}
@@ -609,7 +617,7 @@ const LeagueDetailPage = () => {
                       </thead>
                       <tbody>
                         {leaderboard.map((p) => (
-                          <tr key={p.id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                          <tr key={p.roster_id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
                             <td className="px-3 py-4">
                               {p.rank <= 3 ? (
                                 <MedalIcon rank={p.rank} size={48} userAvatar={p.avatar_url} />
@@ -619,7 +627,13 @@ const LeagueDetailPage = () => {
                             </td>
                             <td className="px-3 py-4">
                               <div className="flex flex-col gap-1">
-                                <Link to={`/profile/${p.username}`} className="text-blue-400 hover:text-blue-300 text-lg">{p.username}</Link>
+                                {p.username ? (
+                                  <Link to={`/profile/${p.username}`} className="text-blue-400 hover:text-blue-300 text-lg">
+                                    {p.display_name || p.username}
+                                  </Link>
+                                ) : (
+                                  <span className="text-gray-200 text-lg">{p.display_name}</span>
+                                )}
                                 {p.badges && p.badges.length > 0 && (
                                   <BadgeList 
                                     badges={p.badges} 
@@ -633,7 +647,11 @@ const LeagueDetailPage = () => {
                             </td>
                             <td className="px-3 py-4 text-gray-300 text-lg">{p.current_elo}</td>
                             <td className="px-3 py-4">
-                              <EloSparkline userId={p.id} leagueId={id} width={50} height={16} points={15} />
+                              {p.user_id ? (
+                                <EloSparkline userId={p.user_id} leagueId={id} width={50} height={16} points={15} />
+                              ) : (
+                                <span className="text-xs text-gray-500">—</span>
+                              )}
                             </td>
                             <td className="px-3 py-4 text-gray-300 text-lg">{p.matches_won}/{p.matches_played - p.matches_won}</td>
                             <td className="px-3 py-4 text-gray-300 text-lg">{p.win_rate}%</td>
@@ -759,14 +777,20 @@ const LeagueDetailPage = () => {
                     </thead>
                     <tbody>
                       {members.map((m) => (
-                        <tr key={m.id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                        <tr key={m.roster_id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
                           <td className="px-3 py-3">
                             <div className="flex flex-col">
                               <span className="font-medium">
-                                <Link to={`/profile/${m.username}`} className="text-blue-400 hover:text-blue-300">{m.username}</Link>
+                                {m.username ? (
+                                  <Link to={`/profile/${m.username}`} className="text-blue-400 hover:text-blue-300">
+                                    {m.display_name}
+                                  </Link>
+                                ) : (
+                                  <span className="text-gray-200">{m.display_name}</span>
+                                )}
                               </span>
-                              {(m.first_name || m.last_name) && (
-                                <span className="text-xs text-gray-500">{[m.first_name, m.last_name].filter(Boolean).join(' ')}</span>
+                              {m.username && (
+                                <span className="text-xs text-gray-500">@{m.username}</span>
                               )}
                             </div>
                           </td>
@@ -779,23 +803,25 @@ const LeagueDetailPage = () => {
                           </td>
                           <td className="px-3 py-3 text-gray-300">{m.joined_at ? format(new Date(m.joined_at), 'PP') : '-'}</td>
                           <td className="px-3 py-3 text-right">
-                            {m.is_league_admin ? (
+                            {!m.user_id ? (
+                              <span className="text-xs text-gray-500">—</span>
+                            ) : m.is_league_admin ? (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleDemote(m.id, m.username)}
-                                disabled={!!roleChanging[m.id] || members.filter((x) => x.is_league_admin).length <= 1}
+                                onClick={() => handleDemote(m.user_id, m.display_name)}
+                                disabled={!!roleChanging[m.user_id] || members.filter((x) => x.is_league_admin && x.user_id).length <= 1}
                               >
-                                {roleChanging[m.id] ? t('status.updating') : t('leagues.demote')}
+                                {roleChanging[m.user_id] ? t('status.updating') : t('leagues.demote')}
                               </Button>
                             ) : (
                               <Button
                                 variant="secondary"
                                 size="sm"
-                                onClick={() => handlePromote(m.id, m.username)}
-                                disabled={!!roleChanging[m.id]}
+                                onClick={() => handlePromote(m.user_id, m.display_name)}
+                                disabled={!!roleChanging[m.user_id]}
                               >
-                                {roleChanging[m.id] ? t('status.updating') : t('leagues.promote')}
+                                {roleChanging[m.user_id] ? t('status.updating') : t('leagues.promote')}
                               </Button>
                             )}
                           </td>
@@ -824,7 +850,7 @@ const LeagueDetailPage = () => {
                       onValueChange={(userId) => setInviteUserId(userId ? parseInt(userId) : null)}
                       placeholder="Search and select user..."
                       disabled={inviteLoading}
-                      excludeUserIds={members.map(m => m.id)}
+                      excludeUserIds={members.map(m => m.user_id).filter(Boolean)}
                     />
                   </div>
                   <Button type="submit" disabled={inviteLoading || !inviteUserId}>

@@ -132,14 +132,23 @@ router.get('/me', authenticateToken, async (req, res) => {
         // Get user stats
         const stats = await database.get(`
             SELECT 
-                COUNT(DISTINCT lm.league_id) as leagues_count,
-                COUNT(DISTINCT CASE WHEN m.player1_id = ? OR m.player2_id = ? THEN m.id END) as matches_played,
-                COUNT(DISTINCT CASE WHEN m.winner_id = ? THEN m.id END) as matches_won
+                COALESCE((SELECT COUNT(DISTINCT lr2.league_id) FROM league_roster lr2 WHERE lr2.user_id = u.id), 0) as leagues_count,
+                COALESCE((
+                    SELECT COUNT(DISTINCT m2.id)
+                    FROM matches m2
+                    JOIN league_roster r1 ON m2.player1_roster_id = r1.id
+                    JOIN league_roster r2 ON m2.player2_roster_id = r2.id
+                    WHERE m2.is_accepted = ? AND (r1.user_id = u.id OR r2.user_id = u.id)
+                ), 0) as matches_played,
+                COALESCE((
+                    SELECT COUNT(DISTINCT m3.id)
+                    FROM matches m3
+                    JOIN league_roster me ON me.user_id = u.id AND me.league_id = m3.league_id
+                    WHERE m3.is_accepted = ? AND m3.winner_roster_id = me.id
+                ), 0) as matches_won
             FROM users u
-            LEFT JOIN league_members lm ON u.id = lm.user_id
-            LEFT JOIN matches m ON (m.player1_id = u.id OR m.player2_id = u.id) AND m.is_accepted = ?
             WHERE u.id = ?
-        `, [req.user.id, req.user.id, req.user.id, true, req.user.id]);
+        `, [true, true, req.user.id]);
         
         res.json({
             user: {
