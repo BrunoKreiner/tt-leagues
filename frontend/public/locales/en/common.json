@@ -10,7 +10,7 @@
     "dashboard": "Dashboard",
     "leagues": "Leagues",
     "matches": "Matches",
-    "admin": "Admin",
+    "admin": "Manage",
     "notifications": "Notifications",
     "profile": "Profile",
     "settings": "Settings",
@@ -222,8 +222,8 @@
     "of": "of"
   },
   "admin": {
-    "panelTitle": "Admin Panel",
-    "panelSubtitle": "Manage leagues and review pending approvals",
+    "panelTitle": "Manage",
+    "panelSubtitle": "Create and manage leagues, badges, and approvals",
     "createLeague": "Create League",
     "createLeagueDesc": "Create a new league for players to join",
     "name": "Name",

@@ -825,7 +825,7 @@ router.get('/profile/:username', async (req, res) => {
                 ), 0) as matches_won
             FROM users u
             WHERE u.id = ?
-        `, [user.id, true, user.id, user.id, user.id, true, user.id, user.id]);
+        `, [user.id, true, user.id, user.id, user.id, true, user.id]);
         
         const winRate = overallStats.matches_played > 0 
             ? Math.round((overallStats.matches_won * 100) / overallStats.matches_played)

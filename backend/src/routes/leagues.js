@@ -1,5 +1,5 @@
 const express = require('express');
-const { authenticateToken, requireAdmin, requireLeagueAdmin, optionalAuth } = require('../middleware/auth');
+const { authenticateToken, requireLeagueAdmin, optionalAuth } = require('../middleware/auth');
 const { validateLeagueCreation, validateId, validatePagination } = require('../middleware/validation');
 const database = require('../models/database');
 const crypto = require('crypto');
@@ -22,7 +22,9 @@ router.get('/', optionalAuth, validatePagination, async (req, res) => {
                 u.username as created_by_username,
                 COUNT(DISTINCT lr.id) as member_count,
                 COUNT(DISTINCT m.id) as match_count,
-                ${req.user ? 'MAX(CASE WHEN lr.user_id = ? THEN 1 ELSE 0 END) as is_member' : '0 as is_member'}
+                ${req.user
+                    ? 'MAX(CASE WHEN lr.user_id = ? THEN 1 ELSE 0 END) as is_member, MAX(CASE WHEN lr.user_id = ? THEN CASE WHEN lr.is_admin THEN 1 ELSE 0 END ELSE 0 END) as is_league_admin'
+                    : '0 as is_member, 0 as is_league_admin'}
             FROM leagues l
             JOIN users u ON l.created_by = u.id
             LEFT JOIN league_roster lr ON l.id = lr.league_id
@@ -34,7 +36,7 @@ router.get('/', optionalAuth, validatePagination, async (req, res) => {
         const params = [];
         if (req.user) {
             // For SELECT is_member aggregator
-            params.push(req.user.id);
+            params.push(req.user.id, req.user.id);
         }
         // For LEFT JOIN matches m.is_accepted = ?
         params.push(true);
@@ -97,10 +99,10 @@ router.get('/', optionalAuth, validatePagination, async (req, res) => {
 });
 
 /**
- * Create new league (admin only)
+ * Create new league (authenticated)
  * POST /api/leagues
  */
-router.post('/', authenticateToken, requireAdmin, validateLeagueCreation, async (req, res) => {
+router.post('/', authenticateToken, validateLeagueCreation, async (req, res) => {
     try {
         const { name, description, is_public, season } = req.body;
         
@@ -154,13 +156,6 @@ router.get('/:id', optionalAuth, validateId, async (req, res) => {
     try {
         const leagueId = parseInt(req.params.id);
         
-        // Debug: Check actual members in database
-        const memberCheck = await database.all(
-            'SELECT id as roster_id, user_id, display_name, joined_at, is_admin FROM league_roster WHERE league_id = ?',
-            [leagueId]
-        );
-        console.log(`[League ${leagueId}] Actual members in database:`, memberCheck.length, memberCheck);
-        
         const league = await database.get(`
             SELECT 
                 l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at,
@@ -175,16 +170,7 @@ router.get('/:id', optionalAuth, validateId, async (req, res) => {
             GROUP BY l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at, u.username
         `, [true, leagueId, true]);
         
-        // Debug: Log the query result
-        if (league) {
-            console.log(`[League ${leagueId}] Query result member_count:`, league.member_count);
-            console.log(`[League ${leagueId}] Actual members:`, memberCheck.length, 'Query count:', league.member_count);
-            // If there's a discrepancy, use actual count
-            if (parseInt(league.member_count) !== memberCheck.length) {
-                console.warn(`[League ${leagueId}] Member count mismatch! Using actual count: ${memberCheck.length}`);
-                league.member_count = memberCheck.length;
-            }
-        }
+        // Note: avoid logging membership details in production.
         
         if (!league) {
             return res.status(404).json({ error: 'League not found' });

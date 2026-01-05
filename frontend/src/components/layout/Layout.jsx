@@ -29,7 +29,7 @@ import HamburgerButton from './HamburgerButton';
 import { useTranslation } from 'react-i18next';
 
 const Layout = () => {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout } = useAuth();
   const location = useLocation();
   const { t, i18n } = useTranslation();
   const [notifications, setNotifications] = useState([]);
@@ -42,11 +42,8 @@ const Layout = () => {
     { name: t('nav.dashboard'), href: '/dashboard', icon: Home },
     { name: t('nav.leagues'), href: '/leagues', icon: Trophy },
     { name: t('nav.matches'), href: '/matches', icon: Swords },
+    { name: t('nav.admin'), href: '/admin', icon: Shield },
   ];
-
-  if (isAdmin) {
-    navigation.push({ name: t('nav.admin'), href: '/admin', icon: Shield });
-  }
 
   const handleLogout = async () => {
     await logout();
