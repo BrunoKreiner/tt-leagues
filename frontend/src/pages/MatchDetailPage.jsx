@@ -266,13 +266,13 @@ export default function MatchDetailPage() {
             {match.player1_username ? (
               <Link to={`/profile/${match.player1_username}`} className="underline hover:no-underline">{p1Name}</Link>
             ) : (
-              <span>{p1Name}</span>
+              <span className="text-blue-400">{p1Name}</span>
             )}{' '}
             {t('common.vs')}{' '}
             {match.player2_username ? (
               <Link to={`/profile/${match.player2_username}`} className="underline hover:no-underline">{p2Name}</Link>
             ) : (
-              <span>{p2Name}</span>
+              <span className="text-blue-400">{p2Name}</span>
             )}
           </CardTitle>
           <CardDescription>

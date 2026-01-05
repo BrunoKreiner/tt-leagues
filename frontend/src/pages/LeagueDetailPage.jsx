@@ -631,7 +631,7 @@ const LeagueDetailPage = () => {
                           {m.player1_display_name || m.player1_username}
                         </Link>
                       ) : (
-                        <span className="text-gray-200 font-medium">{m.player1_display_name}</span>
+                        <span className="text-blue-400 font-medium">{m.player1_display_name}</span>
                       )}
                       <span className="text-gray-300 font-bold">{m.player1_sets_won}</span>
                       <span className="text-gray-500">:</span>
@@ -641,7 +641,7 @@ const LeagueDetailPage = () => {
                           {m.player2_display_name || m.player2_username}
                         </Link>
                       ) : (
-                        <span className="text-gray-200 font-medium">{m.player2_display_name}</span>
+                        <span className="text-blue-400 font-medium">{m.player2_display_name}</span>
                       )}
                     </div>
                     
@@ -731,7 +731,7 @@ const LeagueDetailPage = () => {
                                   {p.display_name || p.username}
                                 </Link>
                               ) : (
-                                <span className="min-w-0 truncate text-gray-200 font-medium text-sm" title={p.display_name}>
+                                <span className="min-w-0 truncate text-blue-400 font-medium text-sm" title={p.display_name}>
                                   {p.display_name}
                                 </span>
                               )}
@@ -751,6 +751,8 @@ const LeagueDetailPage = () => {
                               <div className="shrink-0">
                                 {p.user_id ? (
                                   <EloSparkline userId={p.user_id} leagueId={id} width={72} height={14} points={15} />
+                                ) : p.roster_id ? (
+                                  <EloSparkline rosterId={p.roster_id} leagueId={id} width={72} height={14} points={15} />
                                 ) : (
                                   <span className="text-xs text-gray-500">—</span>
                                 )}
@@ -801,7 +803,7 @@ const LeagueDetailPage = () => {
                                     {p.display_name || p.username}
                                   </Link>
                                 ) : (
-                                  <span className="text-gray-200 font-medium truncate" title="No user assigned">
+                                  <span className="text-blue-400 font-medium truncate" title="No user assigned">
                                     {p.display_name || 'No user assigned'}
                                   </span>
                                 )}
@@ -820,6 +822,8 @@ const LeagueDetailPage = () => {
                             <td className="px-3 py-2 align-middle">
                               {p.user_id ? (
                                 <EloSparkline userId={p.user_id} leagueId={id} width={56} height={14} points={15} />
+                              ) : p.roster_id ? (
+                                <EloSparkline rosterId={p.roster_id} leagueId={id} width={56} height={14} points={15} />
                               ) : (
                                 <span className="text-xs text-gray-500">—</span>
                               )}
@@ -1001,7 +1005,7 @@ const LeagueDetailPage = () => {
                                     {m.display_name}
                                   </Link>
                                 ) : (
-                                  <span className="text-gray-200">{m.display_name}</span>
+                                  <span className="text-blue-400">{m.display_name}</span>
                                 )}
                               </span>
                               {m.username && (
@@ -1080,7 +1084,7 @@ const LeagueDetailPage = () => {
                   <div className="space-y-2">
                     {members.filter((m) => !m.user_id).map((m) => (
                       <div key={m.roster_id} className="flex flex-col gap-2 rounded-md border border-gray-800 p-2">
-                        <div className="text-sm text-gray-200">
+                        <div className="text-sm text-blue-400">
                           <span className="font-medium">{m.display_name}</span>
                           <span className="text-xs text-gray-500"> (roster #{m.roster_id})</span>
                         </div>

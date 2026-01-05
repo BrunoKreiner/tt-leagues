@@ -241,6 +241,9 @@ class Database {
         // Create a new matches table with nullable player1_id/player2_id and roster columns.
         // Preserve existing data and swap tables.
         await this.withTransaction(async (tx) => {
+            // Temporarily disable foreign keys during rebuild to handle orphaned data
+            await tx.run('PRAGMA foreign_keys = OFF');
+            
             await tx.run(`
                 CREATE TABLE IF NOT EXISTS matches_new (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -276,6 +279,8 @@ class Database {
             `);
 
             // Copy known columns from old table; roster columns may not exist yet (NULLs are fine).
+            // Only filter out rows with invalid league_id (required foreign key)
+            // Allow NULL user_ids since roster-based matches support placeholders
             await tx.run(`
                 INSERT INTO matches_new (
                     id, league_id, player1_id, player2_id,
@@ -286,22 +291,29 @@ class Database {
                     is_accepted, accepted_by, accepted_at, elo_applied, elo_applied_at, played_at, created_at
                 )
                 SELECT
-                    id, league_id, player1_id, player2_id,
-                    player1_roster_id, player2_roster_id, winner_roster_id,
-                    player1_sets_won, player2_sets_won, player1_points_total, player2_points_total,
-                    game_type, winner_id,
-                    player1_elo_before, player2_elo_before, player1_elo_after, player2_elo_after,
-                    is_accepted, accepted_by, accepted_at, elo_applied, elo_applied_at, played_at, created_at
-                FROM matches
+                    m.id, m.league_id, m.player1_id, m.player2_id,
+                    m.player1_roster_id, m.player2_roster_id, m.winner_roster_id,
+                    m.player1_sets_won, m.player2_sets_won, m.player1_points_total, m.player2_points_total,
+                    m.game_type, m.winner_id,
+                    m.player1_elo_before, m.player2_elo_before, m.player1_elo_after, m.player2_elo_after,
+                    m.is_accepted, m.accepted_by, m.accepted_at, m.elo_applied, m.elo_applied_at, m.played_at, m.created_at
+                FROM matches m
+                WHERE m.league_id IN (SELECT id FROM leagues)
             `);
 
             await tx.run('DROP TABLE matches');
             await tx.run('ALTER TABLE matches_new RENAME TO matches');
+            
+            // Re-enable foreign keys
+            await tx.run('PRAGMA foreign_keys = ON');
         });
     }
 
     async rebuildSQLiteEloHistoryTable() {
         await this.withTransaction(async (tx) => {
+            // Temporarily disable foreign keys during rebuild to handle orphaned data
+            await tx.run('PRAGMA foreign_keys = OFF');
+            
             await tx.run(`
                 CREATE TABLE IF NOT EXISTS elo_history_new (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -319,17 +331,23 @@ class Database {
                 )
             `);
 
+            // Only filter out rows with invalid league_id (required foreign key)
+            // Allow NULL user_id and match_id since roster-based ELO supports placeholders
             await tx.run(`
                 INSERT INTO elo_history_new (
                     id, user_id, league_id, roster_id, match_id, elo_before, elo_after, elo_change, recorded_at
                 )
                 SELECT
-                    id, user_id, league_id, roster_id, match_id, elo_before, elo_after, elo_change, recorded_at
-                FROM elo_history
+                    e.id, e.user_id, e.league_id, e.roster_id, e.match_id, e.elo_before, e.elo_after, e.elo_change, e.recorded_at
+                FROM elo_history e
+                WHERE e.league_id IN (SELECT id FROM leagues)
             `);
 
             await tx.run('DROP TABLE elo_history');
             await tx.run('ALTER TABLE elo_history_new RENAME TO elo_history');
+            
+            // Re-enable foreign keys
+            await tx.run('PRAGMA foreign_keys = ON');
         });
     }
 
@@ -527,7 +545,7 @@ class Database {
                 if (!adminPassword && inProduction) {
                     throw new Error('ADMIN_PASSWORD must be set in production to create admin user');
                 }
-                const hashedPassword = await bcrypt.hash(adminPassword || 'password', 10);
+                const hashedPassword = await bcrypt.hash(adminPassword || 'admin123', 10);
                 await this.run(
                     'INSERT INTO users (username, password_hash, first_name, last_name, email, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
                     [adminUsername, hashedPassword, adminFirst, adminLast, adminEmail, true]

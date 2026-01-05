@@ -634,38 +634,46 @@ router.get('/:id/elo-history', optionalAuth, validateId, validatePagination, asy
         }
         
         // Build query for ELO history
+        // Use match-level player_id fields which are always populated, not roster IDs
+        // This works even after a user leaves (roster deleted)
         let query = `
             SELECT 
                 eh.recorded_at, eh.elo_before, eh.elo_after, 
                 (eh.elo_after - eh.elo_before) as elo_change,
                 eh.match_id, m.played_at,
-                opp.display_name as opponent_display_name,
+                COALESCE(opp_roster.display_name, opp_user.username, 'Unknown') as opponent_display_name,
                 CASE 
-                    WHEN m.player1_roster_id = me.id THEN m.player1_sets_won
+                    WHEN m.player1_id = ? THEN m.player1_sets_won
                     ELSE m.player2_sets_won
                 END as user_sets_won,
                 CASE 
-                    WHEN m.player1_roster_id = me.id THEN m.player2_sets_won
+                    WHEN m.player1_id = ? THEN m.player2_sets_won
                     ELSE m.player1_sets_won
                 END as opponent_sets_won,
                 CASE 
-                    WHEN m.winner_roster_id = me.id THEN 'W'
-                    WHEN m.winner_roster_id IS NOT NULL THEN 'L'
+                    WHEN (m.player1_id = ? AND m.player1_sets_won > m.player2_sets_won) OR
+                         (m.player2_id = ? AND m.player2_sets_won > m.player1_sets_won) THEN 'W'
+                    WHEN m.winner_id IS NOT NULL THEN 'L'
                     ELSE 'D'
                 END as result
             FROM elo_history eh
             JOIN matches m ON eh.match_id = m.id
-            JOIN league_roster me ON me.user_id = ? AND me.league_id = m.league_id
-            JOIN league_roster opp ON (
+            LEFT JOIN league_roster opp_roster ON (
                 CASE
-                    WHEN m.player1_roster_id = me.id THEN m.player2_roster_id
+                    WHEN m.player1_id = ? THEN m.player2_roster_id
                     ELSE m.player1_roster_id
-                END = opp.id
+                END = opp_roster.id
+            )
+            LEFT JOIN users opp_user ON (
+                CASE
+                    WHEN m.player1_id = ? THEN m.player2_id
+                    ELSE m.player1_id
+                END = opp_user.id
             )
             WHERE eh.user_id = ? AND eh.league_id = ?
         `;
         
-        const params = [userId, userId, league_id];
+        const params = [userId, userId, userId, userId, userId, userId, userId, league_id];
         
         // Get total count for pagination
         const countQuery = `

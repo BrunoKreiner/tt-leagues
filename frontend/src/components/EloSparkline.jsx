@@ -1,26 +1,31 @@
 import { useEffect, useState, useMemo } from 'react';
-import { usersAPI } from '@/services/api';
+import { usersAPI, leaguesAPI } from '@/services/api';
 
-const EloSparkline = ({ userId, leagueId, width = 60, height = 20, points = 20 }) => {
+const EloSparkline = ({ userId, rosterId, leagueId, width = 60, height = 20, points = 20 }) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!userId || !leagueId) return;
+    if ((!userId && !rosterId) || !leagueId) return;
 
     let cancelled = false;
     const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await usersAPI.getEloHistory(userId, { 
-          league_id: leagueId, 
-          page: 1, 
-          // We'll prepend the initial `elo_before` as the first point.
-          // Request one fewer history rows so the sparkline stays roughly within `points`.
-          limit: Math.max(points - 1, 1),
-        });
+        
+        // Use roster-based API for placeholder members, user-based API for regular members
+        const res = rosterId 
+          ? await leaguesAPI.getRosterEloHistory(leagueId, rosterId, { 
+              page: 1, 
+              limit: Math.max(points - 1, 1),
+            })
+          : await usersAPI.getEloHistory(userId, { 
+              league_id: leagueId, 
+              page: 1, 
+              limit: Math.max(points - 1, 1),
+            });
         
         if (cancelled) return;
         
@@ -47,7 +52,7 @@ const EloSparkline = ({ userId, leagueId, width = 60, height = 20, points = 20 }
 
     fetchData();
     return () => { cancelled = true; };
-  }, [userId, leagueId, points]);
+  }, [userId, rosterId, leagueId, points]);
 
   const svgPath = useMemo(() => {
     if (data.length < 2) return '';

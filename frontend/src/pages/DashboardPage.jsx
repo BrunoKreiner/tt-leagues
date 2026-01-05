@@ -285,7 +285,7 @@ const DashboardPage = () => {
                             </Link>
                           ) : (
                             <span
-                              className="text-sm font-medium text-muted-foreground"
+                              className="text-sm font-medium text-blue-400"
                               title="No user assigned"
                             >
                               {player.display_name || 'No user assigned'}

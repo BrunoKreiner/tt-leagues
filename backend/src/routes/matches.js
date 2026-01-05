@@ -31,7 +31,8 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
         const offset = (page - 1) * limit;
         const status = req.query.status; // 'pending', 'accepted', 'all'
 
-        let whereClause = '(r1.user_id = ? OR r2.user_id = ?)';
+        // Use match-level player IDs which are always populated
+        let whereClause = '(m.player1_id = ? OR m.player2_id = ?)';
         const params = [req.user.id, req.user.id];
 
         if (status === 'pending') {
@@ -52,17 +53,21 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
                 m.game_type, m.is_accepted, m.elo_applied, m.elo_applied_at, m.played_at, m.created_at,
                 m.player1_elo_before, m.player2_elo_before, m.player1_elo_after, m.player2_elo_after,
                 l.name as league_name,
-                r1.display_name as player1_display_name,
-                r2.display_name as player2_display_name,
-                u1.id as player1_user_id, u1.username as player1_username,
-                u2.id as player2_user_id, u2.username as player2_username,
+                COALESCE(r1.display_name, u1_fallback.username) as player1_display_name,
+                COALESCE(r2.display_name, u2_fallback.username) as player2_display_name,
+                COALESCE(u1.id, m.player1_id) as player1_user_id, 
+                COALESCE(u1.username, u1_fallback.username) as player1_username,
+                COALESCE(u2.id, m.player2_id) as player2_user_id, 
+                COALESCE(u2.username, u2_fallback.username) as player2_username,
                 accepter.username as accepted_by_username
             FROM matches m
             JOIN leagues l ON m.league_id = l.id
-            JOIN league_roster r1 ON m.player1_roster_id = r1.id
-            JOIN league_roster r2 ON m.player2_roster_id = r2.id
+            LEFT JOIN league_roster r1 ON m.player1_roster_id = r1.id
+            LEFT JOIN league_roster r2 ON m.player2_roster_id = r2.id
             LEFT JOIN users u1 ON r1.user_id = u1.id
             LEFT JOIN users u2 ON r2.user_id = u2.id
+            LEFT JOIN users u1_fallback ON m.player1_id = u1_fallback.id
+            LEFT JOIN users u2_fallback ON m.player2_id = u2_fallback.id
             LEFT JOIN users accepter ON m.accepted_by = accepter.id
             WHERE ${whereClause}
             ORDER BY m.created_at DESC
@@ -72,8 +77,6 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
         const totalCount = await database.get(
             `SELECT COUNT(*) as count
              FROM matches m
-             JOIN league_roster r1 ON m.player1_roster_id = r1.id
-             JOIN league_roster r2 ON m.player2_roster_id = r2.id
              WHERE ${whereClause}`,
             params
         );
@@ -232,16 +235,18 @@ router.post('/', authenticateToken, validateMatchCreation, async (req, res) => {
                 m.is_accepted, m.played_at, m.created_at,
                 m.player1_elo_before, m.player2_elo_before, m.player1_elo_after, m.player2_elo_after,
                 l.name as league_name,
-                r1.display_name as player1_display_name,
-                r2.display_name as player2_display_name,
-                u1.username as player1_username,
-                u2.username as player2_username
+                COALESCE(r1.display_name, u1_fallback.username) as player1_display_name,
+                COALESCE(r2.display_name, u2_fallback.username) as player2_display_name,
+                COALESCE(u1.username, u1_fallback.username) as player1_username,
+                COALESCE(u2.username, u2_fallback.username) as player2_username
             FROM matches m
             JOIN leagues l ON m.league_id = l.id
-            JOIN league_roster r1 ON m.player1_roster_id = r1.id
-            JOIN league_roster r2 ON m.player2_roster_id = r2.id
+            LEFT JOIN league_roster r1 ON m.player1_roster_id = r1.id
+            LEFT JOIN league_roster r2 ON m.player2_roster_id = r2.id
             LEFT JOIN users u1 ON r1.user_id = u1.id
             LEFT JOIN users u2 ON r2.user_id = u2.id
+            LEFT JOIN users u1_fallback ON m.player1_id = u1_fallback.id
+            LEFT JOIN users u2_fallback ON m.player2_id = u2_fallback.id
             WHERE m.id = ?
         `, [txResult.matchId]);
 
@@ -285,16 +290,18 @@ router.get('/pending', authenticateToken, validatePagination, async (req, res) =
                 m.winner_id, m.winner_roster_id, m.played_at, m.created_at,
                 m.player1_elo_before, m.player2_elo_before, m.player1_elo_after, m.player2_elo_after,
                 l.name as league_name,
-                r1.display_name as player1_display_name,
-                r2.display_name as player2_display_name,
-                u1.username as player1_username,
-                u2.username as player2_username
+                COALESCE(r1.display_name, u1_fallback.username) as player1_display_name,
+                COALESCE(r2.display_name, u2_fallback.username) as player2_display_name,
+                COALESCE(u1.username, u1_fallback.username) as player1_username,
+                COALESCE(u2.username, u2_fallback.username) as player2_username
             FROM matches m
             JOIN leagues l ON m.league_id = l.id
-            JOIN league_roster r1 ON m.player1_roster_id = r1.id
-            JOIN league_roster r2 ON m.player2_roster_id = r2.id
+            LEFT JOIN league_roster r1 ON m.player1_roster_id = r1.id
+            LEFT JOIN league_roster r2 ON m.player2_roster_id = r2.id
             LEFT JOIN users u1 ON r1.user_id = u1.id
             LEFT JOIN users u2 ON r2.user_id = u2.id
+            LEFT JOIN users u1_fallback ON m.player1_id = u1_fallback.id
+            LEFT JOIN users u2_fallback ON m.player2_id = u2_fallback.id
             WHERE ${whereClause}
             ORDER BY m.created_at ASC
             LIMIT ? OFFSET ?
@@ -394,17 +401,21 @@ router.get('/:id', authenticateToken, validateId, async (req, res) => {
                 m.player1_elo_before, m.player2_elo_before, m.player1_elo_after, m.player2_elo_after,
                 l.name as league_name,
                 m.player1_roster_id, m.player2_roster_id,
-                r1.display_name as player1_display_name,
-                r2.display_name as player2_display_name,
-                u1.id as player1_user_id, u1.username as player1_username,
-                u2.id as player2_user_id, u2.username as player2_username,
+                COALESCE(r1.display_name, u1_fallback.username) as player1_display_name,
+                COALESCE(r2.display_name, u2_fallback.username) as player2_display_name,
+                COALESCE(u1.id, m.player1_id) as player1_user_id, 
+                COALESCE(u1.username, u1_fallback.username) as player1_username,
+                COALESCE(u2.id, m.player2_id) as player2_user_id, 
+                COALESCE(u2.username, u2_fallback.username) as player2_username,
                 accepter.username as accepted_by_username
             FROM matches m
             JOIN leagues l ON m.league_id = l.id
-            JOIN league_roster r1 ON m.player1_roster_id = r1.id
-            JOIN league_roster r2 ON m.player2_roster_id = r2.id
+            LEFT JOIN league_roster r1 ON m.player1_roster_id = r1.id
+            LEFT JOIN league_roster r2 ON m.player2_roster_id = r2.id
             LEFT JOIN users u1 ON r1.user_id = u1.id
             LEFT JOIN users u2 ON r2.user_id = u2.id
+            LEFT JOIN users u1_fallback ON m.player1_id = u1_fallback.id
+            LEFT JOIN users u2_fallback ON m.player2_id = u2_fallback.id
             LEFT JOIN users accepter ON m.accepted_by = accepter.id
             WHERE m.id = ?
         `, [matchId]);

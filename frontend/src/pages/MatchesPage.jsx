@@ -147,7 +147,7 @@ export default function MatchesPage() {
                               {m.player1_display_name || m.player1_username}
                             </Link>
                           ) : (
-                            <span>{m.player1_display_name}</span>
+                            <span className="text-blue-400">{m.player1_display_name}</span>
                           )}
                           {' '}
                           {t('common.vs') || 'vs'}
@@ -157,7 +157,7 @@ export default function MatchesPage() {
                               {m.player2_display_name || m.player2_username}
                             </Link>
                           ) : (
-                            <span>{m.player2_display_name}</span>
+                            <span className="text-blue-400">{m.player2_display_name}</span>
                           )}
                         </td>
                         <td className="px-3 py-2"><Link to={`/matches/${m.id}`}>{m.player1_sets_won}-{m.player2_sets_won}</Link></td>

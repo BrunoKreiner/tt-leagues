@@ -71,7 +71,8 @@ const TimelineStats = ({ userId }) => {
   // Grey color for lines (matching leaderboard default ELO timeline)
   const lineColor = '#6b7280';
   const chartHeight = 60;
-  const chartWidth = 300; // Used for SVG viewBox (rendered responsively)
+  const chartWidth = 300; // Base width for viewBox
+  const maxChartWidth = 300; // Max width to prevent over-stretching on large screens
   const padding = { top: 35, bottom: 20, left: 10, right: 20 }; // Increased top padding for value labels
 
   // Render a chart using raw SVG (like EloSparkline)
@@ -80,12 +81,28 @@ const TimelineStats = ({ userId }) => {
     
     // Show a placeholder if no data for this chart yet
     if (values.length === 0) {
-      const message = dataKey === 'avg_elo' ? 'No ELO data available yet' : 'No data available yet';
       return (
         <div className="w-full">
           <div className="text-sm font-medium text-gray-300 text-center mb-2">{title}</div>
-          <div className="h-[75px] flex items-center justify-center pt-0">
-            <div className="text-xs text-gray-500">{message}</div>
+          <div className="h-[75px] flex items-start justify-center pt-0">
+            <svg
+              width="100%"
+              height={chartHeight}
+              viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+              preserveAspectRatio="xMidYMid meet"
+              style={{ maxWidth: `${maxChartWidth}px`, margin: '0 auto' }}
+            >
+              {/* Grey horizontal line when no data */}
+              <line
+                x1={padding.left}
+                y1={chartHeight / 2}
+                x2={chartWidth - padding.right}
+                y2={chartHeight / 2}
+                stroke={lineColor}
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
           </div>
         </div>
       );
@@ -115,10 +132,14 @@ const TimelineStats = ({ userId }) => {
     const verticalOffset = 15;
     
     // Create path for line (shifted down).
-    // If we only have one point, draw no line (just the dot + value).
+    // If we only have one point, show a grey horizontal line (like EloSparkline)
     const path = points.length >= 2
       ? `M ${points.map(p => `${p.x},${p.y + verticalOffset}`).join(' L ')}`
       : '';
+    
+    // For single point, show grey horizontal line
+    const showPlaceholderLine = points.length === 1;
+    const midY = padding.top + plotHeight / 2 + verticalOffset;
 
     // Calculate actual SVG height needed (add extra space at top for labels)
     const svgHeight = chartHeight + verticalOffset;
@@ -131,7 +152,8 @@ const TimelineStats = ({ userId }) => {
             width="100%"
             height={svgHeight}
             viewBox={`0 0 ${chartWidth} ${svgHeight}`}
-            preserveAspectRatio="none"
+            preserveAspectRatio="xMidYMid meet"
+            style={{ maxWidth: `${maxChartWidth}px`, margin: '0 auto' }}
           >
             {/* Line - always grey */}
             {path ? (
@@ -144,6 +166,18 @@ const TimelineStats = ({ userId }) => {
                 strokeLinejoin="round"
               />
             ) : null}
+            {/* Grey horizontal line when only one point (insufficient data) */}
+            {showPlaceholderLine && (
+              <line
+                x1={padding.left}
+                y1={midY}
+                x2={chartWidth - padding.right}
+                y2={midY}
+                stroke={lineColor}
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            )}
             {/* Dots and labels */}
             {points.map((point) => (
               <g key={point.monthIndex}>

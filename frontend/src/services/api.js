@@ -81,6 +81,7 @@ export const leaguesAPI = {
   // Roster tools (placeholder members)
   createRosterMember: (id, display_name) => api.post(`/leagues/${id}/roster`, { display_name }),
   assignRosterMember: (id, rosterId, user_id) => api.post(`/leagues/${id}/roster/${rosterId}/assign`, { user_id }),
+  getRosterEloHistory: (id, rosterId, params) => api.get(`/leagues/${id}/roster/${rosterId}/elo-history`, { params }),
 };
 
 // Matches API
