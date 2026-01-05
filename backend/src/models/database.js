@@ -75,7 +75,13 @@ class Database {
 
             // Read and execute schema
             const schema = fs.readFileSync(this.schemaPath, 'utf8');
-            const statements = schema.split(';').filter(stmt => stmt.trim());
+            // Split schema into statements safely.
+            // We strip SQL comments first so semicolons inside comments don't break splitting.
+            // (node-postgres doesn't support executing multiple statements in one query call.)
+            const schemaWithoutComments = schema
+                .replace(/\/\*[\s\S]*?\*\//g, '')   // block comments
+                .replace(/--.*$/gm, '');            // line comments
+            const statements = schemaWithoutComments.split(';').filter(stmt => stmt.trim());
 
             if (debugInit) {
                 console.log(`DB init: executing schema from ${this.schemaPath} (${statements.length} statements)`);
