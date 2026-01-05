@@ -801,7 +801,9 @@ const LeagueDetailPage = () => {
                                     {p.display_name || p.username}
                                   </Link>
                                 ) : (
-                                  <span className="text-gray-200 text-lg font-medium truncate">{p.display_name}</span>
+                                  <span className="text-gray-200 font-medium truncate" title="No user assigned">
+                                    {p.display_name || 'No user assigned'}
+                                  </span>
                                 )}
                                 {p.badges && p.badges.length > 0 && (
                                   <BadgeList

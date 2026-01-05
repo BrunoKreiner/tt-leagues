@@ -31,10 +31,6 @@ const TimelineStats = ({ userId }) => {
         setLoading(true);
         const res = await usersAPI.getTimelineStats(userId);
         const timeline = res.data.timeline || [];
-        console.log('Timeline stats data:', timeline);
-        // Log ELO data specifically
-        const eloData = timeline.filter(d => d.avg_elo !== null && d.avg_elo !== undefined);
-        console.log('ELO data points:', eloData.length, eloData);
         setTimelineData(timeline);
       } catch (error) {
         console.error('Failed to fetch timeline stats:', error);
@@ -75,27 +71,24 @@ const TimelineStats = ({ userId }) => {
   // Grey color for lines (matching leaderboard default ELO timeline)
   const lineColor = '#6b7280';
   const chartHeight = 60;
-  const chartWidth = 300; // Reduced width for side-by-side layout
+  const chartWidth = 300; // Used for SVG viewBox (rendered responsively)
   const padding = { top: 35, bottom: 20, left: 10, right: 20 }; // Increased top padding for value labels
 
   // Render a chart using raw SVG (like EloSparkline)
   const renderChart = (title, dataKey, dotColor, data = formattedData) => {
     const values = data.map(d => d[dataKey]).filter(v => v !== null && v !== undefined);
     
-    // For ELO chart, show even if no data (but with a message)
+    // Show a placeholder if no data for this chart yet
     if (values.length === 0) {
-      if (dataKey === 'avg_elo') {
-        // Show placeholder for ELO chart even when no data
-        return (
-          <div className="w-full">
-            <div className="text-sm font-medium text-gray-300 text-center mb-2">{title}</div>
-            <div className="h-[75px] flex items-center justify-center pt-0">
-              <div className="text-xs text-gray-500">No ELO data available yet</div>
-            </div>
+      const message = dataKey === 'avg_elo' ? 'No ELO data available yet' : 'No data available yet';
+      return (
+        <div className="w-full">
+          <div className="text-sm font-medium text-gray-300 text-center mb-2">{title}</div>
+          <div className="h-[75px] flex items-center justify-center pt-0">
+            <div className="text-xs text-gray-500">{message}</div>
           </div>
-        );
-      }
-      return null;
+        </div>
+      );
     }
 
     const minVal = Math.min(...values);
@@ -134,7 +127,12 @@ const TimelineStats = ({ userId }) => {
       <div className="w-full">
         <div className="text-sm font-medium text-gray-300 text-center mb-2">{title}</div>
         <div className="h-[75px] flex items-start justify-center pt-0">
-          <svg width={chartWidth} height={svgHeight} style={{ maxWidth: '100%' }}>
+          <svg
+            width="100%"
+            height={svgHeight}
+            viewBox={`0 0 ${chartWidth} ${svgHeight}`}
+            preserveAspectRatio="none"
+          >
             {/* Line - always grey */}
             {path ? (
               <path
