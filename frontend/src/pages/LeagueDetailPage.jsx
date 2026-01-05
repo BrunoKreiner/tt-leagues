@@ -83,6 +83,12 @@ const LeagueDetailPage = () => {
   const [awardSeason, setAwardSeason] = useState('');
   const [awardingBadge, setAwardingBadge] = useState(false);
 
+  // Roster management (placeholders)
+  const [placeholderDisplayName, setPlaceholderDisplayName] = useState('');
+  const [creatingPlaceholder, setCreatingPlaceholder] = useState(false);
+  const [assignUserByRosterId, setAssignUserByRosterId] = useState({});
+  const [assigningRosterId, setAssigningRosterId] = useState(null);
+
   const canManageLeague = isAuthenticated && (isAdmin || userMembership?.is_admin);
 
   const editSchema = useMemo(() => (
@@ -181,8 +187,6 @@ const LeagueDetailPage = () => {
   // When league loads, populate the edit form defaults
   useEffect(() => {
     if (league) {
-      console.log('League data loaded:', league);
-      console.log('Current elo_update_mode:', league.elo_update_mode);
       form.reset({
         name: league.name || '',
         description: league.description || '',
@@ -190,7 +194,6 @@ const LeagueDetailPage = () => {
         season: league.season || '',
       });
       setEloMode(league.elo_update_mode || 'immediate');
-      console.log('Set eloMode to:', league.elo_update_mode || 'immediate');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [league]);
@@ -204,18 +207,15 @@ const LeagueDetailPage = () => {
 
   const refreshLeagueData = async () => {
     try {
-      console.log('Refreshing league data...');
       const [leagueRes, membersRes] = await Promise.all([
         leaguesAPI.getById(id),
         isAuthenticated ? leaguesAPI.getMembers(id) : Promise.resolve({ data: { members: [] } }),
       ]);
-      console.log('Refreshed league data:', leagueRes.data.league);
       setLeague(leagueRes.data.league);
       setUserMembership(leagueRes.data.user_membership);
       setMembers(membersRes.data.members || []);
       // Update eloMode state to match the refreshed league data
       const newEloMode = leagueRes.data.league.elo_update_mode || 'immediate';
-      console.log('Setting eloMode to:', newEloMode);
       setEloMode(newEloMode);
     } catch (e) {
       // Keep previous state; surface error softly
@@ -227,8 +227,6 @@ const LeagueDetailPage = () => {
     try {
       const res = await leaguesAPI.getLeaderboard(id, { page, limit: 20 });
       const leaderboardData = res.data.leaderboard || [];
-      console.log('Leaderboard data:', leaderboardData);
-      console.log('First player badges:', leaderboardData[0]?.badges);
       setLeaderboard(leaderboardData);
       setLeaderboardPagination(res.data.pagination || { page: 1, pages: 1, total: 0, limit: 20 });
     } catch (e) {
@@ -319,6 +317,50 @@ const LeagueDetailPage = () => {
     }
   };
 
+  const handleCreatePlaceholder = async () => {
+    const name = placeholderDisplayName.trim();
+    if (!name) {
+      toast.error('Please enter a placeholder name');
+      return;
+    }
+    try {
+      setCreatingPlaceholder(true);
+      await leaguesAPI.createRosterMember(Number(id), name);
+      setPlaceholderDisplayName('');
+      toast.success('Placeholder member added');
+      await refreshLeagueData();
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Failed to add placeholder member';
+      toast.error(msg);
+    } finally {
+      setCreatingPlaceholder(false);
+    }
+  };
+
+  const handleAssignRoster = async (rosterId) => {
+    const userId = assignUserByRosterId?.[rosterId];
+    if (!userId) {
+      toast.error('Please select a user to assign');
+      return;
+    }
+    try {
+      setAssigningRosterId(rosterId);
+      await leaguesAPI.assignRosterMember(Number(id), rosterId, Number(userId));
+      toast.success('Roster entry assigned');
+      setAssignUserByRosterId((prev) => {
+        const next = { ...(prev || {}) };
+        delete next[rosterId];
+        return next;
+      });
+      await refreshLeagueData();
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Failed to assign roster entry';
+      toast.error(msg);
+    } finally {
+      setAssigningRosterId(null);
+    }
+  };
+
   const handlePromote = async (userId, username) => {
     if (!window.confirm(t('leagues.promoteConfirm', { username }))) return;
     try {
@@ -379,8 +421,6 @@ const LeagueDetailPage = () => {
         season: values.season?.trim() || undefined,
         elo_update_mode: eloMode,
       };
-      console.log('Updating league with payload:', payload);
-      console.log('Current eloMode state:', eloMode);
       await leaguesAPI.update(id, payload);
       toast.success(t('leagues.updated'));
       // Add a small delay to prevent rate limiting
@@ -969,9 +1009,69 @@ const LeagueDetailPage = () => {
           {/* Admin Panel - Right */}
           <Card className="vg-card">
             <CardHeader className="pb-2">
-              <CardTitle className="cyberpunk-subtitle text-lg">Admin Panel</CardTitle>
+              <CardTitle className="cyberpunk-subtitle text-lg">Manage</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Roster management (placeholders) */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-gray-300">Roster management (placeholders)</h4>
+                <div className="flex gap-2">
+                  <Input
+                    value={placeholderDisplayName}
+                    onChange={(e) => setPlaceholderDisplayName(e.target.value)}
+                    placeholder="e.g. Alex (unassigned)"
+                    disabled={creatingPlaceholder}
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleCreatePlaceholder}
+                    disabled={creatingPlaceholder}
+                  >
+                    {creatingPlaceholder ? 'Adding...' : 'Add'}
+                  </Button>
+                </div>
+
+                {members.filter((m) => !m.user_id).length === 0 ? (
+                  <div className="text-xs text-gray-500">No unassigned placeholders.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {members.filter((m) => !m.user_id).map((m) => (
+                      <div key={m.roster_id} className="flex flex-col gap-2 rounded-md border border-gray-800 p-2">
+                        <div className="text-sm text-gray-200">
+                          <span className="font-medium">{m.display_name}</span>
+                          <span className="text-xs text-gray-500"> (roster #{m.roster_id})</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <div className="flex-1 min-w-0">
+                            <UserSearchSelect
+                              value={assignUserByRosterId?.[m.roster_id] || ''}
+                              onValueChange={(userId) => {
+                                const nextUserId = userId ? String(userId) : '';
+                                setAssignUserByRosterId((prev) => ({
+                                  ...(prev || {}),
+                                  [m.roster_id]: nextUserId,
+                                }));
+                              }}
+                              placeholder="Search and select user..."
+                              disabled={assigningRosterId === m.roster_id}
+                              excludeUserIds={members.map((x) => x.user_id).filter(Boolean)}
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            onClick={() => handleAssignRoster(m.roster_id)}
+                            disabled={assigningRosterId === m.roster_id}
+                            className="w-full sm:w-auto"
+                          >
+                            {assigningRosterId === m.roster_id ? 'Assigning...' : 'Assign'}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Award Badge */}
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-300">Award Badge</h4>
