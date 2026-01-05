@@ -61,21 +61,23 @@ export default function MatchesPage() {
   const canNext = page < pages;
 
   const _youVsLabel = (m) => {
-    const myUsername = me?.username;
-    if (!myUsername) return `${m.player1_username} vs ${m.player2_username}`;
-    if (m.player1_username === myUsername) return `You vs ${m.player2_username}`;
-    if (m.player2_username === myUsername) return `${m.player1_username} vs You`;
-    return `${m.player1_username} vs ${m.player2_username}`;
+    const meId = me?.id;
+    const p1 = m.player1_display_name || m.player1_username || 'Player 1';
+    const p2 = m.player2_display_name || m.player2_username || 'Player 2';
+    if (!meId) return `${p1} vs ${p2}`;
+    if (m.player1_user_id === meId) return `You vs ${p2}`;
+    if (m.player2_user_id === meId) return `${p1} vs You`;
+    return `${p1} vs ${p2}`;
   };
 
   const yourEloDelta = (m) => {
     if (!m.is_accepted) return null;
-    const myUsername = me?.username;
-    if (!myUsername) return null;
-    if (m.player1_username === myUsername && m.player1_elo_after != null && m.player1_elo_before != null) {
+    const meId = me?.id;
+    if (!meId) return null;
+    if (m.player1_user_id === meId && m.player1_elo_after != null && m.player1_elo_before != null) {
       return m.player1_elo_after - m.player1_elo_before;
     }
-    if (m.player2_username === myUsername && m.player2_elo_after != null && m.player2_elo_before != null) {
+    if (m.player2_user_id === meId && m.player2_elo_after != null && m.player2_elo_before != null) {
       return m.player2_elo_after - m.player2_elo_before;
     }
     return null;
@@ -140,11 +142,23 @@ export default function MatchesPage() {
                         <td className="px-3 py-2"><Link to={`/matches/${m.id}`}>{formatWhen(m)}</Link></td>
                         <td className="px-3 py-2"><Link to={`/matches/${m.id}`}>{m.league_name}</Link></td>
                         <td className="px-3 py-2">
-                          <Link to={`/profile/${m.player1_username}`} className="underline hover:no-underline">{m.player1_username}</Link>
+                          {m.player1_username ? (
+                            <Link to={`/profile/${m.player1_username}`} className="underline hover:no-underline">
+                              {m.player1_display_name || m.player1_username}
+                            </Link>
+                          ) : (
+                            <span>{m.player1_display_name}</span>
+                          )}
                           {' '}
                           {t('common.vs') || 'vs'}
                           {' '}
-                          <Link to={`/profile/${m.player2_username}`} className="underline hover:no-underline">{m.player2_username}</Link>
+                          {m.player2_username ? (
+                            <Link to={`/profile/${m.player2_username}`} className="underline hover:no-underline">
+                              {m.player2_display_name || m.player2_username}
+                            </Link>
+                          ) : (
+                            <span>{m.player2_display_name}</span>
+                          )}
                         </td>
                         <td className="px-3 py-2"><Link to={`/matches/${m.id}`}>{m.player1_sets_won}-{m.player2_sets_won}</Link></td>
                         <td className="px-3 py-2">{m.is_accepted ? t('status.accepted') : t('status.pending')}</td>

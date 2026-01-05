@@ -48,12 +48,31 @@ CREATE TABLE IF NOT EXISTS league_members (
     UNIQUE(league_id, user_id)
 );
 
+-- League roster table
+-- Supports placeholders (user_id NULL) and assigned members (user_id set).
+-- New matches/ELO use roster IDs rather than users directly.
+CREATE TABLE IF NOT EXISTS league_roster (
+    id SERIAL PRIMARY KEY,
+    league_id INTEGER NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    display_name VARCHAR(200) NOT NULL,
+    current_elo INTEGER DEFAULT 1200,
+    is_admin BOOLEAN DEFAULT FALSE,
+    joined_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(league_id, user_id)
+);
+
 -- Matches table
 CREATE TABLE IF NOT EXISTS matches (
     id SERIAL PRIMARY KEY,
     league_id INTEGER NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
-    player1_id INTEGER NOT NULL REFERENCES users(id),
-    player2_id INTEGER NOT NULL REFERENCES users(id),
+    -- Legacy user-based references (nullable; canonical fields are roster IDs below)
+    player1_id INTEGER REFERENCES users(id),
+    player2_id INTEGER REFERENCES users(id),
+    -- Roster-based references (canonical fields)
+    player1_roster_id INTEGER REFERENCES league_roster(id),
+    player2_roster_id INTEGER REFERENCES league_roster(id),
+    winner_roster_id INTEGER REFERENCES league_roster(id),
     player1_sets_won INTEGER DEFAULT 0,
     player2_sets_won INTEGER DEFAULT 0,
     player1_points_total INTEGER DEFAULT 0,
@@ -86,8 +105,9 @@ CREATE TABLE IF NOT EXISTS match_sets (
 -- ELO history table
 CREATE TABLE IF NOT EXISTS elo_history (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id),
+    user_id INTEGER REFERENCES users(id),
     league_id INTEGER NOT NULL REFERENCES leagues(id),
+    roster_id INTEGER REFERENCES league_roster(id),
     match_id INTEGER REFERENCES matches(id),
     elo_before INTEGER NOT NULL,
     elo_after INTEGER NOT NULL,
@@ -147,6 +167,9 @@ CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_league_members_league_id ON league_members(league_id);
 CREATE INDEX IF NOT EXISTS idx_league_members_user_id ON league_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_league_roster_league_id ON league_roster(league_id);
+CREATE INDEX IF NOT EXISTS idx_league_roster_user_id ON league_roster(user_id);
+CREATE INDEX IF NOT EXISTS idx_league_roster_league_elo ON league_roster(league_id, current_elo);
 CREATE INDEX IF NOT EXISTS idx_matches_league_id ON matches(league_id);
 CREATE INDEX IF NOT EXISTS idx_matches_player1_id ON matches(player1_id);
 CREATE INDEX IF NOT EXISTS idx_matches_player2_id ON matches(player2_id);
@@ -198,6 +221,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user_read_created ON notifications(
 -- ELO history table
 CREATE INDEX IF NOT EXISTS idx_elo_history_match_id ON elo_history(match_id);
 CREATE INDEX IF NOT EXISTS idx_elo_history_user_league_recorded ON elo_history(user_id, league_id, recorded_at);
+CREATE INDEX IF NOT EXISTS idx_elo_history_roster_id ON elo_history(roster_id);
 
 -- Match sets table
 CREATE INDEX IF NOT EXISTS idx_match_sets_match_id ON match_sets(match_id);

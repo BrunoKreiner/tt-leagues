@@ -20,12 +20,12 @@ router.get('/', optionalAuth, validatePagination, async (req, res) => {
             SELECT 
                 l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at, l.updated_at,
                 u.username as created_by_username,
-                COUNT(DISTINCT lm.user_id) as member_count,
+                COUNT(DISTINCT lr.id) as member_count,
                 COUNT(DISTINCT m.id) as match_count,
-                ${req.user ? 'MAX(CASE WHEN lm.user_id = ? THEN 1 ELSE 0 END) as is_member' : '0 as is_member'}
+                ${req.user ? 'MAX(CASE WHEN lr.user_id = ? THEN 1 ELSE 0 END) as is_member' : '0 as is_member'}
             FROM leagues l
             JOIN users u ON l.created_by = u.id
-            LEFT JOIN league_members lm ON l.id = lm.league_id
+            LEFT JOIN league_roster lr ON l.id = lr.league_id
             LEFT JOIN matches m ON l.id = m.league_id AND m.is_accepted = ?
             WHERE l.is_active = ?
         `;
@@ -44,7 +44,7 @@ router.get('/', optionalAuth, validatePagination, async (req, res) => {
         // If user is authenticated, show their leagues + public leagues
         // If not authenticated, show only public leagues
         if (req.user) {
-            query += ` AND (l.is_public = ? OR lm.user_id = ?)`;
+            query += ` AND (l.is_public = ? OR lr.user_id = ?)`;
             params.push(true, req.user.id);
         } else {
             query += ` AND l.is_public = ?`;
@@ -65,14 +65,14 @@ router.get('/', optionalAuth, validatePagination, async (req, res) => {
         let countQuery = `
             SELECT COUNT(DISTINCT l.id) as count
             FROM leagues l
-            LEFT JOIN league_members lm ON l.id = lm.league_id
+            LEFT JOIN league_roster lr ON l.id = lr.league_id
             WHERE l.is_active = ?
         `;
         
         const countParams = [true];
         
         if (req.user) {
-            countQuery += ` AND (l.is_public = ? OR lm.user_id = ?)`;
+            countQuery += ` AND (l.is_public = ? OR lr.user_id = ?)`;
             countParams.push(true, req.user.id);
         } else {
             countQuery += ` AND l.is_public = ?`;
@@ -122,8 +122,8 @@ router.post('/', authenticateToken, requireAdmin, validateLeagueCreation, async 
         
         // Add creator as league admin
         await database.run(
-            'INSERT INTO league_members (league_id, user_id, is_admin) VALUES (?, ?, ?)',
-            [result.id, req.user.id, true]
+            'INSERT INTO league_roster (league_id, user_id, display_name, is_admin) VALUES (?, ?, ?, ?)',
+            [result.id, req.user.id, `${req.user.first_name} ${req.user.last_name}`.trim(), true]
         );
         
         // Get created league
@@ -156,7 +156,7 @@ router.get('/:id', optionalAuth, validateId, async (req, res) => {
         
         // Debug: Check actual members in database
         const memberCheck = await database.all(
-            'SELECT user_id, joined_at, is_admin FROM league_members WHERE league_id = ?',
+            'SELECT id as roster_id, user_id, display_name, joined_at, is_admin FROM league_roster WHERE league_id = ?',
             [leagueId]
         );
         console.log(`[League ${leagueId}] Actual members in database:`, memberCheck.length, memberCheck);
@@ -165,11 +165,11 @@ router.get('/:id', optionalAuth, validateId, async (req, res) => {
             SELECT 
                 l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at,
                 u.username as created_by_username,
-                COUNT(DISTINCT lm.user_id) as member_count,
+                COUNT(DISTINCT lr.id) as member_count,
                 COUNT(DISTINCT m.id) as match_count
             FROM leagues l
             JOIN users u ON l.created_by = u.id
-            LEFT JOIN league_members lm ON l.id = lm.league_id
+            LEFT JOIN league_roster lr ON l.id = lr.league_id
             LEFT JOIN matches m ON l.id = m.league_id AND m.is_accepted = ?
             WHERE l.id = ? AND l.is_active = ?
             GROUP BY l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at, u.username
@@ -193,7 +193,7 @@ router.get('/:id', optionalAuth, validateId, async (req, res) => {
         // Check if user has access to this league
         if (!league.is_public && req.user) {
             const membership = await database.get(
-                'SELECT id FROM league_members WHERE league_id = ? AND user_id = ?',
+                'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
                 [leagueId, req.user.id]
             );
             
@@ -208,7 +208,7 @@ router.get('/:id', optionalAuth, validateId, async (req, res) => {
         let userMembership = null;
         if (req.user) {
             userMembership = await database.get(
-                'SELECT current_elo, is_admin, joined_at FROM league_members WHERE league_id = ? AND user_id = ?',
+                'SELECT id as roster_id, current_elo, is_admin, joined_at, display_name FROM league_roster WHERE league_id = ? AND user_id = ?',
                 [leagueId, req.user.id]
             );
         }
@@ -350,7 +350,7 @@ router.get('/:id/members', authenticateToken, validateId, async (req, res) => {
         
         if (!league.is_public) {
             const membership = await database.get(
-                'SELECT id FROM league_members WHERE league_id = ? AND user_id = ?',
+                'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
                 [leagueId, req.user.id]
             );
             
@@ -361,16 +361,23 @@ router.get('/:id/members', authenticateToken, validateId, async (req, res) => {
         
         const members = await database.all(`
             SELECT 
-                u.id, u.username, u.first_name, u.last_name,
-                lm.current_elo, lm.is_admin as is_league_admin, lm.joined_at,
-                COUNT(CASE WHEN m.player1_id = u.id OR m.player2_id = u.id THEN m.id END) as matches_played,
-                COUNT(CASE WHEN m.winner_id = u.id THEN m.id END) as matches_won
-            FROM league_members lm
-            JOIN users u ON lm.user_id = u.id
-            LEFT JOIN matches m ON m.league_id = lm.league_id AND (m.player1_id = u.id OR m.player2_id = u.id) AND m.is_accepted = ?
-            WHERE lm.league_id = ?
-            GROUP BY u.id, u.username, u.first_name, u.last_name, lm.current_elo, lm.is_admin, lm.joined_at
-            ORDER BY lm.current_elo DESC
+                lr.id as roster_id,
+                lr.user_id,
+                u.username,
+                u.first_name,
+                u.last_name,
+                lr.display_name,
+                lr.current_elo,
+                lr.is_admin as is_league_admin,
+                lr.joined_at,
+                COUNT(CASE WHEN m.player1_roster_id = lr.id OR m.player2_roster_id = lr.id THEN m.id END) as matches_played,
+                COUNT(CASE WHEN m.winner_roster_id = lr.id THEN m.id END) as matches_won
+            FROM league_roster lr
+            LEFT JOIN users u ON lr.user_id = u.id
+            LEFT JOIN matches m ON m.league_id = lr.league_id AND (m.player1_roster_id = lr.id OR m.player2_roster_id = lr.id) AND m.is_accepted = ?
+            WHERE lr.league_id = ?
+            GROUP BY lr.id, lr.user_id, u.username, u.first_name, u.last_name, lr.display_name, lr.current_elo, lr.is_admin, lr.joined_at
+            ORDER BY lr.current_elo DESC
         `, [true, leagueId]);
         
         res.json({
@@ -382,6 +389,97 @@ router.get('/:id/members', authenticateToken, validateId, async (req, res) => {
         });
     } catch (error) {
         console.error('Get league members error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Add a placeholder roster member (league admin only)
+ * POST /api/leagues/:id/roster
+ * Body: { display_name: string }
+ */
+router.post('/:id/roster', authenticateToken, requireLeagueAdmin, validateId, async (req, res) => {
+    try {
+        const leagueId = parseInt(req.params.id);
+        const displayName = (req.body?.display_name || '').trim();
+        if (!displayName) {
+            return res.status(400).json({ error: 'display_name is required' });
+        }
+
+        const result = await database.run(
+            'INSERT INTO league_roster (league_id, user_id, display_name) VALUES (?, ?, ?)',
+            [leagueId, null, displayName]
+        );
+
+        const rosterEntry = await database.get(
+            'SELECT id as roster_id, league_id, user_id, display_name, current_elo, is_admin, joined_at FROM league_roster WHERE id = ?',
+            [result.id]
+        );
+
+        res.status(201).json({ message: 'Roster placeholder created', roster: rosterEntry });
+    } catch (error) {
+        console.error('Create roster placeholder error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Assign a user to an existing roster entry (league admin only)
+ * POST /api/leagues/:id/roster/:rosterId/assign
+ * Body: { user_id: number }
+ *
+ * Note: display_name is NOT changed on assignment (placeholder name remains the league display name).
+ */
+router.post('/:id/roster/:rosterId/assign', authenticateToken, requireLeagueAdmin, validateId, async (req, res) => {
+    try {
+        const leagueId = parseInt(req.params.id);
+        const rosterId = parseInt(req.params.rosterId);
+        const userId = parseInt(req.body?.user_id);
+
+        if (!Number.isInteger(rosterId) || rosterId < 1) {
+            return res.status(400).json({ error: 'Valid rosterId is required' });
+        }
+        if (!Number.isInteger(userId) || userId < 1) {
+            return res.status(400).json({ error: 'Valid user_id is required' });
+        }
+
+        const roster = await database.get(
+            'SELECT id, user_id, display_name FROM league_roster WHERE league_id = ? AND id = ?',
+            [leagueId, rosterId]
+        );
+        if (!roster) {
+            return res.status(404).json({ error: 'Roster entry not found' });
+        }
+        if (roster.user_id) {
+            return res.status(400).json({ error: 'Roster entry already assigned' });
+        }
+
+        const user = await database.get('SELECT id FROM users WHERE id = ?', [userId]);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const existing = await database.get(
+            'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
+            [leagueId, userId]
+        );
+        if (existing) {
+            return res.status(409).json({ error: 'User is already assigned to a roster entry in this league' });
+        }
+
+        await database.run(
+            'UPDATE league_roster SET user_id = ? WHERE league_id = ? AND id = ?',
+            [userId, leagueId, rosterId]
+        );
+
+        const updated = await database.get(
+            'SELECT id as roster_id, league_id, user_id, display_name, current_elo, is_admin, joined_at FROM league_roster WHERE id = ?',
+            [rosterId]
+        );
+
+        res.json({ message: 'Roster entry assigned', roster: updated });
+    } catch (error) {
+        console.error('Assign roster entry error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -412,7 +510,7 @@ router.post('/:id/invite', authenticateToken, requireLeagueAdmin, validateId, as
         
         // Check if user is already a member
         const existingMember = await database.get(
-            'SELECT id FROM league_members WHERE league_id = ? AND user_id = ?',
+            'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
             [leagueId, targetUserId]
         );
         
@@ -514,7 +612,7 @@ router.post('/:id/join', authenticateToken, validateId, async (req, res) => {
         
         // Check if user is already a member
         const existingMember = await database.get(
-            'SELECT id FROM league_members WHERE league_id = ? AND user_id = ?',
+            'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
             [leagueId, req.user.id]
         );
         
@@ -547,10 +645,13 @@ router.post('/:id/join', authenticateToken, validateId, async (req, res) => {
             return res.status(400).json({ error: 'Invite has expired' });
         }
         
-        // Add user to league
+        const me = await database.get('SELECT first_name, last_name FROM users WHERE id = ?', [req.user.id]);
+        const displayName = `${me.first_name} ${me.last_name}`.trim();
+
+        // Add user to league roster
         await database.run(
-            'INSERT INTO league_members (league_id, user_id) VALUES (?, ?)',
-            [leagueId, req.user.id]
+            'INSERT INTO league_roster (league_id, user_id, display_name) VALUES (?, ?, ?)',
+            [leagueId, req.user.id, displayName]
         );
         
         // Update invite status
@@ -581,7 +682,7 @@ router.delete('/:id/leave', authenticateToken, validateId, async (req, res) => {
         const leagueId = parseInt(req.params.id);
         
         const membership = await database.get(
-            'SELECT id FROM league_members WHERE league_id = ? AND user_id = ?',
+            'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
             [leagueId, req.user.id]
         );
         
@@ -591,7 +692,7 @@ router.delete('/:id/leave', authenticateToken, validateId, async (req, res) => {
         
         // Remove user from league
         await database.run(
-            'DELETE FROM league_members WHERE league_id = ? AND user_id = ?',
+            'DELETE FROM league_roster WHERE league_id = ? AND user_id = ?',
             [leagueId, req.user.id]
         );
         
@@ -624,7 +725,7 @@ router.get('/:id/leaderboard', optionalAuth, validateId, validatePagination, asy
         
         if (!league.is_public && req.user) {
             const membership = await database.get(
-                'SELECT id FROM league_members WHERE league_id = ? AND user_id = ?',
+                'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
                 [leagueId, req.user.id]
             );
             
@@ -637,23 +738,30 @@ router.get('/:id/leaderboard', optionalAuth, validateId, validatePagination, asy
         
         const leaderboard = await database.all(`
             SELECT 
-                u.id, u.username, u.first_name, u.last_name, u.avatar_url,
-                lm.current_elo, lm.joined_at,
-                COUNT(CASE WHEN m.player1_id = u.id OR m.player2_id = u.id THEN m.id END) as matches_played,
-                COUNT(CASE WHEN m.winner_id = u.id THEN m.id END) as matches_won,
-                ROW_NUMBER() OVER (ORDER BY lm.current_elo DESC) as rank
-            FROM league_members lm
-            JOIN users u ON lm.user_id = u.id
-            LEFT JOIN matches m ON m.league_id = lm.league_id AND (m.player1_id = u.id OR m.player2_id = u.id) AND m.is_accepted = ?
-            WHERE lm.league_id = ?
-            GROUP BY u.id, u.username, u.first_name, u.last_name, u.avatar_url, lm.current_elo, lm.joined_at
-            ORDER BY lm.current_elo DESC
+                lr.id as roster_id,
+                lr.user_id,
+                u.username,
+                u.first_name,
+                u.last_name,
+                u.avatar_url,
+                lr.display_name,
+                lr.current_elo,
+                lr.joined_at,
+                COUNT(CASE WHEN m.player1_roster_id = lr.id OR m.player2_roster_id = lr.id THEN m.id END) as matches_played,
+                COUNT(CASE WHEN m.winner_roster_id = lr.id THEN m.id END) as matches_won,
+                ROW_NUMBER() OVER (ORDER BY lr.current_elo DESC) as rank
+            FROM league_roster lr
+            LEFT JOIN users u ON lr.user_id = u.id
+            LEFT JOIN matches m ON m.league_id = lr.league_id AND (m.player1_roster_id = lr.id OR m.player2_roster_id = lr.id) AND m.is_accepted = ?
+            WHERE lr.league_id = ?
+            GROUP BY lr.id, lr.user_id, u.username, u.first_name, u.last_name, u.avatar_url, lr.display_name, lr.current_elo, lr.joined_at
+            ORDER BY lr.current_elo DESC
             LIMIT ? OFFSET ?
         `, [true, leagueId, limit, offset]);
 
         // Total members for pagination
         const totalRow = await database.get(
-            'SELECT COUNT(*) as count FROM league_members WHERE league_id = ?'
+            'SELECT COUNT(*) as count FROM league_roster WHERE league_id = ?'
         , [leagueId]);
         
         // Get top 3 badges for each user in leaderboard (filtered by league: show league-specific badges OR badges with no league_id)
@@ -718,7 +826,7 @@ router.get('/:id/matches', optionalAuth, validateId, validatePagination, async (
         
         if (!league.is_public && req.user) {
             const membership = await database.get(
-                'SELECT id FROM league_members WHERE league_id = ? AND user_id = ?',
+                'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
                 [leagueId, req.user.id]
             );
             
@@ -733,12 +841,17 @@ router.get('/:id/matches', optionalAuth, validateId, validatePagination, async (
             SELECT 
                 m.id, m.player1_sets_won, m.player2_sets_won, m.player1_points_total, m.player2_points_total,
                 m.game_type, m.winner_id, m.is_accepted, m.elo_applied, m.elo_applied_at, m.played_at,
-                p1.username as player1_username, p1.first_name as player1_first_name, p1.last_name as player1_last_name,
-                p2.username as player2_username, p2.first_name as player2_first_name, p2.last_name as player2_last_name,
+                m.player1_roster_id, m.player2_roster_id, m.winner_roster_id,
+                r1.display_name as player1_display_name,
+                r2.display_name as player2_display_name,
+                u1.id as player1_user_id, u1.username as player1_username,
+                u2.id as player2_user_id, u2.username as player2_username,
                 m.player1_elo_before, m.player2_elo_before, m.player1_elo_after, m.player2_elo_after
             FROM matches m
-            JOIN users p1 ON m.player1_id = p1.id
-            JOIN users p2 ON m.player2_id = p2.id
+            JOIN league_roster r1 ON m.player1_roster_id = r1.id
+            JOIN league_roster r2 ON m.player2_roster_id = r2.id
+            LEFT JOIN users u1 ON r1.user_id = u1.id
+            LEFT JOIN users u2 ON r2.user_id = u2.id
             WHERE m.league_id = ? AND m.is_accepted = ?
             ORDER BY m.played_at DESC
             LIMIT ? OFFSET ?
@@ -842,7 +955,7 @@ router.post('/:id/members/:userId/promote', authenticateToken, requireLeagueAdmi
         const userId = parseInt(req.params.userId);
 
         const membership = await database.get(
-            'SELECT id, is_admin FROM league_members WHERE league_id = ? AND user_id = ?',
+            'SELECT id, is_admin FROM league_roster WHERE league_id = ? AND user_id = ?',
             [leagueId, userId]
         );
         if (!membership) {
@@ -853,7 +966,7 @@ router.post('/:id/members/:userId/promote', authenticateToken, requireLeagueAdmi
         }
 
         await database.run(
-            'UPDATE league_members SET is_admin = ? WHERE league_id = ? AND user_id = ?',
+            'UPDATE league_roster SET is_admin = ? WHERE league_id = ? AND user_id = ?',
             [true, leagueId, userId]
         );
 
@@ -875,7 +988,7 @@ router.post('/:id/members/:userId/demote', authenticateToken, requireLeagueAdmin
         const userId = parseInt(req.params.userId);
 
         const membership = await database.get(
-            'SELECT id, is_admin FROM league_members WHERE league_id = ? AND user_id = ?',
+            'SELECT id, is_admin FROM league_roster WHERE league_id = ? AND user_id = ?',
             [leagueId, userId]
         );
         if (!membership) {
@@ -886,7 +999,7 @@ router.post('/:id/members/:userId/demote', authenticateToken, requireLeagueAdmin
         }
 
         const adminCount = await database.get(
-            'SELECT COUNT(*) as count FROM league_members WHERE league_id = ? AND is_admin = ?',
+            'SELECT COUNT(*) as count FROM league_roster WHERE league_id = ? AND is_admin = ?',
             [leagueId, true]
         );
         if (adminCount && adminCount.count <= 1) {
@@ -894,7 +1007,7 @@ router.post('/:id/members/:userId/demote', authenticateToken, requireLeagueAdmin
         }
 
         await database.run(
-            'UPDATE league_members SET is_admin = ? WHERE league_id = ? AND user_id = ?',
+            'UPDATE league_roster SET is_admin = ? WHERE league_id = ? AND user_id = ?',
             [false, leagueId, userId]
         );
 

@@ -128,7 +128,7 @@ export default function MatchDetailPage() {
   const canEdit = useMemo(() => {
     if (!match || match.is_accepted) return false;
     if (!me?.id) return false;
-    return me.id === match.player1_id || me.id === match.player2_id;
+    return me.id === match.player1_user_id || me.id === match.player2_user_id;
   }, [match, me?.id]);
 
   const load = async () => {
@@ -184,17 +184,17 @@ export default function MatchDetailPage() {
         try {
           const meId = me?.id;
           if (!meId) return setEloPreview(null);
-          const otherId = meId === match.player1_id ? match.player2_id : match.player1_id;
+          const otherRosterId = meId === match.player1_user_id ? match.player2_roster_id : match.player1_roster_id;
           const payload = {
             league_id: match.league_id,
-            player2_id: otherId,
+            player2_roster_id: otherRosterId,
             player1_sets_won: values.player1_sets_won,
             player2_sets_won: values.player2_sets_won,
             player1_points_total: Number.isFinite(+values.player1_points_total) ? +values.player1_points_total : 0,
             player2_points_total: Number.isFinite(+values.player2_points_total) ? +values.player2_points_total : 0,
           };
           if (
-            payload.league_id && payload.player2_id &&
+            payload.league_id && payload.player2_roster_id &&
             payload.player1_sets_won != null && payload.player2_sets_won != null
           ) {
             const { data } = await matchesAPI.previewElo(payload);
@@ -247,6 +247,9 @@ export default function MatchDetailPage() {
   );
   if (!match) return null;
 
+  const p1Name = match.player1_display_name || match.player1_username || 'Player 1';
+  const p2Name = match.player2_display_name || match.player2_username || 'Player 2';
+
   const deltaP1 = match.player1_elo_after != null && match.player1_elo_before != null ? match.player1_elo_after - match.player1_elo_before : null;
   const deltaP2 = match.player2_elo_after != null && match.player2_elo_before != null ? match.player2_elo_after - match.player2_elo_before : null;
 
@@ -259,7 +262,19 @@ export default function MatchDetailPage() {
 
       <Card className="mb-4">
         <CardHeader>
-          <CardTitle><Link to={`/profile/${match.player1_username}`} className="underline hover:no-underline">{match.player1_username}</Link> {t('common.vs')} <Link to={`/profile/${match.player2_username}`} className="underline hover:no-underline">{match.player2_username}</Link></CardTitle>
+          <CardTitle>
+            {match.player1_username ? (
+              <Link to={`/profile/${match.player1_username}`} className="underline hover:no-underline">{p1Name}</Link>
+            ) : (
+              <span>{p1Name}</span>
+            )}{' '}
+            {t('common.vs')}{' '}
+            {match.player2_username ? (
+              <Link to={`/profile/${match.player2_username}`} className="underline hover:no-underline">{p2Name}</Link>
+            ) : (
+              <span>{p2Name}</span>
+            )}
+          </CardTitle>
           <CardDescription>
             {match.played_at ? `${t('matchDetail.played')}: ${format(new Date(match.played_at), 'PP p')}` : `${t('matchDetail.created')}: ${format(new Date(match.created_at), 'PP p')}`}
           </CardDescription>
@@ -283,7 +298,7 @@ export default function MatchDetailPage() {
           {match.is_accepted && (
             <div className="grid gap-1 md:grid-cols-2">
               <div>
-                <div className="text-muted-foreground">{match.player1_username} ELO</div>
+                <div className="text-muted-foreground">{p1Name} ELO</div>
                 <div>
                   {match.player1_elo_before} → {match.player1_elo_after} {deltaP1 != null && (
                     <span className={deltaP1 > 0 ? 'text-green-600' : deltaP1 < 0 ? 'text-red-600' : 'text-muted-foreground'}>
@@ -293,7 +308,7 @@ export default function MatchDetailPage() {
                 </div>
               </div>
               <div>
-                <div className="text-muted-foreground">{match.player2_username} ELO</div>
+                <div className="text-muted-foreground">{p2Name} ELO</div>
                 <div>
                   {match.player2_elo_before} → {match.player2_elo_after} {deltaP2 != null && (
                     <span className={deltaP2 > 0 ? 'text-green-600' : deltaP2 < 0 ? 'text-red-600' : 'text-muted-foreground'}>
@@ -348,7 +363,7 @@ export default function MatchDetailPage() {
                   control={form.control}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{match.player1_username} sets won</FormLabel>
+                      <FormLabel>{p1Name} sets won</FormLabel>
                       <FormControl>
                         <Input type="number" min={0} max={4} {...field} onChange={(e) => field.onChange(Number(e.target.value))} disabled={!canEdit} />
                       </FormControl>
@@ -361,7 +376,7 @@ export default function MatchDetailPage() {
                   control={form.control}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{match.player2_username} sets won</FormLabel>
+                      <FormLabel>{p2Name} sets won</FormLabel>
                       <FormControl>
                         <Input type="number" min={0} max={4} {...field} onChange={(e) => field.onChange(Number(e.target.value))} disabled={!canEdit} />
                       </FormControl>
@@ -387,7 +402,7 @@ export default function MatchDetailPage() {
                             setSetScores((arr) => arr.map((it, i) => (i === idx ? { ...it, p1: Number.isFinite(v) ? v : 0 } : it)));
                           }}
                           className="w-14 h-8 px-2 text-sm"
-                          aria-label={`${match.player1_username} points in set ${idx + 1}`}
+                          aria-label={`${p1Name} points in set ${idx + 1}`}
                           style={getSetClosenessStyle(s.p1, s.p2)}
                         />
                         <span className="text-sm">:</span>
@@ -400,7 +415,7 @@ export default function MatchDetailPage() {
                             setSetScores((arr) => arr.map((it, i) => (i === idx ? { ...it, p2: Number.isFinite(v) ? v : 0 } : it)));
                           }}
                           className="w-14 h-8 px-2 text-sm"
-                          aria-label={`${match.player2_username} points in set ${idx + 1}`}
+                          aria-label={`${p2Name} points in set ${idx + 1}`}
                           style={getSetClosenessStyle(s.p1, s.p2)}
                         />
                       </div>
@@ -427,7 +442,7 @@ export default function MatchDetailPage() {
                   control={form.control}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{match.player1_username} total points (auto)</FormLabel>
+                      <FormLabel>{p1Name} total points (auto)</FormLabel>
                       <FormControl>
                         <Input type="number" min={0} {...field} readOnly disabled />
                       </FormControl>
@@ -441,7 +456,7 @@ export default function MatchDetailPage() {
                   control={form.control}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{match.player2_username} total points (auto)</FormLabel>
+                      <FormLabel>{p2Name} total points (auto)</FormLabel>
                       <FormControl>
                         <Input type="number" min={0} {...field} readOnly disabled />
                       </FormControl>
@@ -460,7 +475,7 @@ export default function MatchDetailPage() {
                   ) : (
                     <div className="grid gap-2 md:grid-cols-2">
                       <div>
-                        <div className="text-muted-foreground">{match.player1_username}</div>
+                        <div className="text-muted-foreground">{p1Name}</div>
                         <div>
                           {eloPreview.current_elos?.player1} → {eloPreview.new_elos?.player1}{' '}
                           <span className={(() => {
@@ -472,7 +487,7 @@ export default function MatchDetailPage() {
                         </div>
                       </div>
                       <div>
-                        <div className="text-muted-foreground">{match.player2_username}</div>
+                        <div className="text-muted-foreground">{p2Name}</div>
                         <div>
                           {eloPreview.current_elos?.player2} → {eloPreview.new_elos?.player2}{' '}
                           <span className={(() => {

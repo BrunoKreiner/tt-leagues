@@ -56,13 +56,16 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
             users = await database.all(`
                 SELECT 
                     u.id, u.username, u.first_name, u.last_name, u.email, u.is_admin, u.created_at,
-                    COUNT(DISTINCT lm.league_id) as leagues_count,
-                    COUNT(DISTINCT CASE WHEN m.player1_id = u.id OR m.player2_id = u.id THEN m.id END) as matches_played
+                    COALESCE((SELECT COUNT(DISTINCT lr2.league_id) FROM league_roster lr2 WHERE lr2.user_id = u.id), 0) as leagues_count,
+                    COALESCE((
+                        SELECT COUNT(DISTINCT m2.id)
+                        FROM matches m2
+                        JOIN league_roster r1 ON m2.player1_roster_id = r1.id
+                        JOIN league_roster r2 ON m2.player2_roster_id = r2.id
+                        WHERE m2.is_accepted = ? AND (r1.user_id = u.id OR r2.user_id = u.id)
+                    ), 0) as matches_played
                 FROM users u
-                LEFT JOIN league_members lm ON u.id = lm.user_id
-                LEFT JOIN matches m ON (m.player1_id = u.id OR m.player2_id = u.id) AND m.is_accepted = ?
                 ${whereClause}
-                GROUP BY u.id, u.username, u.first_name, u.last_name, u.email, u.is_admin, u.created_at
                 ORDER BY u.created_at DESC
                 LIMIT ? OFFSET ?
             `, [true, ...params, limit, offset]);
@@ -115,15 +118,23 @@ router.get('/:id', authenticateToken, validateId, async (req, res) => {
             SELECT 
                 u.id, u.username, u.first_name, u.last_name, u.email, u.is_admin, u.created_at,
                 u.forehand_rubber, u.backhand_rubber, u.blade_wood, u.playstyle, u.strengths, u.weaknesses, u.goals,
-                COUNT(DISTINCT lm.league_id) as leagues_count,
-                COUNT(DISTINCT CASE WHEN m.player1_id = u.id OR m.player2_id = u.id THEN m.id END) as matches_played,
-                COUNT(DISTINCT CASE WHEN m.winner_id = u.id THEN m.id END) as matches_won
+                COALESCE((SELECT COUNT(DISTINCT lr2.league_id) FROM league_roster lr2 WHERE lr2.user_id = u.id), 0) as leagues_count,
+                COALESCE((
+                    SELECT COUNT(DISTINCT m2.id)
+                    FROM matches m2
+                    JOIN league_roster r1 ON m2.player1_roster_id = r1.id
+                    JOIN league_roster r2 ON m2.player2_roster_id = r2.id
+                    WHERE m2.is_accepted = ? AND (r1.user_id = u.id OR r2.user_id = u.id)
+                ), 0) as matches_played,
+                COALESCE((
+                    SELECT COUNT(DISTINCT m3.id)
+                    FROM matches m3
+                    JOIN league_roster me ON me.user_id = u.id AND me.league_id = m3.league_id
+                    WHERE m3.is_accepted = ? AND m3.winner_roster_id = me.id
+                ), 0) as matches_won
             FROM users u
-            LEFT JOIN league_members lm ON u.id = lm.user_id
-            LEFT JOIN matches m ON (m.player1_id = u.id OR m.player2_id = u.id) AND m.is_accepted = ?
             WHERE u.id = ?
-            GROUP BY u.id
-        `, [true, userId]);
+        `, [true, true, userId]);
         
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
@@ -132,26 +143,26 @@ router.get('/:id', authenticateToken, validateId, async (req, res) => {
         // Get user's leagues
         const leagues = await database.all(`
             SELECT 
-                l.id, l.name, l.season, lm.current_elo, lm.is_admin as is_league_admin, lm.joined_at
+                l.id, l.name, l.season, lr.current_elo, lr.is_admin as is_league_admin, lr.joined_at, lr.display_name
             FROM leagues l
-            JOIN league_members lm ON l.id = lm.league_id
-            WHERE lm.user_id = ? AND l.is_active = ?
-            ORDER BY lm.joined_at DESC
+            JOIN league_roster lr ON l.id = lr.league_id
+            WHERE lr.user_id = ? AND l.is_active = ?
+            ORDER BY lr.joined_at DESC
         `, [userId, true]);
         
         // Get recent matches
         const recentMatches = await database.all(`
             SELECT 
                 m.id, m.league_id, m.player1_sets_won, m.player2_sets_won, 
-                m.winner_id, m.played_at, m.is_accepted,
+                m.winner_roster_id, m.played_at, m.is_accepted,
                 l.name as league_name,
-                p1.username as player1_username,
-                p2.username as player2_username
+                r1.display_name as player1_display_name,
+                r2.display_name as player2_display_name
             FROM matches m
             JOIN leagues l ON m.league_id = l.id
-            JOIN users p1 ON m.player1_id = p1.id
-            JOIN users p2 ON m.player2_id = p2.id
-            WHERE (m.player1_id = ? OR m.player2_id = ?) AND m.is_accepted = ?
+            JOIN league_roster r1 ON m.player1_roster_id = r1.id
+            JOIN league_roster r2 ON m.player2_roster_id = r2.id
+            WHERE (r1.user_id = ? OR r2.user_id = ?) AND m.is_accepted = ?
             ORDER BY m.played_at DESC
             LIMIT 10
         `, [userId, userId, true]);
@@ -308,30 +319,39 @@ router.get('/:id/stats', authenticateToken, validateId, async (req, res) => {
         // Get overall stats
         const overallStats = await database.get(`
             SELECT 
-                COUNT(DISTINCT lm.league_id) as leagues_count,
-                COUNT(DISTINCT CASE WHEN m.player1_id = ? OR m.player2_id = ? THEN m.id END) as matches_played,
-                COUNT(DISTINCT CASE WHEN m.winner_id = ? THEN m.id END) as matches_won,
-                AVG(lm.current_elo) as average_elo
+                COALESCE((SELECT COUNT(DISTINCT lr2.league_id) FROM league_roster lr2 WHERE lr2.user_id = ?), 0) as leagues_count,
+                COALESCE((
+                    SELECT COUNT(DISTINCT m2.id)
+                    FROM matches m2
+                    JOIN league_roster r1 ON m2.player1_roster_id = r1.id
+                    JOIN league_roster r2 ON m2.player2_roster_id = r2.id
+                    WHERE m2.is_accepted = ? AND (r1.user_id = ? OR r2.user_id = ?)
+                ), 0) as matches_played,
+                COALESCE((
+                    SELECT COUNT(DISTINCT m3.id)
+                    FROM matches m3
+                    JOIN league_roster me ON me.user_id = ? AND me.league_id = m3.league_id
+                    WHERE m3.is_accepted = ? AND m3.winner_roster_id = me.id
+                ), 0) as matches_won,
+                COALESCE((SELECT AVG(lr3.current_elo) FROM league_roster lr3 WHERE lr3.user_id = ?), 1200) as average_elo
             FROM users u
-            LEFT JOIN league_members lm ON u.id = lm.user_id
-            LEFT JOIN matches m ON (m.player1_id = u.id OR m.player2_id = u.id) AND m.is_accepted = ?
             WHERE u.id = ?
-        `, [userId, userId, userId, true, userId]);
+        `, [userId, true, userId, userId, userId, true, userId, userId, userId]);
         
         // Get league-specific stats
         const leagueStats = await database.all(`
             SELECT 
                 l.id, l.name, l.season,
-                lm.current_elo, lm.is_admin as is_league_admin,
-                COUNT(CASE WHEN m.player1_id = ? OR m.player2_id = ? THEN m.id END) as matches_played,
-                COUNT(CASE WHEN m.winner_id = ? THEN m.id END) as matches_won
+                lr.current_elo, lr.is_admin as is_league_admin,
+                COUNT(CASE WHEN m.player1_roster_id = lr.id OR m.player2_roster_id = lr.id THEN m.id END) as matches_played,
+                COUNT(CASE WHEN m.winner_roster_id = lr.id THEN m.id END) as matches_won
             FROM leagues l
-            JOIN league_members lm ON l.id = lm.league_id
-            LEFT JOIN matches m ON m.league_id = l.id AND (m.player1_id = ? OR m.player2_id = ?) AND m.is_accepted = ?
-            WHERE lm.user_id = ?
-            GROUP BY l.id, l.name, l.season, lm.current_elo, lm.is_admin
-            ORDER BY lm.current_elo DESC
-        `, [userId, userId, userId, userId, userId, true, userId]);
+            JOIN league_roster lr ON l.id = lr.league_id
+            LEFT JOIN matches m ON m.league_id = l.id AND (m.player1_roster_id = lr.id OR m.player2_roster_id = lr.id) AND m.is_accepted = ?
+            WHERE lr.user_id = ?
+            GROUP BY l.id, l.name, l.season, lr.current_elo, lr.is_admin, lr.id
+            ORDER BY lr.current_elo DESC
+        `, [true, userId]);
         
         // Get user badges
         let badges = [];
@@ -404,21 +424,21 @@ router.get('/:id/timeline-stats', authenticateToken, validateId, async (req, res
         if (isPg) {
             leaguesQuery = `
                 SELECT 
-                    TO_CHAR(DATE_TRUNC('month', lm.joined_at), 'YYYY-MM') as month,
-                    COUNT(DISTINCT lm.league_id) as leagues_count
-                FROM league_members lm
-                WHERE lm.user_id = ?
-                GROUP BY DATE_TRUNC('month', lm.joined_at)
+                    TO_CHAR(DATE_TRUNC('month', lr.joined_at), 'YYYY-MM') as month,
+                    COUNT(DISTINCT lr.league_id) as leagues_count
+                FROM league_roster lr
+                WHERE lr.user_id = ?
+                GROUP BY DATE_TRUNC('month', lr.joined_at)
                 ORDER BY month ASC
             `;
         } else {
             leaguesQuery = `
                 SELECT 
-                    strftime('%Y-%m', lm.joined_at) as month,
-                    COUNT(DISTINCT lm.league_id) as leagues_count
-                FROM league_members lm
-                WHERE lm.user_id = ?
-                GROUP BY strftime('%Y-%m', lm.joined_at)
+                    strftime('%Y-%m', lr.joined_at) as month,
+                    COUNT(DISTINCT lr.league_id) as leagues_count
+                FROM league_roster lr
+                WHERE lr.user_id = ?
+                GROUP BY strftime('%Y-%m', lr.joined_at)
                 ORDER BY month ASC
             `;
         }
@@ -430,9 +450,10 @@ router.get('/:id/timeline-stats', authenticateToken, validateId, async (req, res
                 SELECT 
                     TO_CHAR(DATE_TRUNC('month', m.played_at), 'YYYY-MM') as month,
                     COUNT(*) as matches_played,
-                    COUNT(CASE WHEN m.winner_id = ? THEN 1 END) as matches_won
+                    COUNT(CASE WHEN m.winner_roster_id = me.id THEN 1 END) as matches_won
                 FROM matches m
-                WHERE (m.player1_id = ? OR m.player2_id = ?) 
+                JOIN league_roster me ON me.user_id = ? AND me.league_id = m.league_id
+                WHERE (m.player1_roster_id = me.id OR m.player2_roster_id = me.id)
                     AND m.is_accepted = true
                 GROUP BY DATE_TRUNC('month', m.played_at)
                 ORDER BY month ASC
@@ -442,9 +463,10 @@ router.get('/:id/timeline-stats', authenticateToken, validateId, async (req, res
                 SELECT 
                     strftime('%Y-%m', m.played_at) as month,
                     COUNT(*) as matches_played,
-                    COUNT(CASE WHEN m.winner_id = ? THEN 1 END) as matches_won
+                    COUNT(CASE WHEN m.winner_roster_id = me.id THEN 1 END) as matches_won
                 FROM matches m
-                WHERE (m.player1_id = ? OR m.player2_id = ?) 
+                JOIN league_roster me ON me.user_id = ? AND me.league_id = m.league_id
+                WHERE (m.player1_roster_id = me.id OR m.player2_roster_id = me.id)
                     AND m.is_accepted = 1
                 GROUP BY strftime('%Y-%m', m.played_at)
                 ORDER BY month ASC
@@ -478,7 +500,7 @@ router.get('/:id/timeline-stats', authenticateToken, validateId, async (req, res
         // Execute queries - database abstraction handles ? to $1 conversion automatically
         const [leaguesData, matchesData, eloData] = await Promise.all([
             database.all(leaguesQuery, [userId]),
-            database.all(matchesQuery, [userId, userId, userId]),
+            database.all(matchesQuery, [userId]),
             database.all(eloQuery, [userId])
         ]);
         
@@ -598,7 +620,7 @@ router.get('/:id/elo-history', optionalAuth, validateId, validatePagination, asy
             }
             
             const membership = await database.get(
-                'SELECT id FROM league_members WHERE league_id = ? AND user_id = ?',
+                'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
                 [league_id, req.user.id]
             );
             
@@ -613,32 +635,33 @@ router.get('/:id/elo-history', optionalAuth, validateId, validatePagination, asy
                 eh.recorded_at, eh.elo_before, eh.elo_after, 
                 (eh.elo_after - eh.elo_before) as elo_change,
                 eh.match_id, m.played_at,
-                p1.username as opponent_username,
+                opp.display_name as opponent_display_name,
                 CASE 
-                    WHEN m.player1_id = ? THEN m.player1_sets_won
+                    WHEN m.player1_roster_id = me.id THEN m.player1_sets_won
                     ELSE m.player2_sets_won
                 END as user_sets_won,
                 CASE 
-                    WHEN m.player1_id = ? THEN m.player2_sets_won
+                    WHEN m.player1_roster_id = me.id THEN m.player2_sets_won
                     ELSE m.player1_sets_won
                 END as opponent_sets_won,
                 CASE 
-                    WHEN m.winner_id = ? THEN 'W'
-                    WHEN m.winner_id IS NOT NULL THEN 'L'
+                    WHEN m.winner_roster_id = me.id THEN 'W'
+                    WHEN m.winner_roster_id IS NOT NULL THEN 'L'
                     ELSE 'D'
                 END as result
             FROM elo_history eh
             JOIN matches m ON eh.match_id = m.id
-            JOIN users p1 ON (
-                CASE 
-                    WHEN m.player1_id = ? THEN m.player2_id
-                    ELSE m.player1_id
-                END = p1.id
+            JOIN league_roster me ON me.user_id = ? AND me.league_id = m.league_id
+            JOIN league_roster opp ON (
+                CASE
+                    WHEN m.player1_roster_id = me.id THEN m.player2_roster_id
+                    ELSE m.player1_roster_id
+                END = opp.id
             )
             WHERE eh.user_id = ? AND eh.league_id = ?
         `;
         
-        const params = [userId, userId, userId, userId, userId, league_id];
+        const params = [userId, userId, league_id];
         
         // Get total count for pagination
         const countQuery = `
@@ -663,7 +686,7 @@ router.get('/:id/elo-history', optionalAuth, validateId, validatePagination, asy
                 elo_change: item.elo_change,
                 match_id: item.match_id,
                 played_at: item.played_at,
-                opponent_username: item.opponent_username,
+                opponent_display_name: item.opponent_display_name,
                 user_sets_won: item.user_sets_won,
                 opponent_sets_won: item.opponent_sets_won,
                 result: item.result
@@ -706,23 +729,23 @@ router.get('/profile/:username', async (req, res) => {
         // Get user's league rankings
         const leagueRankings = await database.all(`
             SELECT 
-                l.id as league_id, l.name as league_name, lm.current_elo, lm.is_admin as is_league_admin,
-                COUNT(CASE WHEN m.player1_id = ? OR m.player2_id = ? THEN m.id END) as matches_played,
-                COUNT(CASE WHEN m.winner_id = ? THEN m.id END) as matches_won
+                l.id as league_id, l.name as league_name, lr.current_elo, lr.is_admin as is_league_admin,
+                COUNT(CASE WHEN m.player1_roster_id = lr.id OR m.player2_roster_id = lr.id THEN m.id END) as matches_played,
+                COUNT(CASE WHEN m.winner_roster_id = lr.id THEN m.id END) as matches_won
             FROM leagues l
-            JOIN league_members lm ON l.id = lm.league_id
-            LEFT JOIN matches m ON m.league_id = l.id AND (m.player1_id = ? OR m.player2_id = ?) AND m.is_accepted = ?
-            WHERE lm.user_id = ? AND l.is_active = ?
-            GROUP BY l.id, l.name, lm.current_elo, lm.is_admin
-            ORDER BY lm.current_elo DESC
-        `, [user.id, user.id, user.id, user.id, user.id, true, user.id, true]);
+            JOIN league_roster lr ON l.id = lr.league_id
+            LEFT JOIN matches m ON m.league_id = l.id AND (m.player1_roster_id = lr.id OR m.player2_roster_id = lr.id) AND m.is_accepted = ?
+            WHERE lr.user_id = ? AND l.is_active = ?
+            GROUP BY l.id, l.name, lr.current_elo, lr.is_admin, lr.id
+            ORDER BY lr.current_elo DESC
+        `, [true, user.id, true]);
         
         // Calculate rank for each league
         const rankingsWithRank = await Promise.all(leagueRankings.map(async (league) => {
             const rankResult = await database.get(`
                 SELECT COUNT(*) + 1 as rank
-                FROM league_members lm2
-                WHERE lm2.league_id = ? AND lm2.current_elo > ?
+                FROM league_roster lr2
+                WHERE lr2.league_id = ? AND lr2.current_elo > ?
             `, [league.league_id, league.current_elo]);
             
             const winRate = league.matches_played > 0 
@@ -741,27 +764,28 @@ router.get('/profile/:username', async (req, res) => {
             SELECT 
                 m.id, l.name as league_name,
                 CASE 
-                    WHEN m.player1_id = ? THEN p2.username
-                    ELSE p1.username
-                END as opponent_username,
+                    WHEN m.player1_roster_id = me.id THEN r2.display_name
+                    ELSE r1.display_name
+                END as opponent_display_name,
                 CASE 
-                    WHEN m.winner_id = ? THEN 'W'
-                    WHEN m.winner_id IS NOT NULL THEN 'L'
+                    WHEN m.winner_roster_id = me.id THEN 'W'
+                    WHEN m.winner_roster_id IS NOT NULL THEN 'L'
                     ELSE 'D'
                 END as result,
                 m.played_at,
                 CASE 
-                    WHEN m.player1_id = ? THEN (m.player1_elo_after - m.player1_elo_before)
+                    WHEN m.player1_roster_id = me.id THEN (m.player1_elo_after - m.player1_elo_before)
                     ELSE (m.player2_elo_after - m.player2_elo_before)
                 END as elo_change
             FROM matches m
             JOIN leagues l ON m.league_id = l.id
-            JOIN users p1 ON m.player1_id = p1.id
-            JOIN users p2 ON m.player2_id = p2.id
-            WHERE (m.player1_id = ? OR m.player2_id = ?) AND m.is_accepted = ?
+            JOIN league_roster r1 ON m.player1_roster_id = r1.id
+            JOIN league_roster r2 ON m.player2_roster_id = r2.id
+            JOIN league_roster me ON me.user_id = ? AND me.league_id = m.league_id
+            WHERE (m.player1_roster_id = me.id OR m.player2_roster_id = me.id) AND m.is_accepted = ?
             ORDER BY m.played_at DESC
             LIMIT 10
-        `, [user.id, user.id, user.id, user.id, user.id, true]);
+        `, [user.id, true]);
         
         // Get user's badges (with error handling for missing tables)
         let badges = [];
@@ -785,14 +809,23 @@ router.get('/profile/:username', async (req, res) => {
         // Calculate overall stats
         const overallStats = await database.get(`
             SELECT 
-                COUNT(DISTINCT lm.league_id) as leagues_count,
-                COUNT(DISTINCT CASE WHEN m.player1_id = ? OR m.player2_id = ? THEN m.id END) as matches_played,
-                COUNT(DISTINCT CASE WHEN m.winner_id = ? THEN m.id END) as matches_won
+                COALESCE((SELECT COUNT(DISTINCT lr2.league_id) FROM league_roster lr2 WHERE lr2.user_id = ?), 0) as leagues_count,
+                COALESCE((
+                    SELECT COUNT(DISTINCT m2.id)
+                    FROM matches m2
+                    JOIN league_roster r1 ON m2.player1_roster_id = r1.id
+                    JOIN league_roster r2 ON m2.player2_roster_id = r2.id
+                    WHERE m2.is_accepted = ? AND (r1.user_id = ? OR r2.user_id = ?)
+                ), 0) as matches_played,
+                COALESCE((
+                    SELECT COUNT(DISTINCT m3.id)
+                    FROM matches m3
+                    JOIN league_roster me ON me.user_id = ? AND me.league_id = m3.league_id
+                    WHERE m3.is_accepted = ? AND m3.winner_roster_id = me.id
+                ), 0) as matches_won
             FROM users u
-            LEFT JOIN league_members lm ON u.id = lm.user_id
-            LEFT JOIN matches m ON (m.player1_id = ? OR m.player2_id = ?) AND m.is_accepted = ?
             WHERE u.id = ?
-        `, [user.id, user.id, user.id, user.id, user.id, true, user.id]);
+        `, [user.id, true, user.id, user.id, user.id, true, user.id, user.id]);
         
         const winRate = overallStats.matches_played > 0 
             ? Math.round((overallStats.matches_won * 100) / overallStats.matches_played)

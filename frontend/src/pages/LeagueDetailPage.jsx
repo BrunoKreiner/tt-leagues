@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { leaguesAPI, matchesAPI } from '@/services/api';
-import { badgesAPI } from '@/services/api';
+import { leaguesAPI, matchesAPI, badgesAPI } from '@/services/api';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -587,15 +586,23 @@ const LeagueDetailPage = () => {
                   <div key={m.id} className="flex flex-col items-center min-w-fit px-2">
                     {/* Score Line */}
                     <div className="flex items-center gap-2 whitespace-nowrap">
-                      <Link to={`/profile/${m.player1_username}`} className="text-blue-400 hover:text-blue-300 font-medium">
-                        {m.player1_username}
-                      </Link>
+                      {m.player1_username ? (
+                        <Link to={`/profile/${m.player1_username}`} className="text-blue-400 hover:text-blue-300 font-medium">
+                          {m.player1_display_name || m.player1_username}
+                        </Link>
+                      ) : (
+                        <span className="text-gray-200 font-medium">{m.player1_display_name}</span>
+                      )}
                       <span className="text-gray-300 font-bold">{m.player1_sets_won}</span>
                       <span className="text-gray-500">:</span>
                       <span className="text-gray-300 font-bold">{m.player2_sets_won}</span>
-                      <Link to={`/profile/${m.player2_username}`} className="text-blue-400 hover:text-blue-300 font-medium">
-                        {m.player2_username}
-                      </Link>
+                      {m.player2_username ? (
+                        <Link to={`/profile/${m.player2_username}`} className="text-blue-400 hover:text-blue-300 font-medium">
+                          {m.player2_display_name || m.player2_username}
+                        </Link>
+                      ) : (
+                        <span className="text-gray-200 font-medium">{m.player2_display_name}</span>
+                      )}
                     </div>
                     
                     {/* ELO Points Line */}
@@ -659,7 +666,7 @@ const LeagueDetailPage = () => {
                   <div className="sm:hidden space-y-2">
                     {leaderboard.map((p) => (
                       <div
-                        key={p.id}
+                        key={p.roster_id}
                         className="rounded-lg border border-gray-800 bg-gray-900/30 p-2"
                       >
                         <div className="flex items-start gap-2 min-w-0">
@@ -675,13 +682,19 @@ const LeagueDetailPage = () => {
 
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2 min-w-0">
-                              <Link
-                                to={`/profile/${p.username}`}
-                                className="min-w-0 truncate text-blue-400 hover:text-blue-300 font-medium text-sm"
-                                title={p.username}
-                              >
-                                {p.username}
-                              </Link>
+                              {p.username ? (
+                                <Link
+                                  to={`/profile/${p.username}`}
+                                  className="min-w-0 truncate text-blue-400 hover:text-blue-300 font-medium text-sm"
+                                  title={p.display_name || p.username}
+                                >
+                                  {p.display_name || p.username}
+                                </Link>
+                              ) : (
+                                <span className="min-w-0 truncate text-gray-200 font-medium text-sm" title={p.display_name}>
+                                  {p.display_name}
+                                </span>
+                              )}
                               <div className="shrink-0 text-sm text-gray-200 font-semibold tabular-nums whitespace-nowrap">
                                 {t('leagues.elo')}: {p.current_elo}
                               </div>
@@ -696,7 +709,11 @@ const LeagueDetailPage = () => {
                                 <span>{p.win_rate}%</span>
                               </div>
                               <div className="shrink-0">
-                                <EloSparkline userId={p.id} leagueId={id} width={72} height={14} points={15} />
+                                {p.user_id ? (
+                                  <EloSparkline userId={p.user_id} leagueId={id} width={72} height={14} points={15} />
+                                ) : (
+                                  <span className="text-xs text-gray-500">—</span>
+                                )}
                               </div>
                             </div>
 
@@ -729,8 +746,8 @@ const LeagueDetailPage = () => {
                       </thead>
                       <tbody>
                         {leaderboard.map((p) => (
-                          <tr key={p.id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
-                            <td className="px-3 py-2 align-middle">
+                          <tr key={p.roster_id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                            <td className="px-3 py-4 align-middle">
                               {p.rank <= 3 ? (
                                 <MedalIcon rank={p.rank} size={32} userAvatar={p.avatar_url} />
                               ) : (
@@ -739,13 +756,13 @@ const LeagueDetailPage = () => {
                             </td>
                             <td className="px-3 py-2 min-w-0 align-middle">
                               <div className="flex items-center gap-2 min-w-0">
-                                <Link
-                                  to={`/profile/${p.username}`}
-                                  className="text-blue-400 hover:text-blue-300 font-medium truncate"
-                                  title={p.username}
-                                >
-                                  {p.username}
-                                </Link>
+                                {p.username ? (
+                                  <Link to={`/profile/${p.username}`} className="text-blue-400 hover:text-blue-300 font-medium truncate">
+                                    {p.display_name || p.username}
+                                  </Link>
+                                ) : (
+                                  <span className="text-gray-200 text-lg font-medium truncate">{p.display_name}</span>
+                                )}
                                 {p.badges && p.badges.length > 0 && (
                                   <BadgeList
                                     badges={p.badges}
@@ -759,7 +776,11 @@ const LeagueDetailPage = () => {
                             </td>
                             <td className="px-3 py-2 text-gray-200 font-medium tabular-nums whitespace-nowrap align-middle">{p.current_elo}</td>
                             <td className="px-3 py-2 align-middle">
-                              <EloSparkline userId={p.id} leagueId={id} width={56} height={14} points={15} />
+                              {p.user_id ? (
+                                <EloSparkline userId={p.user_id} leagueId={id} width={56} height={14} points={15} />
+                              ) : (
+                                <span className="text-xs text-gray-500">—</span>
+                              )}
                             </td>
                             <td className="px-3 py-2 text-gray-200 tabular-nums whitespace-nowrap align-middle text-xs">
                               <span className="text-gray-300">{p.matches_won}/{p.matches_played - p.matches_won}</span>
@@ -888,14 +909,20 @@ const LeagueDetailPage = () => {
                     </thead>
                     <tbody>
                       {members.map((m) => (
-                        <tr key={m.id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
-                          <td className="px-2 sm:px-3 py-2">
+                        <tr key={m.roster_id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                          <td className="px-3 sm:px-3 py-2">
                             <div className="flex flex-col">
                               <span className="font-medium">
-                                <Link to={`/profile/${m.username}`} className="text-blue-400 hover:text-blue-300">{m.username}</Link>
+                                {m.username ? (
+                                  <Link to={`/profile/${m.username}`} className="text-blue-400 hover:text-blue-300">
+                                    {m.display_name}
+                                  </Link>
+                                ) : (
+                                  <span className="text-gray-200">{m.display_name}</span>
+                                )}
                               </span>
-                              {(m.first_name || m.last_name) && (
-                                <span className="text-xs text-gray-500">{[m.first_name, m.last_name].filter(Boolean).join(' ')}</span>
+                              {m.username && (
+                                <span className="text-xs text-gray-500">@{m.username}</span>
                               )}
                             </div>
                           </td>
@@ -908,23 +935,25 @@ const LeagueDetailPage = () => {
                           </td>
                           <td className="px-2 sm:px-3 py-2 text-gray-300 hidden md:table-cell">{m.joined_at ? format(new Date(m.joined_at), 'PP') : '-'}</td>
                           <td className="px-2 sm:px-3 py-2 text-right">
-                            {m.is_league_admin ? (
+                            {!m.user_id ? (
+                              <span className="text-xs text-gray-500">—</span>
+                            ) : m.is_league_admin ? (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleDemote(m.id, m.username)}
-                                disabled={!!roleChanging[m.id] || members.filter((x) => x.is_league_admin).length <= 1}
+                                onClick={() => handleDemote(m.user_id, m.display_name)}
+                                disabled={!!roleChanging[m.user_id] || members.filter((x) => x.is_league_admin && x.user_id).length <= 1}
                               >
-                                {roleChanging[m.id] ? t('status.updating') : t('leagues.demote')}
+                                {roleChanging[m.user_id] ? t('status.updating') : t('leagues.demote')}
                               </Button>
                             ) : (
                               <Button
                                 variant="secondary"
                                 size="sm"
-                                onClick={() => handlePromote(m.id, m.username)}
-                                disabled={!!roleChanging[m.id]}
+                                onClick={() => handlePromote(m.user_id, m.display_name)}
+                                disabled={!!roleChanging[m.user_id]}
                               >
-                                {roleChanging[m.id] ? t('status.updating') : t('leagues.promote')}
+                                {roleChanging[m.user_id] ? t('status.updating') : t('leagues.promote')}
                               </Button>
                             )}
                           </td>
@@ -952,9 +981,9 @@ const LeagueDetailPage = () => {
                       <SelectValue placeholder="Select member" />
                     </SelectTrigger>
                     <SelectContent>
-                      {members.map((m) => (
-                        <SelectItem key={m.id} value={String(m.id)}>
-                          {m.username}
+                      {members.filter((m) => m.user_id).map((m) => (
+                        <SelectItem key={m.user_id} value={String(m.user_id)}>
+                          {m.display_name || m.username}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -999,7 +1028,7 @@ const LeagueDetailPage = () => {
                       onValueChange={(userId) => setInviteUserId(userId ? parseInt(userId) : null)}
                       placeholder="Search and select user..."
                       disabled={inviteLoading}
-                      excludeUserIds={members.map(m => m.id)}
+                      excludeUserIds={members.map(m => m.user_id).filter(Boolean)}
                     />
                   </div>
                   <Button type="submit" disabled={inviteLoading || !inviteUserId} className="w-full sm:w-auto">

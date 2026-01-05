@@ -299,7 +299,7 @@ router.post('/users/:id/badges', authenticateToken, validateId, async (req, res)
             }
 
             const membership = await database.get(
-                'SELECT is_admin FROM league_members WHERE league_id = ? AND user_id = ?',
+                'SELECT is_admin FROM league_roster WHERE league_id = ? AND user_id = ?',
                 [leagueIdInt, req.user.id]
             );
 
@@ -346,7 +346,7 @@ router.post('/users/:id/badges', authenticateToken, validateId, async (req, res)
             
             // Validate user is a member of the league
             const membership = await database.get(
-                'SELECT id FROM league_members WHERE league_id = ? AND user_id = ?',
+                'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
                 [league_id, userId]
             );
             

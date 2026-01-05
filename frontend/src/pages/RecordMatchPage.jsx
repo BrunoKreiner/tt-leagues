@@ -33,7 +33,7 @@ const MAX_SETS_BY_TYPE = {
 
 const schema = z.object({
   league_id: z.coerce.number().int().positive({ message: 'Select a league' }),
-  player2_id: z.coerce.number().int().positive({ message: 'Select an opponent' }),
+  player2_roster_id: z.coerce.number().int().positive({ message: 'Select an opponent' }),
   game_type: z.enum(['best_of_1', 'best_of_3', 'best_of_5', 'best_of_7']),
   player1_sets_won: z.coerce.number().int().min(0).max(4),
   player2_sets_won: z.coerce.number().int().min(0).max(4),
@@ -69,7 +69,7 @@ export default function RecordMatchPage() {
     resolver: zodResolver(schema),
     defaultValues: {
       league_id: undefined,
-      player2_id: undefined,
+      player2_roster_id: undefined,
       game_type: 'best_of_3',
       player1_sets_won: 2,
       player2_sets_won: 1,
@@ -196,7 +196,7 @@ export default function RecordMatchPage() {
         const leagueId = values.league_id;
         if (!leagueId) {
           setMembers([]);
-          form.setValue('player2_id', undefined);
+          form.setValue('player2_roster_id', undefined);
           setEloPreview(null);
           return;
         }
@@ -204,11 +204,11 @@ export default function RecordMatchPage() {
           setLoadingMembers(true);
           const { data } = await leaguesAPI.getMembers(leagueId);
           const arr = (data.members || data) || [];
-          const filtered = arr.filter((m) => m.id !== me?.id);
+          const filtered = arr.filter((m) => m.user_id !== me?.id);
           setMembers(filtered);
           // Clear opponent if not in list
-          if (filtered.findIndex((m) => m.id === values.player2_id) === -1) {
-            form.setValue('player2_id', undefined);
+          if (filtered.findIndex((m) => m.roster_id === values.player2_roster_id) === -1) {
+            form.setValue('player2_roster_id', undefined);
           }
         } catch (e) {
           console.error('Failed to load members', e);
@@ -226,15 +226,15 @@ export default function RecordMatchPage() {
     const subscription = form.watch((values) => {
       if (previewTimer.current) clearTimeout(previewTimer.current);
       previewTimer.current = setTimeout(async () => {
-        const { league_id, player2_id, player1_sets_won, player2_sets_won, player1_points_total, player2_points_total } = values;
-        if (!league_id || !player2_id || player1_sets_won == null || player2_sets_won == null) {
+        const { league_id, player2_roster_id, player1_sets_won, player2_sets_won, player1_points_total, player2_points_total } = values;
+        if (!league_id || !player2_roster_id || player1_sets_won == null || player2_sets_won == null) {
           setEloPreview(null);
           return;
         }
         try {
           const payload = {
             league_id,
-            player2_id,
+            player2_roster_id,
             player1_sets_won,
             player2_sets_won,
             player1_points_total: Number.isFinite(+player1_points_total) ? +player1_points_total : 0,
@@ -256,7 +256,7 @@ export default function RecordMatchPage() {
       setSubmitting(true);
       const payload = {
         league_id: values.league_id,
-        player2_id: values.player2_id,
+        player2_roster_id: values.player2_roster_id,
         player1_sets_won: values.player1_sets_won,
         player2_sets_won: values.player2_sets_won,
         player1_points_total: values.player1_points_total,
@@ -328,7 +328,7 @@ export default function RecordMatchPage() {
 
               {/* Opponent selector */}
               <FormField
-                name="player2_id"
+                name="player2_roster_id"
                 control={form.control}
                 render={({ field }) => (
                   <FormItem>
@@ -344,8 +344,8 @@ export default function RecordMatchPage() {
                           {members.length === 0 ? (
                             <SelectItem disabled value="0">{t('recordMatch.noMembers')}</SelectItem>
                           ) : members.map((m) => (
-                            <SelectItem key={m.id} value={String(m.id)}>
-                              {m.username} {typeof m.current_elo === 'number' ? `(ELO ${m.current_elo})` : ''}
+                            <SelectItem key={m.roster_id} value={String(m.roster_id)}>
+                              {m.display_name} {typeof m.current_elo === 'number' ? `(ELO ${m.current_elo})` : ''}
                             </SelectItem>
                           ))}
                         </SelectContent>
