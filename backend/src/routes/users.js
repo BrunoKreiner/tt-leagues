@@ -1,6 +1,7 @@
 const express = require('express');
 const { authenticateToken, requireAdmin, optionalAuth } = require('../middleware/auth');
 const { validateId, validatePagination } = require('../middleware/validation');
+const { moderateText, moderateImage, ModerationError } = require('../middleware/contentModeration');
 const database = require('../models/database');
 
 const router = express.Router();
@@ -190,6 +191,12 @@ router.put('/:id', authenticateToken, validateId, async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
         const { first_name, last_name, email, is_admin, forehand_rubber, backhand_rubber, blade_wood, playstyle, strengths, weaknesses, goals, avatar_url } = req.body;
+
+        moderateText(
+            { first_name, last_name, forehand_rubber, backhand_rubber, blade_wood, playstyle, strengths, weaknesses, goals },
+            { context: 'profile fields' }
+        );
+        await moderateImage(avatar_url, { context: 'avatar' });
         
         // Users can only update their own profile unless they're admin
         if (userId !== req.user.id && !req.user.is_admin) {
@@ -270,6 +277,9 @@ router.put('/:id', authenticateToken, validateId, async (req, res) => {
             user: updatedUser
         });
     } catch (error) {
+        if (error instanceof ModerationError) {
+            return res.status(error.status || 400).json({ error: error.message, code: error.code });
+        }
         console.error('Update user error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }

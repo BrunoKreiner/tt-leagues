@@ -1,6 +1,7 @@
 const express = require('express');
 const { authenticateToken, requireLeagueAdmin, optionalAuth } = require('../middleware/auth');
 const { validateLeagueCreation, validateId, validatePagination } = require('../middleware/validation');
+const { moderateText, ModerationError } = require('../middleware/contentModeration');
 const database = require('../models/database');
 const crypto = require('crypto');
 
@@ -105,6 +106,11 @@ router.get('/', optionalAuth, validatePagination, async (req, res) => {
 router.post('/', authenticateToken, validateLeagueCreation, async (req, res) => {
     try {
         const { name, description, is_public, season } = req.body;
+
+        moderateText(
+            { name, description, season },
+            { context: 'league fields' }
+        );
         
         // Check if league name already exists
         const existingLeague = await database.get(
@@ -143,6 +149,9 @@ router.post('/', authenticateToken, validateLeagueCreation, async (req, res) => 
             league
         });
     } catch (error) {
+        if (error instanceof ModerationError) {
+            return res.status(error.status || 400).json({ error: error.message, code: error.code });
+        }
         console.error('Create league error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
@@ -217,6 +226,11 @@ router.put('/:id', authenticateToken, requireLeagueAdmin, validateId, async (req
     try {
         const leagueId = parseInt(req.params.id);
         const { name, description, is_public, season, elo_update_mode } = req.body;
+
+        moderateText(
+            { name, description, season, elo_update_mode },
+            { context: 'league fields' }
+        );
         
         const updates = [];
         const values = [];
@@ -290,6 +304,9 @@ router.put('/:id', authenticateToken, requireLeagueAdmin, validateId, async (req
             league: updatedLeague
         });
     } catch (error) {
+        if (error instanceof ModerationError) {
+            return res.status(error.status || 400).json({ error: error.message, code: error.code });
+        }
         console.error('Update league error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
@@ -392,6 +409,11 @@ router.post('/:id/roster', authenticateToken, requireLeagueAdmin, validateId, as
             return res.status(400).json({ error: 'display_name is required' });
         }
 
+        moderateText(
+            { display_name: displayName },
+            { context: 'roster display name' }
+        );
+
         const result = await database.run(
             'INSERT INTO league_roster (league_id, user_id, display_name) VALUES (?, ?, ?)',
             [leagueId, null, displayName]
@@ -404,6 +426,9 @@ router.post('/:id/roster', authenticateToken, requireLeagueAdmin, validateId, as
 
         res.status(201).json({ message: 'Roster placeholder created', roster: rosterEntry });
     } catch (error) {
+        if (error instanceof ModerationError) {
+            return res.status(error.status || 400).json({ error: error.message, code: error.code });
+        }
         console.error('Create roster placeholder error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }

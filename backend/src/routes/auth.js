@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const { generateToken } = require('../utils/jwt');
 const { authenticateToken } = require('../middleware/auth');
 const { validateRegistration, validateLogin } = require('../middleware/validation');
+const { moderateText, moderateImage, ModerationError } = require('../middleware/contentModeration');
 const database = require('../models/database');
 
 const router = express.Router();
@@ -14,6 +15,11 @@ const router = express.Router();
 router.post('/register', validateRegistration, async (req, res) => {
     try {
         const { username, password, first_name, last_name, email } = req.body;
+
+        moderateText(
+            { username, first_name, last_name },
+            { context: 'registration fields' }
+        );
         
         // Check if username already exists
         const existingUser = await database.get(
@@ -71,6 +77,9 @@ router.post('/register', validateRegistration, async (req, res) => {
             token
         });
     } catch (error) {
+        if (error instanceof ModerationError) {
+            return res.status(error.status || 400).json({ error: error.message, code: error.code });
+        }
         console.error('Registration error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
@@ -181,6 +190,13 @@ router.get('/me', authenticateToken, async (req, res) => {
 router.put('/profile', authenticateToken, async (req, res) => {
     try {
         const { first_name, last_name, email, avatar_url } = req.body;
+
+        moderateText(
+            { first_name, last_name },
+            { context: 'profile fields' }
+        );
+        await moderateImage(avatar_url, { context: 'avatar' });
+
         const updates = [];
         const values = [];
         
@@ -239,6 +255,9 @@ router.put('/profile', authenticateToken, async (req, res) => {
             user: updatedUser
         });
     } catch (error) {
+        if (error instanceof ModerationError) {
+            return res.status(error.status || 400).json({ error: error.message, code: error.code });
+        }
         console.error('Profile update error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }

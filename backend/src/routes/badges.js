@@ -1,6 +1,7 @@
 const express = require('express');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const { validateId, validatePagination } = require('../middleware/validation');
+const { moderateText, moderateImage, ModerationError } = require('../middleware/contentModeration');
 const database = require('../models/database');
 
 const router = express.Router();
@@ -94,6 +95,12 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
 router.post('/', authenticateToken, async (req, res) => {
     try {
         const { name, description, icon, badge_type, image_url } = req.body;
+
+        moderateText(
+            { name, description, icon, badge_type },
+            { context: 'badge fields' }
+        );
+        await moderateImage(image_url, { context: 'badge image' });
         
         // Validate required fields
         if (!name || !badge_type) {
@@ -135,6 +142,9 @@ router.post('/', authenticateToken, async (req, res) => {
             badge: newBadge
         });
     } catch (error) {
+        if (error instanceof ModerationError) {
+            return res.status(error.status || 400).json({ error: error.message, code: error.code });
+        }
         console.error('Create badge error:', error);
         console.error('Error details:', {
             message: error.message,
@@ -153,6 +163,12 @@ router.put('/:id', authenticateToken, validateId, async (req, res) => {
     try {
         const badgeId = parseInt(req.params.id);
         const { name, description, icon, badge_type, image_url } = req.body;
+
+        moderateText(
+            { name, description, icon, badge_type },
+            { context: 'badge fields' }
+        );
+        await moderateImage(image_url, { context: 'badge image' });
         
         // Check if badge exists
         const existingBadge = await database.get(
@@ -227,6 +243,9 @@ router.put('/:id', authenticateToken, validateId, async (req, res) => {
             badge: updatedBadge
         });
     } catch (error) {
+        if (error instanceof ModerationError) {
+            return res.status(error.status || 400).json({ error: error.message, code: error.code });
+        }
         console.error('Update badge error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }

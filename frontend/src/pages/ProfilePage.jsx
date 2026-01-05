@@ -317,7 +317,12 @@ const ProfilePage = () => {
   const handleProfileSave = async () => {
     try {
       setSavingProfile(true);
-      await usersAPI.update(currentUser.id, { ...profileFields, avatar_url: avatarUrl || null });
+      const payload = { ...profileFields };
+      const currentAvatar = currentUser?.avatar_url || '';
+      if ((avatarUrl || '') !== currentAvatar) {
+        payload.avatar_url = avatarUrl || null;
+      }
+      await usersAPI.update(currentUser.id, payload);
       toast.success(t('profile.saved'));
       // Refresh auth user so top-right avatar updates immediately
       try {

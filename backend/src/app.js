@@ -14,6 +14,7 @@ const leagueRoutes = require('./routes/leagues');
 const matchRoutes = require('./routes/matches');
 const notificationRoutes = require('./routes/notifications');
 const badgeRoutes = require('./routes/badges');
+const { moderationErrorHandler } = require('./middleware/contentModeration');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -127,6 +128,9 @@ app.use('*', (req, res) => {
         path: req.originalUrl 
     });
 });
+
+// Content moderation errors (fail-closed, explicit)
+app.use(moderationErrorHandler);
 
 // Global error handler
 app.use((err, req, res, next) => {
