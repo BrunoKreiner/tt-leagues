@@ -123,9 +123,11 @@ router.post('/', authenticateToken, validateLeagueCreation, async (req, res) => 
         );
         
         // Add creator as league admin
+        const creatorName = `${req.user.first_name} ${req.user.last_name}`.trim();
+        const creatorDisplayName = creatorName.length > 0 ? creatorName : req.user.username;
         await database.run(
             'INSERT INTO league_roster (league_id, user_id, display_name, is_admin) VALUES (?, ?, ?, ?)',
-            [result.id, req.user.id, `${req.user.first_name} ${req.user.last_name}`.trim(), true]
+            [result.id, req.user.id, creatorDisplayName, true]
         );
         
         // Get created league
@@ -344,6 +346,38 @@ router.get('/:id/members', authenticateToken, validateId, async (req, res) => {
                 return res.status(403).json({ error: 'Access denied to private league' });
             }
         }
+
+        // Normalize empty display names (existing bad data).
+        // - Assigned users: prefer "First Last" if present, otherwise username.
+        // - Unassigned placeholders: ensure non-empty label.
+        await database.run(
+            `
+            UPDATE league_roster
+            SET display_name = (
+                SELECT CASE
+                    WHEN TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) <> ''
+                        THEN TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, ''))
+                    ELSE u.username
+                END
+                FROM users u
+                WHERE u.id = league_roster.user_id
+            )
+            WHERE league_id = ?
+              AND user_id IS NOT NULL
+              AND (display_name IS NULL OR TRIM(display_name) = '')
+            `,
+            [leagueId]
+        );
+        await database.run(
+            `
+            UPDATE league_roster
+            SET display_name = 'Placeholder'
+            WHERE league_id = ?
+              AND user_id IS NULL
+              AND (display_name IS NULL OR TRIM(display_name) = '')
+            `,
+            [leagueId]
+        );
         
         const members = await database.all(`
             SELECT 
@@ -632,7 +666,8 @@ router.post('/:id/join', authenticateToken, validateId, async (req, res) => {
         }
         
         const me = await database.get('SELECT first_name, last_name FROM users WHERE id = ?', [req.user.id]);
-        const displayName = `${me.first_name} ${me.last_name}`.trim();
+        const name = `${me.first_name} ${me.last_name}`.trim();
+        const displayName = name.length > 0 ? name : req.user.username;
 
         // Add user to league roster
         await database.run(
@@ -721,6 +756,36 @@ router.get('/:id/leaderboard', optionalAuth, validateId, validatePagination, asy
         } else if (!league.is_public && !req.user) {
             return res.status(403).json({ error: 'Access denied to private league' });
         }
+
+        // Normalize empty display names (existing bad data).
+        await database.run(
+            `
+            UPDATE league_roster
+            SET display_name = (
+                SELECT CASE
+                    WHEN TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) <> ''
+                        THEN TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, ''))
+                    ELSE u.username
+                END
+                FROM users u
+                WHERE u.id = league_roster.user_id
+            )
+            WHERE league_id = ?
+              AND user_id IS NOT NULL
+              AND (display_name IS NULL OR TRIM(display_name) = '')
+            `,
+            [leagueId]
+        );
+        await database.run(
+            `
+            UPDATE league_roster
+            SET display_name = 'Placeholder'
+            WHERE league_id = ?
+              AND user_id IS NULL
+              AND (display_name IS NULL OR TRIM(display_name) = '')
+            `,
+            [leagueId]
+        );
         
         const leaderboard = await database.all(`
             SELECT 

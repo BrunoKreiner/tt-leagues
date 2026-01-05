@@ -473,26 +473,30 @@ router.get('/:id/timeline-stats', authenticateToken, validateId, async (req, res
             `;
         }
         
-        // 3. Monthly average ELO (from elo_history)
+        // 3. Monthly average ELO (from elo_history; bucketed by match date)
         let eloQuery;
         if (isPg) {
             eloQuery = `
                 SELECT 
-                    TO_CHAR(DATE_TRUNC('month', eh.recorded_at), 'YYYY-MM') as month,
+                    TO_CHAR(DATE_TRUNC('month', m.played_at), 'YYYY-MM') as month,
                     AVG(eh.elo_after) as avg_elo
                 FROM elo_history eh
+                JOIN matches m ON eh.match_id = m.id
                 WHERE eh.user_id = ?
-                GROUP BY DATE_TRUNC('month', eh.recorded_at)
+                  AND m.played_at IS NOT NULL
+                GROUP BY DATE_TRUNC('month', m.played_at)
                 ORDER BY month ASC
             `;
         } else {
             eloQuery = `
                 SELECT 
-                    strftime('%Y-%m', eh.recorded_at) as month,
+                    strftime('%Y-%m', m.played_at) as month,
                     AVG(eh.elo_after) as avg_elo
                 FROM elo_history eh
+                JOIN matches m ON eh.match_id = m.id
                 WHERE eh.user_id = ?
-                GROUP BY strftime('%Y-%m', eh.recorded_at)
+                  AND m.played_at IS NOT NULL
+                GROUP BY strftime('%Y-%m', m.played_at)
                 ORDER BY month ASC
             `;
         }

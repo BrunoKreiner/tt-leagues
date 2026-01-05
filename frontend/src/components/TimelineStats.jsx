@@ -80,7 +80,6 @@ const TimelineStats = ({ userId }) => {
 
   // Render a chart using raw SVG (like EloSparkline)
   const renderChart = (title, dataKey, dotColor, data = formattedData) => {
-    const isSinglePoint = data.length === 1;
     const values = data.map(d => d[dataKey]).filter(v => v !== null && v !== undefined);
     
     // For ELO chart, show even if no data (but with a message)
@@ -106,21 +105,27 @@ const TimelineStats = ({ userId }) => {
     const plotWidth = chartWidth - padding.left - padding.right;
     const plotHeight = chartHeight - padding.top - padding.bottom;
 
-    // Calculate points
-    const points = values.map((val, index) => {
-      const xRatio = isSinglePoint ? 1 : index / (values.length - 1);
-      const x = padding.left + xRatio * plotWidth;
-      const y = padding.top + plotHeight - ((val - minVal) / range) * plotHeight;
-      return { x, y, value: val };
-    });
+    // Calculate points aligned to their actual month positions.
+    // This prevents a single ELO data point from drawing a full-width line across earlier months.
+    const points = data
+      .map((d, monthIndex) => {
+        const val = d[dataKey];
+        if (val === null || val === undefined) return null;
+        const xRatio = data.length === 1 ? 1 : monthIndex / (data.length - 1);
+        const x = padding.left + xRatio * plotWidth;
+        const y = padding.top + plotHeight - ((val - minVal) / range) * plotHeight;
+        return { x, y, value: val, monthIndex };
+      })
+      .filter(Boolean);
 
     // Shift all coordinates down by 15px to create space at top for labels
     const verticalOffset = 15;
     
-    // Create path for line (shifted down)
-    const path = isSinglePoint 
-      ? `M ${padding.left},${points[0].y + verticalOffset} L ${padding.left + plotWidth},${points[0].y + verticalOffset}`
-      : `M ${points.map(p => `${p.x},${p.y + verticalOffset}`).join(' L ')}`;
+    // Create path for line (shifted down).
+    // If we only have one point, draw no line (just the dot + value).
+    const path = points.length >= 2
+      ? `M ${points.map(p => `${p.x},${p.y + verticalOffset}`).join(' L ')}`
+      : '';
 
     // Calculate actual SVG height needed (add extra space at top for labels)
     const svgHeight = chartHeight + verticalOffset;
@@ -131,17 +136,19 @@ const TimelineStats = ({ userId }) => {
         <div className="h-[75px] flex items-start justify-center pt-0">
           <svg width={chartWidth} height={svgHeight} style={{ maxWidth: '100%' }}>
             {/* Line - always grey */}
-            <path
-              d={path}
-              stroke={lineColor}
-              strokeWidth={2}
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+            {path ? (
+              <path
+                d={path}
+                stroke={lineColor}
+                strokeWidth={2}
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            ) : null}
             {/* Dots and labels */}
-            {points.map((point, index) => (
-              <g key={index}>
+            {points.map((point) => (
+              <g key={point.monthIndex}>
                 <circle
                   cx={point.x}
                   cy={point.y + verticalOffset}
@@ -153,7 +160,7 @@ const TimelineStats = ({ userId }) => {
             ))}
             {/* Month labels */}
             {data.map((item, index) => {
-              const xRatio = isSinglePoint ? 1 : index / (data.length - 1);
+              const xRatio = data.length === 1 ? 1 : index / (data.length - 1);
               const x = padding.left + xRatio * plotWidth;
               return (
                 <text
