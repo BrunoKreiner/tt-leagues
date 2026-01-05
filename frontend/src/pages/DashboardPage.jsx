@@ -275,24 +275,37 @@ const DashboardPage = () => {
                           ) : (
                             <span className="text-sm text-gray-400 w-6 text-center">{player.rank}</span>
                           )}
-                          <Link 
-                            to={`/profile/${player.username}`} 
-                            className="text-sm font-medium text-blue-400 hover:text-blue-300"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {player.username}
-                          </Link>
+                          {player.username ? (
+                            <Link 
+                              to={`/profile/${player.username}`} 
+                              className="text-sm font-medium text-blue-400 hover:text-blue-300"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {player.display_name || player.username}
+                            </Link>
+                          ) : (
+                            <span
+                              className="text-sm font-medium text-muted-foreground"
+                              title="No user assigned"
+                            >
+                              {player.display_name || 'No user assigned'}
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm text-gray-400">{player.current_elo}</span>
                           <div className="w-12 h-6">
-                            <EloSparkline 
-                              userId={player.user_id} 
-                              leagueId={league.id} 
-                              width={48} 
-                              height={16} 
-                              points={15} 
-                            />
+                            {player.user_id ? (
+                              <EloSparkline 
+                                userId={player.user_id} 
+                                leagueId={league.id} 
+                                width={48} 
+                                height={16} 
+                                points={15} 
+                              />
+                            ) : (
+                              <span className="text-xs text-gray-500">—</span>
+                            )}
                           </div>
                         </div>
                       </div>
