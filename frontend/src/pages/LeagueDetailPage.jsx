@@ -687,16 +687,6 @@ const LeagueDetailPage = () => {
                               </div>
                             </div>
 
-                            {p.badges && p.badges.length > 0 && (
-                              <BadgeList
-                                badges={p.badges}
-                                size="sm"
-                                showDate={false}
-                                showLeague={false}
-                                className="mt-1 flex-nowrap overflow-x-auto scrollbar-hide gap-1 pb-1"
-                              />
-                            )}
-
                             <div className="mt-1 flex items-center justify-between gap-2 min-w-0">
                               <div className="flex items-center gap-2 text-[11px] text-gray-300 tabular-nums whitespace-nowrap min-w-0">
                                 <span className="text-gray-400">{t('leagues.wl')}:</span>
@@ -709,6 +699,16 @@ const LeagueDetailPage = () => {
                                 <EloSparkline userId={p.id} leagueId={id} width={72} height={14} points={15} />
                               </div>
                             </div>
+
+                            {p.badges && p.badges.length > 0 && (
+                              <BadgeList
+                                badges={p.badges}
+                                size="sm"
+                                showDate={false}
+                                showLeague={false}
+                                className="mt-1 flex-nowrap overflow-x-auto scrollbar-hide gap-1 pb-1"
+                              />
+                            )}
                           </div>
                         </div>
                       </div>
