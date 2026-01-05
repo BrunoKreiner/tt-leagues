@@ -10,7 +10,7 @@
     "dashboard": "Übersicht",
     "leagues": "Ligen",
     "matches": "Spiele",
-    "admin": "Admin",
+    "admin": "Verwalten",
     "notifications": "Benachrichtigungen",
     "profile": "Profil",
     "settings": "Einstellungen",
@@ -215,8 +215,8 @@
     "of": "von"
   },
   "admin": {
-    "panelTitle": "Admin-Panel",
-    "panelSubtitle": "Ligen verwalten und ausstehende Genehmigungen überprüfen",
+    "panelTitle": "Verwalten",
+    "panelSubtitle": "Ligen, Abzeichen und Freigaben verwalten",
     "createLeague": "Liga erstellen",
     "createLeagueDesc": "Erstelle eine neue Liga für Spieler zum Beitreten",
     "name": "Name",

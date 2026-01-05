@@ -580,6 +580,11 @@ const AdminPage = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {adminLeagues.length === 0 && (
+            <div className="rounded-md border border-yellow-700/40 bg-yellow-900/10 p-3 text-sm text-yellow-200">
+              You’re not a league admin yet — create a league first to manage rosters.
+            </div>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <div className="text-sm font-medium mb-1">League</div>
@@ -590,6 +595,7 @@ const AdminPage = () => {
                   setAssignUserByRosterId({});
                   fetchRosterMembers(value || '');
                 }}
+                disabled={adminLeagues.length === 0}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select a league" />
@@ -611,12 +617,12 @@ const AdminPage = () => {
                   value={placeholderDisplayName}
                   onChange={(e) => setPlaceholderDisplayName(e.target.value)}
                   placeholder="e.g. Alex (unassigned)"
-                  disabled={!rosterLeagueId || creatingPlaceholder}
+                  disabled={adminLeagues.length === 0 || !rosterLeagueId || creatingPlaceholder}
                 />
                 <Button
                   type="button"
                   onClick={handleCreatePlaceholder}
-                  disabled={!rosterLeagueId || creatingPlaceholder}
+                  disabled={adminLeagues.length === 0 || !rosterLeagueId || creatingPlaceholder}
                 >
                   {creatingPlaceholder ? 'Adding...' : 'Add'}
                 </Button>
@@ -1177,6 +1183,11 @@ const AdminPage = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {adminLeagues.length === 0 && (
+              <div className="rounded-md border border-yellow-700/40 bg-yellow-900/10 p-3 text-sm text-yellow-200">
+                You’re not a league admin yet — create a league first to award badges.
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium">League</label>
               <Select 
@@ -1187,7 +1198,7 @@ const AdminPage = () => {
                   setAwardUserId('');
                   fetchAwardLeagueMembers(next);
                 }}
-                disabled={awarding}
+                disabled={awarding || adminLeagues.length === 0}
               >
                 <SelectTrigger className="w-full mt-1">
                   <SelectValue placeholder={
@@ -1216,7 +1227,7 @@ const AdminPage = () => {
               <Select
                 value={awardUserId || undefined}
                 onValueChange={(value) => setAwardUserId(value || '')}
-                disabled={awarding || !awardLeagueId || loadingAwardLeagueMembers}
+                disabled={awarding || adminLeagues.length === 0 || !awardLeagueId || loadingAwardLeagueMembers}
               >
                 <SelectTrigger className="w-full mt-1">
                   <SelectValue placeholder={
