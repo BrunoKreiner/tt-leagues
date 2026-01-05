@@ -545,7 +545,7 @@ const LeagueDetailPage = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="cyberpunk-title text-3xl text-blue-300">{league.name}</h1>
-          <p className="cyberpunk-text text-gray-400">{t('leagues.createdBy', { user: '' })}<Link to={`/profile/${league.created_by_username}`} className="text-blue-400 hover:text-blue-300">{league.created_by_username}</Link> • {format(new Date(league.created_at), 'PPP')}</p>
+          <p className="cyberpunk-text text-gray-400">{t('leagues.createdBy', { user: '' })}<Link to={`/app/profile/${league.created_by_username}`} className="text-blue-400 hover:text-blue-300">{league.created_by_username}</Link> • {format(new Date(league.created_at), 'PPP')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {league.description && (
@@ -627,7 +627,7 @@ const LeagueDetailPage = () => {
                     {/* Score Line */}
                     <div className="flex items-center gap-2 whitespace-nowrap">
                       {m.player1_username ? (
-                        <Link to={`/profile/${m.player1_username}`} className="text-blue-400 hover:text-blue-300 font-medium">
+                        <Link to={`/app/profile/${m.player1_username}`} className="text-blue-400 hover:text-blue-300 font-medium">
                           {m.player1_display_name || m.player1_username}
                         </Link>
                       ) : (
@@ -637,7 +637,7 @@ const LeagueDetailPage = () => {
                       <span className="text-gray-500">:</span>
                       <span className="text-gray-300 font-bold">{m.player2_sets_won}</span>
                       {m.player2_username ? (
-                        <Link to={`/profile/${m.player2_username}`} className="text-blue-400 hover:text-blue-300 font-medium">
+                        <Link to={`/app/profile/${m.player2_username}`} className="text-blue-400 hover:text-blue-300 font-medium">
                           {m.player2_display_name || m.player2_username}
                         </Link>
                       ) : (
@@ -712,29 +712,42 @@ const LeagueDetailPage = () => {
                         <div className="flex items-start gap-2 min-w-0">
                           <div className="shrink-0">
                             {p.rank <= 3 ? (
-                              <MedalIcon rank={p.rank} size={32} userAvatar={p.avatar_url} />
+                              <MedalIcon rank={p.rank} size={p.rank === 1 ? 36 : 32} />
                             ) : (
                               <div className="h-8 w-8 rounded-full border border-gray-800 bg-gray-900/60 flex items-center justify-center">
-                                <span className="text-gray-200 text-sm font-bold">{p.rank}</span>
+                                <span className="text-gray-200 text-sm font-bold">{p.rank}.</span>
                               </div>
                             )}
                           </div>
 
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2 min-w-0">
-                              {p.username ? (
-                                <Link
-                                  to={`/profile/${p.username}`}
-                                  className="min-w-0 truncate text-blue-400 hover:text-blue-300 font-medium text-sm"
-                                  title={p.display_name || p.username}
-                                >
-                                  {p.display_name || p.username}
-                                </Link>
-                              ) : (
-                                <span className="min-w-0 truncate text-blue-400 font-medium text-sm" title={p.display_name}>
-                                  {p.display_name}
-                                </span>
-                              )}
+                              <div className="flex items-center gap-2 min-w-0">
+                                {p.avatar_url ? (
+                                  <img 
+                                    src={p.avatar_url} 
+                                    alt="" 
+                                    className="w-6 h-6 rounded-full object-cover border border-gray-700 shrink-0"
+                                  />
+                                ) : (
+                                  <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-xs text-gray-400 shrink-0">
+                                    {(p.display_name || p.username || 'U').charAt(0).toUpperCase()}
+                                  </div>
+                                )}
+                                {p.username ? (
+                                  <Link
+                                    to={`/app/profile/${p.username}`}
+                                    className="min-w-0 truncate text-blue-400 hover:text-blue-300 font-medium text-sm"
+                                    title={p.display_name || p.username}
+                                  >
+                                    {p.display_name || p.username}
+                                  </Link>
+                                ) : (
+                                  <span className="min-w-0 truncate text-blue-400 font-medium text-sm" title={p.display_name}>
+                                    {p.display_name}
+                                  </span>
+                                )}
+                              </div>
                               <div className="shrink-0 text-sm text-gray-200 font-semibold tabular-nums whitespace-nowrap">
                                 {t('leagues.elo')}: {p.current_elo}
                               </div>
@@ -791,15 +804,26 @@ const LeagueDetailPage = () => {
                           <tr key={p.roster_id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
                             <td className="px-3 py-4 align-middle">
                               {p.rank <= 3 ? (
-                                <MedalIcon rank={p.rank} size={32} userAvatar={p.avatar_url} />
+                                <MedalIcon rank={p.rank} size={p.rank === 1 ? 36 : 32} />
                               ) : (
-                                <span className="text-gray-300 text-base font-bold">{p.rank}</span>
+                                <span className="text-gray-300 text-base font-bold">{p.rank}.</span>
                               )}
                             </td>
                             <td className="px-3 py-2 min-w-0 align-middle">
                               <div className="flex items-center gap-2 min-w-0">
+                                {p.avatar_url ? (
+                                  <img 
+                                    src={p.avatar_url} 
+                                    alt="" 
+                                    className="w-7 h-7 rounded-full object-cover border border-gray-700 shrink-0"
+                                  />
+                                ) : (
+                                  <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-xs text-gray-400 shrink-0">
+                                    {(p.display_name || p.username || 'U').charAt(0).toUpperCase()}
+                                  </div>
+                                )}
                                 {p.username ? (
-                                  <Link to={`/profile/${p.username}`} className="text-blue-400 hover:text-blue-300 font-medium truncate">
+                                  <Link to={`/app/profile/${p.username}`} className="text-blue-400 hover:text-blue-300 font-medium truncate">
                                     {p.display_name || p.username}
                                   </Link>
                                 ) : (
@@ -1001,7 +1025,7 @@ const LeagueDetailPage = () => {
                             <div className="flex flex-col">
                               <span className="font-medium">
                                 {m.username ? (
-                                  <Link to={`/profile/${m.username}`} className="text-blue-400 hover:text-blue-300">
+                                  <Link to={`/app/profile/${m.username}`} className="text-blue-400 hover:text-blue-300">
                                     {m.display_name}
                                   </Link>
                                 ) : (

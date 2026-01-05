@@ -26,7 +26,7 @@ const LeaguesPage = () => {
   const [leagues, setLeagues] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0, limit: 10 });
 
-  const page = Number(searchParams.get('page') || 1);
+  const page = Math.max(1, Number(searchParams.get('page')) || 1);
   const limit = 10;
 
   useEffect(() => {
@@ -63,7 +63,7 @@ const LeaguesPage = () => {
         </div>
         {isAdmin && (
           <Button asChild>
-            <Link to="/admin">{t('admin.createLeague')}</Link>
+            <Link to="/app/admin">{t('admin.createLeague')}</Link>
           </Button>
         )}
       </div>
@@ -93,7 +93,7 @@ const LeaguesPage = () => {
             <Card 
               key={l.id} 
               className="vg-card cursor-pointer hover:scale-105 transition-transform"
-              onClick={() => window.location.href = `/leagues/${l.id}`}
+              onClick={() => window.location.href = `/app/leagues/${l.id}`}
             >
               <CardHeader className="space-y-1">
                 <div className="flex items-center justify-between">

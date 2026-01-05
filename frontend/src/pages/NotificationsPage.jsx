@@ -209,7 +209,7 @@ export default function NotificationsPage() {
                         <div className="text-xs text-muted-foreground">{t('notifications.inviteHandled')}</div>
                       )}
                       {n.related_id && (
-                        <Link to={`/leagues/${n.related_id}`} className="text-xs text-primary underline">
+                        <Link to={`/app/leagues/${n.related_id}`} className="text-xs text-primary underline">
                           {t('matchDetail.viewLeague')}
                         </Link>
                       )}

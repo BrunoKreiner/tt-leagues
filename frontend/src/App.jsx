@@ -11,6 +11,10 @@ import LoadingSpinner from './components/ui/LoadingSpinner';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 
+// Landing page (public)
+import LandingPage from './pages/LandingPage';
+import PublicLeaguePage from './pages/PublicLeaguePage';
+
 // Main pages
 import DashboardPage from './pages/DashboardPage';
 import LeaguesPage from './pages/LeaguesPage';
@@ -37,7 +41,7 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
   }
 
   if (adminOnly && !isAdmin) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/app/dashboard" replace />;
   }
 
   return children;
@@ -52,7 +56,7 @@ const PublicRoute = ({ children }) => {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/app/dashboard" replace />;
   }
 
   return children;
@@ -72,7 +76,14 @@ function AppRoutes() {
   return (
     <Router>
       <Routes>
-        {/* Public routes */}
+        {/* Landing page - public, redirects to dashboard if logged in */}
+        <Route path="/" element={
+          <PublicRoute>
+            <LandingPage />
+          </PublicRoute>
+        } />
+
+        {/* Auth routes */}
         <Route path="/login" element={
           <PublicRoute>
             <LoginPage />
@@ -84,13 +95,16 @@ function AppRoutes() {
           </PublicRoute>
         } />
 
+        {/* Public league view - accessible to everyone */}
+        <Route path="/league/:id" element={<PublicLeaguePage />} />
+
         {/* Protected routes */}
-        <Route path="/" element={
+        <Route path="/app" element={
           <ProtectedRoute>
             <Layout />
           </ProtectedRoute>
         }>
-          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route index element={<Navigate to="/app/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="leagues" element={<LeaguesPage />} />
           <Route path="leagues/:id" element={<LeagueDetailPage />} />
@@ -107,8 +121,20 @@ function AppRoutes() {
           } />
         </Route>
 
+        {/* Legacy redirects for old paths */}
+        <Route path="/dashboard" element={<Navigate to="/app/dashboard" replace />} />
+        <Route path="/leagues" element={<Navigate to="/app/leagues" replace />} />
+        <Route path="/leagues/:id" element={<Navigate to="/app/leagues/:id" replace />} />
+        <Route path="/matches" element={<Navigate to="/app/matches" replace />} />
+        <Route path="/matches/record" element={<Navigate to="/app/matches/record" replace />} />
+        <Route path="/matches/:id" element={<Navigate to="/app/matches/:id" replace />} />
+        <Route path="/notifications" element={<Navigate to="/app/notifications" replace />} />
+        <Route path="/profile" element={<Navigate to="/app/profile" replace />} />
+        <Route path="/profile/:username" element={<Navigate to="/app/profile/:username" replace />} />
+        <Route path="/admin" element={<Navigate to="/app/admin" replace />} />
+
         {/* Catch all route */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

@@ -672,7 +672,7 @@ const AdminPage = () => {
                           {isAssigned ? (
                             m.username ? (
                               <Link
-                                to={`/profile/${m.username}`}
+                                to={`/app/profile/${m.username}`}
                                 className="text-blue-400 hover:text-blue-300 underline hover:no-underline"
                               >
                                 {m.username}
@@ -751,9 +751,9 @@ const AdminPage = () => {
                       <td className="px-3 py-2">{(() => { try { return format(new Date(m.played_at || m.created_at), 'PP p'); } catch { return String(m.played_at || m.created_at || '-'); } })()}</td>
                       <td className="px-3 py-2">{m.league_name}</td>
                       <td className="px-3 py-2">
-                        <Link to={`/profile/${m.player1_username}`} className="text-blue-400 hover:text-blue-300 underline hover:no-underline">{m.player1_username}</Link>
+                        <Link to={`/app/profile/${m.player1_username}`} className="text-blue-400 hover:text-blue-300 underline hover:no-underline">{m.player1_username}</Link>
                         {' vs '}
-                        <Link to={`/profile/${m.player2_username}`} className="text-blue-400 hover:text-blue-300 underline hover:no-underline">{m.player2_username}</Link>
+                        <Link to={`/app/profile/${m.player2_username}`} className="text-blue-400 hover:text-blue-300 underline hover:no-underline">{m.player2_username}</Link>
                       </td>
                       <td className="px-3 py-2">{m.player1_sets_won}-{m.player2_sets_won}</td>
                       <td className="px-3 py-2">
@@ -1009,7 +1009,7 @@ const AdminPage = () => {
                                 {badgeUsers.map((user) => (
                                   <tr key={user.user_badge_id} className="border-t border-gray-700">
                                     <td className="px-3 py-2">
-                                      <Link to={`/profile/${user.username}`} className="text-blue-400 hover:text-blue-300 underline hover:no-underline">{user.username}</Link>
+                                      <Link to={`/app/profile/${user.username}`} className="text-blue-400 hover:text-blue-300 underline hover:no-underline">{user.username}</Link>
                                     </td>
                                     <td className="px-3 py-2 text-muted-foreground">{user.league_name || 'Global'}</td>
                                     <td className="px-3 py-2 text-muted-foreground">

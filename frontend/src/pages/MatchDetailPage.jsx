@@ -264,13 +264,13 @@ export default function MatchDetailPage() {
         <CardHeader>
           <CardTitle>
             {match.player1_username ? (
-              <Link to={`/profile/${match.player1_username}`} className="underline hover:no-underline">{p1Name}</Link>
+              <Link to={`/app/profile/${match.player1_username}`} className="underline hover:no-underline">{p1Name}</Link>
             ) : (
               <span className="text-blue-400">{p1Name}</span>
             )}{' '}
             {t('common.vs')}{' '}
             {match.player2_username ? (
-              <Link to={`/profile/${match.player2_username}`} className="underline hover:no-underline">{p2Name}</Link>
+              <Link to={`/app/profile/${match.player2_username}`} className="underline hover:no-underline">{p2Name}</Link>
             ) : (
               <span className="text-blue-400">{p2Name}</span>
             )}
@@ -291,7 +291,7 @@ export default function MatchDetailPage() {
             </div>
           )}
           {match.is_accepted && match.accepted_by_username && (
-            <div>{t('matchDetail.acceptedBy')}: <Link to={`/profile/${match.accepted_by_username}`} className="underline hover:no-underline">{match.accepted_by_username}</Link></div>
+            <div>{t('matchDetail.acceptedBy')}: <Link to={`/app/profile/${match.accepted_by_username}`} className="underline hover:no-underline">{match.accepted_by_username}</Link></div>
           )}
           <div>{t('matchDetail.gameType')}: {GAME_TYPES.find((g) => g.value === match.game_type)?.label || match.game_type}</div>
           <div>{t('matchDetail.result')}: {match.player1_sets_won} - {match.player2_sets_won}</div>
@@ -515,7 +515,7 @@ export default function MatchDetailPage() {
                 )}
                 {!canEdit && (
                   <Button type="button" variant="secondary" asChild>
-                    <Link to={`/leagues/${match.league_id}`}>View League</Link>
+                    <Link to={`/app/leagues/${match.league_id}`}>View League</Link>
                   </Button>
                 )}
                 {!match.is_accepted && isLeagueAdmin && (

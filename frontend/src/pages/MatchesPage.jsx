@@ -139,11 +139,11 @@ export default function MatchesPage() {
                     const deltaFmt = delta == null ? '-' : (delta > 0 ? `+${delta}` : `${delta}`);
                     return (
                       <tr key={m.id} className="border-t">
-                        <td className="px-3 py-2"><Link to={`/matches/${m.id}`}>{formatWhen(m)}</Link></td>
-                        <td className="px-3 py-2"><Link to={`/matches/${m.id}`}>{m.league_name}</Link></td>
+                        <td className="px-3 py-2"><Link to={`/app/matches/${m.id}`}>{formatWhen(m)}</Link></td>
+                        <td className="px-3 py-2"><Link to={`/app/matches/${m.id}`}>{m.league_name}</Link></td>
                         <td className="px-3 py-2">
                           {m.player1_username ? (
-                            <Link to={`/profile/${m.player1_username}`} className="underline hover:no-underline">
+                            <Link to={`/app/profile/${m.player1_username}`} className="underline hover:no-underline">
                               {m.player1_display_name || m.player1_username}
                             </Link>
                           ) : (
@@ -153,14 +153,14 @@ export default function MatchesPage() {
                           {t('common.vs') || 'vs'}
                           {' '}
                           {m.player2_username ? (
-                            <Link to={`/profile/${m.player2_username}`} className="underline hover:no-underline">
+                            <Link to={`/app/profile/${m.player2_username}`} className="underline hover:no-underline">
                               {m.player2_display_name || m.player2_username}
                             </Link>
                           ) : (
                             <span className="text-blue-400">{m.player2_display_name}</span>
                           )}
                         </td>
-                        <td className="px-3 py-2"><Link to={`/matches/${m.id}`}>{m.player1_sets_won}-{m.player2_sets_won}</Link></td>
+                        <td className="px-3 py-2"><Link to={`/app/matches/${m.id}`}>{m.player1_sets_won}-{m.player2_sets_won}</Link></td>
                         <td className="px-3 py-2">{m.is_accepted ? t('status.accepted') : t('status.pending')}</td>
                         <td className="px-3 py-2">
                           {m.is_accepted ? (

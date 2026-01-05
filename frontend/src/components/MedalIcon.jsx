@@ -6,35 +6,35 @@ const medalSrcByRank = {
   3: '/img/badges/bronze_badge.png',
 };
 
-export default function MedalIcon({ rank, size = 32, className = '', userAvatar = null }) {
+const rankTextColors = {
+  1: 'text-yellow-900',
+  2: 'text-gray-700',
+  3: 'text-orange-900',
+};
+
+export default function MedalIcon({ rank, size = 32, className = '' }) {
   if (!rank || rank > 3) return null;
   const src = medalSrcByRank[rank];
   const alt = rank === 1 ? 'Gold medal' : rank === 2 ? 'Silver medal' : 'Bronze medal';
+  const textColor = rankTextColors[rank];
+  const fontSize = size * 0.4;
   
   return (
-    <div className={`relative inline-block ${className}`}>
+    <div className={`relative inline-flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
       <img
         src={src}
         alt={alt}
         width={size}
         height={size}
-        className="select-none"
+        className="select-none absolute inset-0"
         loading="lazy"
       />
-      {userAvatar && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <img
-            src={userAvatar}
-            alt="User avatar"
-            width={size * 0.6}
-            height={size * 0.6}
-            className="rounded-full object-cover border-2 border-white shadow-sm"
-            loading="lazy"
-          />
-        </div>
-      )}
+      <span 
+        className={`relative font-bold ${textColor}`}
+        style={{ fontSize: `${fontSize}px`, lineHeight: 1, marginTop: size * 0.05 }}
+      >
+        {rank}.
+      </span>
     </div>
   );
 }
-
-

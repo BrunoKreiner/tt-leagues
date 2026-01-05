@@ -102,7 +102,7 @@ const MobileMenu = ({
         </div>
 
         {/* User Profile Section */}
-        <Link to="/profile" onClick={onClose} className="block p-4 border-b border-gray-700 hover:bg-gray-800/50 transition-colors cursor-pointer touch-manipulation min-h-[64px]">
+        <Link to="/app/profile" onClick={onClose} className="block p-4 border-b border-gray-700 hover:bg-gray-800/50 transition-colors cursor-pointer touch-manipulation min-h-[64px]">
           <div className="flex items-center space-x-3">
             <Avatar className="h-10 w-10">
               {user?.avatar_url && (
@@ -157,7 +157,7 @@ const MobileMenu = ({
           {/* Quick Actions */}
           <div className="p-2">
             <Link
-              to="/profile"
+              to="/app/profile"
               className="flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-700 transition-colors min-h-[44px] touch-manipulation"
               onClick={onClose}
             >
@@ -165,7 +165,7 @@ const MobileMenu = ({
               <span>Profile</span>
             </Link>
             <Link
-              to="/settings"
+              to="/app/settings"
               className="flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-700 transition-colors min-h-[44px] touch-manipulation"
               onClick={onClose}
             >
@@ -263,7 +263,7 @@ const MobileMenu = ({
                         )}
                         {n.related_id && (
                           <Link 
-                            to={`/leagues/${n.related_id}`} 
+                            to={`/app/leagues/${n.related_id}`} 
                             className="text-xs text-blue-400 underline"
                             onClick={onClose}
                           >
@@ -280,7 +280,7 @@ const MobileMenu = ({
             {notifications.length > 0 && (
               <div className="mt-2">
                 <Link 
-                  to="/notifications" 
+                  to="/app/notifications" 
                   className="w-full inline-flex items-center justify-center text-sm underline text-blue-400 py-2"
                   onClick={onClose}
                 >

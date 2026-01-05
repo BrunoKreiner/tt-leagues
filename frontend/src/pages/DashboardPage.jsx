@@ -100,22 +100,22 @@ const DashboardPage = () => {
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Header: Username */}
-      <div className="flex items-center justify-center gap-3 flex-wrap">
-        <h1 className="cyberpunk-title text-4xl text-blue-300">
+      <div className="flex items-center justify-center gap-4 flex-wrap py-4">
+        <h1 className="cyberpunk-title text-3xl sm:text-4xl bg-gradient-to-r from-blue-400 via-purple-400 to-blue-400 bg-clip-text text-transparent">
           {user?.first_name || user?.username}
         </h1>
-        <Link to="/profile" className="text-blue-400 hover:text-blue-300 transition-colors">
-          <User className="h-6 w-6" />
+        <Link to="/app/profile" className="text-gray-400 hover:text-blue-400 transition-colors">
+          <User className="h-5 w-5" />
         </Link>
-        <Button asChild variant="outline" className="ml-2">
-          <Link to="/profile">
+        <Button asChild variant="outline" size="sm" className="border-gray-700 hover:border-blue-500/50 hover:bg-blue-500/10">
+          <Link to="/app/profile">
             {t('cta.viewProfile')}
           </Link>
         </Button>
       </div>
 
       {/* Divider */}
-      <div className="border-t border-gray-800"></div>
+      <div className="section-divider"></div>
 
       {/* Section 1: Timeline Statistics */}
       <div>
@@ -123,7 +123,7 @@ const DashboardPage = () => {
       </div>
 
       {/* Divider */}
-      <div className="border-t border-gray-800"></div>
+      <div className="section-divider"></div>
 
       {/* Section 2: Recent Matches */}
       <div>
@@ -166,13 +166,13 @@ const DashboardPage = () => {
                     <div key={match.id} className="flex flex-col items-center min-w-fit px-1">
                       {/* Score Line */}
                       <div className="flex items-center gap-1 text-sm whitespace-nowrap">
-                        <Link to={`/profile/${match.player1_username}`} className="text-blue-400 hover:text-blue-300">
+                        <Link to={`/app/profile/${match.player1_username}`} className="text-blue-400 hover:text-blue-300">
                           {match.player1_username}
                         </Link>
                         <span className="text-gray-300 font-bold">{match.player1_sets_won}</span>
                         <span className="text-gray-500">:</span>
                         <span className="text-gray-300 font-bold">{match.player2_sets_won}</span>
-                        <Link to={`/profile/${match.player2_username}`} className="text-blue-400 hover:text-blue-300">
+                        <Link to={`/app/profile/${match.player2_username}`} className="text-blue-400 hover:text-blue-300">
                           {match.player2_username}
                         </Link>
                       </div>
@@ -223,7 +223,7 @@ const DashboardPage = () => {
             <Swords className="h-6 w-6 text-gray-600 mx-auto mb-2" />
             <p className="text-gray-500 text-sm mb-3">No matches yet</p>
             <Button asChild variant="outline">
-              <Link to="/profile">
+              <Link to="/app/profile">
                 {t('cta.viewProfile')}
               </Link>
             </Button>
@@ -232,14 +232,14 @@ const DashboardPage = () => {
       </div>
 
       {/* Divider */}
-      <div className="border-t border-gray-800"></div>
+      <div className="section-divider"></div>
 
       {/* Section 3: Leaderboards */}
       <div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
-          <h2 className="cyberpunk-title text-2xl text-purple-300">Leaderboards</h2>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-6">
+          <h2 className="cyberpunk-title text-xl sm:text-2xl bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Leaderboards</h2>
           <Link
-            to="/leagues"
+            to="/app/leagues"
             className="self-end sm:self-auto text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2"
           >
             Browse all leagues <ArrowRight className="h-4 w-4" />
@@ -250,7 +250,7 @@ const DashboardPage = () => {
             <Card 
               key={league.id} 
               className="vg-card cursor-pointer hover:scale-105 transition-transform"
-              onClick={() => window.location.href = `/leagues/${league.id}`}
+              onClick={() => window.location.href = `/app/leagues/${league.id}`}
             >
               <CardHeader className="compact-card-header">
                 <CardTitle className="cyberpunk-subtitle flex items-center gap-2 text-lg">
@@ -271,13 +271,13 @@ const DashboardPage = () => {
                       >
                         <div className="flex items-center gap-2">
                           {player.rank <= 3 ? (
-                            <MedalIcon rank={player.rank} size={24} userAvatar={player.avatar_url} />
+                            <MedalIcon rank={player.rank} size={player.rank === 1 ? 28 : 24} userAvatar={player.avatar_url} />
                           ) : (
-                            <span className="text-sm text-gray-400 w-6 text-center">{player.rank}</span>
+                            <span className="text-sm text-gray-400 w-6 text-center">{player.rank}.</span>
                           )}
                           {player.username ? (
                             <Link 
-                              to={`/profile/${player.username}`} 
+                              to={`/app/profile/${player.username}`} 
                               className="text-sm font-medium text-blue-400 hover:text-blue-300"
                               onClick={(e) => e.stopPropagation()}
                             >

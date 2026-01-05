@@ -39,10 +39,10 @@ const Layout = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navigation = [
-    { name: t('nav.dashboard'), href: '/dashboard', icon: Home },
-    { name: t('nav.leagues'), href: '/leagues', icon: Trophy },
-    { name: t('nav.matches'), href: '/matches', icon: Swords },
-    { name: t('nav.admin'), href: '/admin', icon: Shield },
+    { name: t('nav.dashboard'), href: '/app/dashboard', icon: Home },
+    { name: t('nav.leagues'), href: '/app/leagues', icon: Trophy },
+    { name: t('nav.matches'), href: '/app/matches', icon: Swords },
+    { name: t('nav.admin'), href: '/app/admin', icon: Shield },
   ];
 
   const handleLogout = async () => {
@@ -130,12 +130,12 @@ const Layout = () => {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="border-b border-gray-700 bg-gray-900/80 backdrop-blur-sm">
+      <header className="sticky top-0 z-40 border-b border-gray-800/60 bg-gradient-to-r from-gray-900/95 via-gray-900/98 to-gray-900/95 backdrop-blur-xl">
         <div className="flex h-16 items-center px-4 md:px-6">
           {/* Logo */}
-          <Link to="/dashboard" className="flex items-center space-x-2">
-            <img src="/img/logo.png" alt="Logo" className="h-8 w-8" />
-            <span className="cyberpunk-title text-lg text-blue-400">{t('app.title')}</span>
+          <Link to="/app/dashboard" className="flex items-center space-x-2 group">
+            <img src="/img/logo.png" alt="Logo" className="h-8 w-8 group-hover:scale-105 transition-transform" />
+            <span className="cyberpunk-title text-lg bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">{t('app.title')}</span>
           </Link>
 
           {/* Navigation */}
@@ -251,7 +251,7 @@ const Layout = () => {
                                                              <div className="text-xs text-muted-foreground">{t('notifications.inviteHandled')}</div>
                             )}
                             {n.related_id && (
-                                                             <Link to={`/leagues/${n.related_id}`} className="text-xs text-primary underline">
+                                                             <Link to={`/app/leagues/${n.related_id}`} className="text-xs text-primary underline">
                                  {t('matchDetail.viewLeague')}
                                </Link>
                             )}
@@ -263,7 +263,7 @@ const Layout = () => {
                 </div>
                 <DropdownMenuSeparator />
                 <div className="p-2">
-                  <Link to="/notifications" className="w-full inline-flex items-center justify-center text-sm underline text-primary">
+                  <Link to="/app/notifications" className="w-full inline-flex items-center justify-center text-sm underline text-primary">
                     {t('nav.notifications')}
                   </Link>
                 </div>
@@ -286,7 +286,7 @@ const Layout = () => {
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56 bg-gray-800 border-gray-700" align="end" forceMount>
                 <DropdownMenuItem asChild className="text-gray-200 hover:bg-gray-700 p-2 cursor-pointer">
-                  <Link to="/profile" className="flex items-center justify-start gap-2 w-full">
+                  <Link to="/app/profile" className="flex items-center justify-start gap-2 w-full">
                     <Avatar className="h-10 w-10" key={user?.avatar_url}>
                       {user?.avatar_url && (
                         <AvatarImage src={user.avatar_url} alt="Profile" />
@@ -305,13 +305,13 @@ const Layout = () => {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild className="text-gray-200 hover:bg-gray-700">
-                  <Link to="/profile" className="flex items-center">
+                  <Link to="/app/profile" className="flex items-center">
                     <User className="mr-2 h-4 w-4" />
                     <span>{t('nav.profile')}</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className="text-gray-200 hover:bg-gray-700">
-                  <Link to="/settings" className="flex items-center">
+                  <Link to="/app/settings" className="flex items-center">
                     <Settings className="mr-2 h-4 w-4" />
                     <span>{t('nav.settings')}</span>
                   </Link>
