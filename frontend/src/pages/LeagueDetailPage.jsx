@@ -697,17 +697,17 @@ const LeagueDetailPage = () => {
                               />
                             )}
 
-                            <div className="mt-1 flex items-center gap-2 text-[11px] text-gray-300 tabular-nums whitespace-nowrap">
-                              <span className="text-gray-400">{t('leagues.wl')}:</span>
-                              <span>{p.matches_won}/{p.matches_played - p.matches_won}</span>
-                              <span className="text-gray-600">•</span>
-                              <span className="text-gray-400">{t('leagues.winPercent')}:</span>
-                              <span>{p.win_rate}%</span>
-                            </div>
-
-                            <div className="mt-1 flex items-center justify-between gap-2">
-                              <div className="text-[11px] text-gray-400">{t('leagues.trend')}</div>
-                              <EloSparkline userId={p.id} leagueId={id} width={72} height={14} points={15} />
+                            <div className="mt-1 flex items-center justify-between gap-2 min-w-0">
+                              <div className="flex items-center gap-2 text-[11px] text-gray-300 tabular-nums whitespace-nowrap min-w-0">
+                                <span className="text-gray-400">{t('leagues.wl')}:</span>
+                                <span>{p.matches_won}/{p.matches_played - p.matches_won}</span>
+                                <span className="text-gray-600">•</span>
+                                <span className="text-gray-400">{t('leagues.winPercent')}:</span>
+                                <span>{p.win_rate}%</span>
+                              </div>
+                              <div className="shrink-0">
+                                <EloSparkline userId={p.id} leagueId={id} width={72} height={14} points={15} />
+                              </div>
                             </div>
                           </div>
                         </div>
