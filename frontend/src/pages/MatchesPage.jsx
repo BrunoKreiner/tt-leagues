@@ -60,7 +60,7 @@ export default function MatchesPage() {
   const canPrev = page > 1;
   const canNext = page < pages;
 
-  const youVsLabel = (m) => {
+  const _youVsLabel = (m) => {
     const myUsername = me?.username;
     if (!myUsername) return `${m.player1_username} vs ${m.player2_username}`;
     if (m.player1_username === myUsername) return `You vs ${m.player2_username}`;

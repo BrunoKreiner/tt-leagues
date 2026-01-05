@@ -258,7 +258,7 @@ export default function RecordMatchForm({ initialLeagueId, hideLeagueSelector = 
           };
           const { data } = await matchesAPI.previewElo(payload);
           setEloPreview(data);
-        } catch (e) {
+        } catch {
           setEloPreview(null);
         }
       }, 300);

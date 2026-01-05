@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { leaguesAPI, matchesAPI } from '@/services/api';
+import { badgesAPI } from '@/services/api';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -58,7 +59,7 @@ const LeagueDetailPage = () => {
   const [leaderboardPagination, setLeaderboardPagination] = useState({ page: 1, pages: 1, total: 0, limit: 20 });
   const [members, setMembers] = useState([]);
   const [matches, setMatches] = useState([]);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAdmin } = useAuth();
   const [inviteCode, setInviteCode] = useState('');
   const [joinLoading, setJoinLoading] = useState(false);
   const [inviteUserId, setInviteUserId] = useState(null);
@@ -67,13 +68,23 @@ const LeagueDetailPage = () => {
   const [leaveLoading, setLeaveLoading] = useState(false);
   const [updateLoading, setUpdateLoading] = useState(false);
   const [invites, setInvites] = useState([]);
-  const [invitesLoading, setInvitesLoading] = useState(false);
+  const [_invitesLoading, setInvitesLoading] = useState(false);
   const [roleChanging, setRoleChanging] = useState({}); // { [userId]: true }
-  const [revokingInvite, setRevokingInvite] = useState({}); // { [inviteId]: true }
+  const [_revokingInvite, setRevokingInvite] = useState({}); // { [inviteId]: true }
   const [eloMode, setEloMode] = useState('immediate');
   const [showRecordMatch, setShowRecordMatch] = useState(false);
 
   const [consolidating, setConsolidating] = useState(false);
+
+  // Award badge (league admins + site admins)
+  const [badges, setBadges] = useState([]);
+  const [loadingBadges, setLoadingBadges] = useState(false);
+  const [awardBadgeId, setAwardBadgeId] = useState('');
+  const [awardMemberId, setAwardMemberId] = useState('');
+  const [awardSeason, setAwardSeason] = useState('');
+  const [awardingBadge, setAwardingBadge] = useState(false);
+
+  const canManageLeague = isAuthenticated && (isAdmin || userMembership?.is_admin);
 
   const editSchema = useMemo(() => (
     z.object({
@@ -185,7 +196,7 @@ const LeagueDetailPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [league]);
 
-  const eloDiff = (after, before) => {
+  const _eloDiff = (after, before) => {
     if (after == null || before == null) return null;
     const diff = after - before;
     const sign = diff > 0 ? '+' : '';
@@ -237,7 +248,7 @@ const LeagueDetailPage = () => {
   };
 
   const fetchInvites = async () => {
-    if (!isAuthenticated || !userMembership?.is_admin) return;
+    if (!isAuthenticated || !(isAdmin || userMembership?.is_admin)) return;
     try {
       setInvitesLoading(true);
       const res = await leaguesAPI.listInvites(id, { status: 'pending' });
@@ -252,13 +263,62 @@ const LeagueDetailPage = () => {
 
   useEffect(() => {
     // Load pending invites when user is an admin
-    if (isAuthenticated && userMembership?.is_admin) {
+    if (isAuthenticated && (isAdmin || userMembership?.is_admin)) {
       fetchInvites();
     } else {
       setInvites([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, isAuthenticated, userMembership?.is_admin]);
+  }, [id, isAuthenticated, isAdmin, userMembership?.is_admin]);
+
+  const fetchBadges = async () => {
+    try {
+      setLoadingBadges(true);
+      const res = await badgesAPI.getAll({ page: 1, limit: 100 });
+      setBadges(res.data?.badges || []);
+    } catch (e) {
+      console.error('Failed to load badges', e);
+      setBadges([]);
+    } finally {
+      setLoadingBadges(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!canManageLeague) return;
+    fetchBadges();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManageLeague]);
+
+  useEffect(() => {
+    if (!league) return;
+    setAwardSeason(league.season || '');
+  }, [league]);
+
+  const handleAwardBadge = async (e) => {
+    e.preventDefault();
+    if (!awardMemberId || !awardBadgeId) {
+      toast.error('Please select a user and a badge');
+      return;
+    }
+    try {
+      setAwardingBadge(true);
+      const selectedBadge = badges.find((b) => String(b.id) === String(awardBadgeId));
+      await badgesAPI.awardToUser(parseInt(awardMemberId), {
+        badge_id: parseInt(awardBadgeId),
+        league_id: parseInt(id),
+        season: awardSeason?.trim() || undefined,
+      });
+      toast.success(`Badge "${selectedBadge?.name || 'selected'}" awarded successfully`);
+      setAwardMemberId('');
+      setAwardBadgeId('');
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Failed to award badge';
+      toast.error(msg);
+    } finally {
+      setAwardingBadge(false);
+    }
+  };
 
   const handlePromote = async (userId, username) => {
     if (!window.confirm(t('leagues.promoteConfirm', { username }))) return;
@@ -295,7 +355,7 @@ const LeagueDetailPage = () => {
     }
   };
 
-  const handleRevokeInvite = async (inviteId) => {
+  const _handleRevokeInvite = async (inviteId) => {
     if (!window.confirm(t('leagues.revokeConfirm'))) return;
     try {
       setRevokingInvite((m) => ({ ...m, [inviteId]: true }));
@@ -310,7 +370,7 @@ const LeagueDetailPage = () => {
     }
   };
 
-  const handleUpdate = async (values) => {
+  const _handleUpdate = async (values) => {
     try {
       setUpdateLoading(true);
       const payload = {
@@ -811,7 +871,7 @@ const LeagueDetailPage = () => {
       </div>
 
       {/* Members List and Admin Panel - Side by Side */}
-      {isAuthenticated && userMembership?.is_admin ? (
+      {canManageLeague ? (
         <div className="grid gap-6 lg:grid-cols-2 mt-6">
           {/* Members List - Left */}
           <Card id="members" className="vg-card">
@@ -890,6 +950,52 @@ const LeagueDetailPage = () => {
               <CardTitle className="cyberpunk-subtitle text-lg">Admin Panel</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Award Badge */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-gray-300">Award Badge</h4>
+                <form className="flex flex-col gap-2" onSubmit={handleAwardBadge}>
+                  <Select value={awardMemberId} onValueChange={setAwardMemberId}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select member" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {members.map((m) => (
+                        <SelectItem key={m.id} value={String(m.id)}>
+                          {m.username}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={awardBadgeId} onValueChange={setAwardBadgeId} disabled={loadingBadges}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={loadingBadges ? 'Loading badges...' : 'Select badge'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {badges.length === 0 ? (
+                        <SelectItem disabled value="0">
+                          No badges available
+                        </SelectItem>
+                      ) : (
+                        badges.map((b) => (
+                          <SelectItem key={b.id} value={String(b.id)}>
+                            {b.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={awardSeason}
+                    onChange={(ev) => setAwardSeason(ev.target.value)}
+                    placeholder="Season (optional)"
+                    disabled={awardingBadge}
+                  />
+                  <Button type="submit" disabled={awardingBadge || !awardMemberId || !awardBadgeId}>
+                    {awardingBadge ? 'Awarding...' : 'Award Badge'}
+                  </Button>
+                </form>
+              </div>
+
               {/* Invite Users */}
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-300">Invite Users</h4>

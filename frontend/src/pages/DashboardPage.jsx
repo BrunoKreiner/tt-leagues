@@ -16,7 +16,7 @@ const DashboardPage = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState(null);
+  const [_stats, setStats] = useState(null);
   const [recentMatches, setRecentMatches] = useState([]);
   const [userLeagues, setUserLeagues] = useState([]);
   const [leagueLeaderboards, setLeagueLeaderboards] = useState({});
