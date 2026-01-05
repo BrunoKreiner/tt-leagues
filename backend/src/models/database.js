@@ -87,9 +87,13 @@ class Database {
                     try {
                         await this.run(sql);
                     } catch (err) {
-                        const snippet = sql.length > 1200 ? `${sql.slice(0, 1200)}\n... (truncated)` : sql;
-                        console.error(`DB init: schema statement failed (index=${i + 1}/${statements.length}):\n${snippet}`);
-                        throw err;
+                        const maxLen = 800;
+                        const snippet = sql.length > maxLen ? `${sql.slice(0, maxLen)}\n... (truncated)` : sql;
+                        const wrapped = new Error(
+                            `DB init: schema statement failed (index=${i + 1}/${statements.length}):\n${snippet}`
+                        );
+                        wrapped.cause = err;
+                        throw wrapped;
                     }
                 }
             }
