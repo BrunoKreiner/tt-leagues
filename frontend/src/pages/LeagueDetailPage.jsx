@@ -924,7 +924,48 @@ const LeagueDetailPage = () => {
         </div>
       </div>
 
-      {/* Members List and Admin Panel - Side by Side */}
+      {/* Record Match Section - Collapsible */}
+      {isAuthenticated && userMembership && (
+        <Card className="vg-card">
+          <Collapsible open={showRecordMatch} onOpenChange={setShowRecordMatch}>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-gray-800/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="cyberpunk-subtitle flex items-center gap-2 text-lg">
+                    <Swords className="h-5 w-5 text-blue-400" />
+                    {t('recordMatch.title')}
+                  </CardTitle>
+                  {showRecordMatch ? (
+                    <ChevronUp className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-gray-400" />
+                  )}
+                </div>
+                <CardDescription className="text-gray-400">
+                  {t('recordMatch.subtitle')}
+                </CardDescription>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent>
+                <RecordMatchForm
+                  initialLeagueId={parseInt(id)}
+                  hideLeagueSelector={true}
+                  leagueName={league.name}
+                  onSuccess={() => {
+                    setShowRecordMatch(false);
+                    // Refresh matches and leaderboard
+                    fetchMatches();
+                    fetchLeaderboard(leaderboardPagination.page);
+                  }}
+                />
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
+      )}
+
+      {/* Members List and Admin Panel - Side by Side (kept last in DOM) */}
       {canManageLeague ? (
         <div className="grid gap-6 lg:grid-cols-2 mt-6">
           {/* Members List - Left */}
@@ -1224,47 +1265,6 @@ const LeagueDetailPage = () => {
           </Card>
         </div>
       ) : null}
-
-      {/* Record Match Section - Collapsible */}
-      {isAuthenticated && userMembership && (
-        <Card className="vg-card">
-          <Collapsible open={showRecordMatch} onOpenChange={setShowRecordMatch}>
-            <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer hover:bg-gray-800/50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="cyberpunk-subtitle flex items-center gap-2 text-lg">
-                    <Swords className="h-5 w-5 text-blue-400" />
-                    {t('recordMatch.title')}
-                  </CardTitle>
-                  {showRecordMatch ? (
-                    <ChevronUp className="h-5 w-5 text-gray-400" />
-                  ) : (
-                    <ChevronDown className="h-5 w-5 text-gray-400" />
-                  )}
-                </div>
-                <CardDescription className="text-gray-400">
-                  {t('recordMatch.subtitle')}
-                </CardDescription>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent>
-                <RecordMatchForm
-                  initialLeagueId={parseInt(id)}
-                  hideLeagueSelector={true}
-                  leagueName={league.name}
-                  onSuccess={() => {
-                    setShowRecordMatch(false);
-                    // Refresh matches and leaderboard
-                    fetchMatches();
-                    fetchLeaderboard(leaderboardPagination.page);
-                  }}
-                />
-              </CardContent>
-            </CollapsibleContent>
-          </Collapsible>
-        </Card>
-      )}
     </div>
   );
 };
