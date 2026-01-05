@@ -221,7 +221,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user_read_created ON notifications(
 -- ELO history table
 CREATE INDEX IF NOT EXISTS idx_elo_history_match_id ON elo_history(match_id);
 CREATE INDEX IF NOT EXISTS idx_elo_history_user_league_recorded ON elo_history(user_id, league_id, recorded_at);
-CREATE INDEX IF NOT EXISTS idx_elo_history_roster_id ON elo_history(roster_id);
+-- Note: idx_elo_history_roster_id is created in ensureRosterIndexes() after roster_id column is ensured
 
 -- Match sets table
 CREATE INDEX IF NOT EXISTS idx_match_sets_match_id ON match_sets(match_id);

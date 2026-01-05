@@ -117,7 +117,7 @@ Quick facts (current state):
 - [x] .env.example (backend)
   - Files: `backend/.env.example`
   - Action: Provide a template with local defaults and production guidance.
-    - Local: omit DATABASE_URL; set `DATABASE_PATH=backend/database/league.db`; set `FRONTEND_URL=http://localhost,http://localhost:5173`.
+    - Local: omit DATABASE_URL; set `DATABASE_PATH=database/league.db` (when running from `backend/`); set `FRONTEND_URL=http://localhost,http://localhost:5173`.
     - Production (Vercel): include `DATABASE_URL` (with sslmode=require if not present), `JWT_SECRET`, `FRONTEND_URL`.
   - Acceptance: Contributors can copy this to quickly configure local and Vercel environments.
 

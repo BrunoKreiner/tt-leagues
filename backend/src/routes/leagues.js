@@ -131,7 +131,7 @@ router.post('/', authenticateToken, validateLeagueCreation, async (req, res) => 
         // Add creator as league admin
         await database.run(
             'INSERT INTO league_roster (league_id, user_id, display_name, is_admin) VALUES (?, ?, ?, ?)',
-            [result.id, req.user.id, `${req.user.first_name} ${req.user.last_name}`.trim(), true]
+            [result.id, req.user.id, req.user.username, true]
         );
         
         // Get created league
@@ -361,6 +361,34 @@ router.get('/:id/members', authenticateToken, validateId, async (req, res) => {
                 return res.status(403).json({ error: 'Access denied to private league' });
             }
         }
+
+        // Normalize empty display names (existing bad data).
+        // - Assigned users: use username as display_name.
+        // - Unassigned placeholders: ensure non-empty label.
+        await database.run(
+            `
+            UPDATE league_roster
+            SET display_name = (
+                SELECT u.username
+                FROM users u
+                WHERE u.id = league_roster.user_id
+            )
+            WHERE league_id = ?
+              AND user_id IS NOT NULL
+              AND (display_name IS NULL OR TRIM(display_name) = '')
+            `,
+            [leagueId]
+        );
+        await database.run(
+            `
+            UPDATE league_roster
+            SET display_name = 'Placeholder'
+            WHERE league_id = ?
+              AND user_id IS NULL
+              AND (display_name IS NULL OR TRIM(display_name) = '')
+            `,
+            [leagueId]
+        );
         
         const members = await database.all(`
             SELECT 
@@ -373,11 +401,22 @@ router.get('/:id/members', authenticateToken, validateId, async (req, res) => {
                 lr.current_elo,
                 lr.is_admin as is_league_admin,
                 lr.joined_at,
-                COUNT(CASE WHEN m.player1_roster_id = lr.id OR m.player2_roster_id = lr.id THEN m.id END) as matches_played,
-                COUNT(CASE WHEN m.winner_roster_id = lr.id THEN m.id END) as matches_won
+                COUNT(CASE 
+                    WHEN lr.user_id IS NOT NULL AND (m.player1_id = lr.user_id OR m.player2_id = lr.user_id) THEN m.id
+                    WHEN lr.user_id IS NULL AND (m.player1_roster_id = lr.id OR m.player2_roster_id = lr.id) THEN m.id
+                END) as matches_played,
+                COUNT(CASE 
+                    WHEN lr.user_id IS NOT NULL AND m.winner_id = lr.user_id THEN m.id
+                    WHEN lr.user_id IS NULL AND m.winner_roster_id = lr.id THEN m.id
+                END) as matches_won
             FROM league_roster lr
             LEFT JOIN users u ON lr.user_id = u.id
-            LEFT JOIN matches m ON m.league_id = lr.league_id AND (m.player1_roster_id = lr.id OR m.player2_roster_id = lr.id) AND m.is_accepted = ?
+            LEFT JOIN matches m ON m.league_id = lr.league_id 
+                AND m.is_accepted = ?
+                AND (
+                    (lr.user_id IS NOT NULL AND (m.player1_id = lr.user_id OR m.player2_id = lr.user_id))
+                    OR (lr.user_id IS NULL AND (m.player1_roster_id = lr.id OR m.player2_roster_id = lr.id))
+                )
             WHERE lr.league_id = ?
             GROUP BY lr.id, lr.user_id, u.username, u.first_name, u.last_name, lr.display_name, lr.current_elo, lr.is_admin, lr.joined_at
             ORDER BY lr.current_elo DESC
@@ -439,7 +478,7 @@ router.post('/:id/roster', authenticateToken, requireLeagueAdmin, validateId, as
  * POST /api/leagues/:id/roster/:rosterId/assign
  * Body: { user_id: number }
  *
- * Note: display_name is NOT changed on assignment (placeholder name remains the league display name).
+ * Updates display_name to the user's username and links existing ELO history to the user_id.
  */
 router.post('/:id/roster/:rosterId/assign', authenticateToken, requireLeagueAdmin, validateId, async (req, res) => {
     try {
@@ -465,7 +504,7 @@ router.post('/:id/roster/:rosterId/assign', authenticateToken, requireLeagueAdmi
             return res.status(400).json({ error: 'Roster entry already assigned' });
         }
 
-        const user = await database.get('SELECT id FROM users WHERE id = ?', [userId]);
+        const user = await database.get('SELECT id, username FROM users WHERE id = ?', [userId]);
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
@@ -478,10 +517,23 @@ router.post('/:id/roster/:rosterId/assign', authenticateToken, requireLeagueAdmi
             return res.status(409).json({ error: 'User is already assigned to a roster entry in this league' });
         }
 
-        await database.run(
-            'UPDATE league_roster SET user_id = ? WHERE league_id = ? AND id = ?',
-            [userId, leagueId, rosterId]
-        );
+        // Use username as display name
+        const displayName = user.username;
+
+        await database.withTransaction(async (tx) => {
+            // Update roster entry with user_id and display_name
+            await tx.run(
+                'UPDATE league_roster SET user_id = ?, display_name = ? WHERE league_id = ? AND id = ?',
+                [userId, displayName, leagueId, rosterId]
+            );
+
+            // Update ELO history records to link them to the user_id
+            // This ensures the ELO trend line works after assignment
+            await tx.run(
+                'UPDATE elo_history SET user_id = ? WHERE roster_id = ? AND league_id = ? AND user_id IS NULL',
+                [userId, rosterId, leagueId]
+            );
+        });
 
         const updated = await database.get(
             'SELECT id as roster_id, league_id, user_id, display_name, current_elo, is_admin, joined_at FROM league_roster WHERE id = ?',
@@ -656,13 +708,29 @@ router.post('/:id/join', authenticateToken, validateId, async (req, res) => {
             return res.status(400).json({ error: 'Invite has expired' });
         }
         
-        const me = await database.get('SELECT first_name, last_name FROM users WHERE id = ?', [req.user.id]);
-        const displayName = `${me.first_name} ${me.last_name}`.trim();
-
-        // Add user to league roster
+        // Check if user has match history in this league to restore their ELO
+        const lastMatch = await database.get(`
+            SELECT 
+                CASE 
+                    WHEN m.player1_id = ? THEN m.player1_elo_after
+                    WHEN m.player2_id = ? THEN m.player2_elo_after
+                    ELSE NULL
+                END as last_elo
+            FROM matches m
+            WHERE m.league_id = ? 
+            AND (m.player1_id = ? OR m.player2_id = ?)
+            AND m.is_accepted = ?
+            ORDER BY m.played_at DESC
+            LIMIT 1
+        `, [req.user.id, req.user.id, leagueId, req.user.id, req.user.id, true]);
+        
+        const initialElo = lastMatch && lastMatch.last_elo ? lastMatch.last_elo : 1200;
+        
+        // Add user to league roster (use username as display_name)
+        // If they have match history, restore their last ELO; otherwise start at 1200
         await database.run(
-            'INSERT INTO league_roster (league_id, user_id, display_name) VALUES (?, ?, ?)',
-            [leagueId, req.user.id, displayName]
+            'INSERT INTO league_roster (league_id, user_id, display_name, current_elo) VALUES (?, ?, ?, ?)',
+            [leagueId, req.user.id, req.user.username, initialElo]
         );
         
         // Update invite status
@@ -671,12 +739,16 @@ router.post('/:id/join', authenticateToken, validateId, async (req, res) => {
             ['accepted', invite.id]
         );
         
-        // Get league info
+        // Get league info and current ELO
         const league = await database.get('SELECT name FROM leagues WHERE id = ?', [leagueId]);
+        const rosterEntry = await database.get(
+            'SELECT current_elo FROM league_roster WHERE league_id = ? AND user_id = ?',
+            [leagueId, req.user.id]
+        );
         
         res.json({
             message: `Successfully joined league "${league.name}"`,
-            current_elo: 1200
+            current_elo: rosterEntry ? rosterEntry.current_elo : initialElo
         });
     } catch (error) {
         console.error('Join league error:', error);
@@ -701,7 +773,8 @@ router.delete('/:id/leave', authenticateToken, validateId, async (req, res) => {
             return res.status(404).json({ error: 'You are not a member of this league' });
         }
         
-        // Remove user from league
+        // Hard delete: remove roster entry, but matches retain user_id references
+        // Match history will use user_id when roster entry is missing
         await database.run(
             'DELETE FROM league_roster WHERE league_id = ? AND user_id = ?',
             [leagueId, req.user.id]
@@ -746,6 +819,32 @@ router.get('/:id/leaderboard', optionalAuth, validateId, validatePagination, asy
         } else if (!league.is_public && !req.user) {
             return res.status(403).json({ error: 'Access denied to private league' });
         }
+
+        // Normalize empty display names (existing bad data).
+        await database.run(
+            `
+            UPDATE league_roster
+            SET display_name = (
+                SELECT u.username
+                FROM users u
+                WHERE u.id = league_roster.user_id
+            )
+            WHERE league_id = ?
+              AND user_id IS NOT NULL
+              AND (display_name IS NULL OR TRIM(display_name) = '')
+            `,
+            [leagueId]
+        );
+        await database.run(
+            `
+            UPDATE league_roster
+            SET display_name = 'Placeholder'
+            WHERE league_id = ?
+              AND user_id IS NULL
+              AND (display_name IS NULL OR TRIM(display_name) = '')
+            `,
+            [leagueId]
+        );
         
         const leaderboard = await database.all(`
             SELECT 
@@ -758,12 +857,23 @@ router.get('/:id/leaderboard', optionalAuth, validateId, validatePagination, asy
                 lr.display_name,
                 lr.current_elo,
                 lr.joined_at,
-                COUNT(CASE WHEN m.player1_roster_id = lr.id OR m.player2_roster_id = lr.id THEN m.id END) as matches_played,
-                COUNT(CASE WHEN m.winner_roster_id = lr.id THEN m.id END) as matches_won,
+                COUNT(CASE 
+                    WHEN lr.user_id IS NOT NULL AND (m.player1_id = lr.user_id OR m.player2_id = lr.user_id) THEN m.id
+                    WHEN lr.user_id IS NULL AND (m.player1_roster_id = lr.id OR m.player2_roster_id = lr.id) THEN m.id
+                END) as matches_played,
+                COUNT(CASE 
+                    WHEN lr.user_id IS NOT NULL AND m.winner_id = lr.user_id THEN m.id
+                    WHEN lr.user_id IS NULL AND m.winner_roster_id = lr.id THEN m.id
+                END) as matches_won,
                 ROW_NUMBER() OVER (ORDER BY lr.current_elo DESC) as rank
             FROM league_roster lr
             LEFT JOIN users u ON lr.user_id = u.id
-            LEFT JOIN matches m ON m.league_id = lr.league_id AND (m.player1_roster_id = lr.id OR m.player2_roster_id = lr.id) AND m.is_accepted = ?
+            LEFT JOIN matches m ON m.league_id = lr.league_id 
+                AND m.is_accepted = ?
+                AND (
+                    (lr.user_id IS NOT NULL AND (m.player1_id = lr.user_id OR m.player2_id = lr.user_id))
+                    OR (lr.user_id IS NULL AND (m.player1_roster_id = lr.id OR m.player2_roster_id = lr.id))
+                )
             WHERE lr.league_id = ?
             GROUP BY lr.id, lr.user_id, u.username, u.first_name, u.last_name, u.avatar_url, lr.display_name, lr.current_elo, lr.joined_at
             ORDER BY lr.current_elo DESC
@@ -821,6 +931,127 @@ router.get('/:id/leaderboard', optionalAuth, validateId, validatePagination, asy
 });
 
 /**
+ * Get ELO history by roster ID (for placeholder members)
+ * GET /api/leagues/:id/roster/:rosterId/elo-history
+ */
+router.get('/:id/roster/:rosterId/elo-history', optionalAuth, validateId, validatePagination, async (req, res) => {
+    try {
+        const leagueId = parseInt(req.params.id);
+        const rosterId = parseInt(req.params.rosterId);
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50;
+        const offset = (page - 1) * limit;
+        
+        // Check league visibility
+        const league = await database.get('SELECT is_public FROM leagues WHERE id = ? AND is_active = ?', [leagueId, true]);
+        
+        if (!league) {
+            return res.status(404).json({ error: 'League not found' });
+        }
+        
+        if (!league.is_public) {
+            if (!req.user) {
+                return res.status(403).json({ error: 'Access denied to private league' });
+            }
+            
+            const membership = await database.get(
+                'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
+                [leagueId, req.user.id]
+            );
+            
+            if (!membership && !req.user.is_admin) {
+                return res.status(403).json({ error: 'Access denied to private league' });
+            }
+        }
+        
+        // Verify roster exists in this league
+        const roster = await database.get('SELECT id FROM league_roster WHERE id = ? AND league_id = ?', [rosterId, leagueId]);
+        if (!roster) {
+            return res.status(404).json({ error: 'Roster member not found' });
+        }
+        
+        // Build query for ELO history by roster_id
+        // Use LEFT JOINs and fallbacks for opponent info (in case opponent roster was deleted)
+        let query = `
+            SELECT 
+                eh.recorded_at, eh.elo_before, eh.elo_after, 
+                (eh.elo_after - eh.elo_before) as elo_change,
+                eh.match_id, m.played_at,
+                COALESCE(opp_roster.display_name, opp_user.username, 'Unknown') as opponent_display_name,
+                CASE 
+                    WHEN m.player1_roster_id = ? THEN m.player1_sets_won
+                    ELSE m.player2_sets_won
+                END as user_sets_won,
+                CASE 
+                    WHEN m.player1_roster_id = ? THEN m.player2_sets_won
+                    ELSE m.player1_sets_won
+                END as opponent_sets_won,
+                CASE 
+                    WHEN m.winner_roster_id = ? THEN 'W'
+                    WHEN m.winner_roster_id IS NOT NULL THEN 'L'
+                    ELSE 'D'
+                END as result
+            FROM elo_history eh
+            JOIN matches m ON eh.match_id = m.id
+            LEFT JOIN league_roster opp_roster ON (
+                CASE
+                    WHEN m.player1_roster_id = ? THEN m.player2_roster_id
+                    ELSE m.player1_roster_id
+                END = opp_roster.id
+            )
+            LEFT JOIN users opp_user ON (
+                CASE
+                    WHEN m.player1_roster_id = ? THEN m.player2_id
+                    ELSE m.player1_id
+                END = opp_user.id
+            )
+            WHERE eh.roster_id = ? AND eh.league_id = ?
+        `;
+        
+        const params = [rosterId, rosterId, rosterId, rosterId, rosterId, rosterId, leagueId];
+        
+        // Get total count for pagination
+        const countQuery = `
+            SELECT COUNT(*) as count
+            FROM elo_history eh
+            WHERE eh.roster_id = ? AND eh.league_id = ?
+        `;
+        
+        const totalCount = await database.get(countQuery, [rosterId, leagueId]);
+        
+        // Get paginated results
+        query += ` ORDER BY eh.recorded_at DESC LIMIT ? OFFSET ?`;
+        params.push(limit, offset);
+        
+        const items = await database.all(query, params);
+        
+        res.json({
+            items: items.map(item => ({
+                recorded_at: item.recorded_at,
+                elo_before: item.elo_before,
+                elo_after: item.elo_after,
+                elo_change: item.elo_change,
+                match_id: item.match_id,
+                played_at: item.played_at,
+                opponent_display_name: item.opponent_display_name,
+                user_sets_won: item.user_sets_won,
+                opponent_sets_won: item.opponent_sets_won,
+                result: item.result
+            })),
+            pagination: {
+                page,
+                limit,
+                total: totalCount.count,
+                pages: Math.ceil(totalCount.count / limit)
+            }
+        });
+    } catch (error) {
+        console.error('Get roster ELO history error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
  * Get league matches
  * GET /api/leagues/:id/matches
  */
@@ -856,16 +1087,20 @@ router.get('/:id/matches', optionalAuth, validateId, validatePagination, async (
                 m.id, m.player1_sets_won, m.player2_sets_won, m.player1_points_total, m.player2_points_total,
                 m.game_type, m.winner_id, m.is_accepted, m.elo_applied, m.elo_applied_at, m.played_at,
                 m.player1_roster_id, m.player2_roster_id, m.winner_roster_id,
-                r1.display_name as player1_display_name,
-                r2.display_name as player2_display_name,
-                u1.id as player1_user_id, u1.username as player1_username,
-                u2.id as player2_user_id, u2.username as player2_username,
+                COALESCE(r1.display_name, u1_fallback.username) as player1_display_name,
+                COALESCE(r2.display_name, u2_fallback.username) as player2_display_name,
+                COALESCE(u1.id, m.player1_id) as player1_user_id, 
+                COALESCE(u1.username, u1_fallback.username) as player1_username,
+                COALESCE(u2.id, m.player2_id) as player2_user_id, 
+                COALESCE(u2.username, u2_fallback.username) as player2_username,
                 m.player1_elo_before, m.player2_elo_before, m.player1_elo_after, m.player2_elo_after
             FROM matches m
-            JOIN league_roster r1 ON m.player1_roster_id = r1.id
-            JOIN league_roster r2 ON m.player2_roster_id = r2.id
+            LEFT JOIN league_roster r1 ON m.player1_roster_id = r1.id
+            LEFT JOIN league_roster r2 ON m.player2_roster_id = r2.id
             LEFT JOIN users u1 ON r1.user_id = u1.id
             LEFT JOIN users u2 ON r2.user_id = u2.id
+            LEFT JOIN users u1_fallback ON m.player1_id = u1_fallback.id
+            LEFT JOIN users u2_fallback ON m.player2_id = u2_fallback.id
             WHERE m.league_id = ? AND m.is_accepted = ?
             ORDER BY m.played_at DESC
             LIMIT ? OFFSET ?

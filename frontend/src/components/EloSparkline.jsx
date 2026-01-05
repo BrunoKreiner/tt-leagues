@@ -1,30 +1,46 @@
 import { useEffect, useState, useMemo } from 'react';
-import { usersAPI } from '@/services/api';
+import { usersAPI, leaguesAPI } from '@/services/api';
 
-const EloSparkline = ({ userId, leagueId, width = 60, height = 20, points = 20 }) => {
+const EloSparkline = ({ userId, rosterId, leagueId, width = 60, height = 20, points = 20 }) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!userId || !leagueId) return;
+    if ((!userId && !rosterId) || !leagueId) return;
 
     let cancelled = false;
     const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await usersAPI.getEloHistory(userId, { 
-          league_id: leagueId, 
-          page: 1, 
-          limit: points 
-        });
+        
+        // Use roster-based API for placeholder members, user-based API for regular members
+        const res = rosterId 
+          ? await leaguesAPI.getRosterEloHistory(leagueId, rosterId, { 
+              page: 1, 
+              limit: Math.max(points - 1, 1),
+            })
+          : await usersAPI.getEloHistory(userId, { 
+              league_id: leagueId, 
+              page: 1, 
+              limit: Math.max(points - 1, 1),
+            });
         
         if (cancelled) return;
         
         // Reverse to show oldest to newest (left to right)
         const historyData = (res.data.items || []).reverse();
-        setData(historyData);
+        if (historyData.length === 0) {
+          setData([]);
+          return;
+        }
+
+        // The API returns one row per match with `elo_before` + `elo_after`.
+        // Build a true time-series so that even a single match produces 2 points.
+        const first = historyData[0];
+        const series = [{ elo_after: first.elo_before }, ...historyData];
+        setData(series);
       } catch (err) {
         if (cancelled) return;
         console.error('Failed to load ELO history for sparkline:', err);
@@ -36,7 +52,7 @@ const EloSparkline = ({ userId, leagueId, width = 60, height = 20, points = 20 }
 
     fetchData();
     return () => { cancelled = true; };
-  }, [userId, leagueId, points]);
+  }, [userId, rosterId, leagueId, points]);
 
   const svgPath = useMemo(() => {
     if (data.length < 2) return '';
@@ -46,13 +62,13 @@ const EloSparkline = ({ userId, leagueId, width = 60, height = 20, points = 20 }
     const maxElo = Math.max(...eloValues);
     const range = maxElo - minElo || 1; // Avoid division by zero
 
-    const points = eloValues.map((elo, index) => {
+    const plotPoints = eloValues.map((elo, index) => {
       const x = (index / (eloValues.length - 1)) * width;
       const y = height - ((elo - minElo) / range) * height;
       return `${x},${y}`;
     });
 
-    return `M ${points.join(' L ')}`;
+    return `M ${plotPoints.join(' L ')}`;
   }, [data, width, height]);
 
   if (loading) {
