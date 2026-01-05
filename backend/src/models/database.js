@@ -65,6 +65,7 @@ class Database {
 
     async initialize() {
         try {
+            const debugInit = process.env.DB_INIT_DEBUG === '1';
             // Guard rails: on Vercel, require DATABASE_URL to avoid ephemeral SQLite usage
             if (process.env.VERCEL && !process.env.DATABASE_URL) {
                 throw new Error('DATABASE_URL must be set when running on Vercel. SQLite is not supported in the serverless runtime.');
@@ -76,10 +77,20 @@ class Database {
             const schema = fs.readFileSync(this.schemaPath, 'utf8');
             const statements = schema.split(';').filter(stmt => stmt.trim());
 
+            if (debugInit) {
+                console.log(`DB init: executing schema from ${this.schemaPath} (${statements.length} statements)`);
+            }
             for (const statement of statements) {
                 const sql = statement.trim();
                 if (sql) {
-                    await this.run(sql);
+                    try {
+                        await this.run(sql);
+                    } catch (err) {
+                        if (debugInit) {
+                            console.error('DB init: schema statement failed:', sql);
+                        }
+                        throw err;
+                    }
                 }
             }
 
@@ -92,9 +103,11 @@ class Database {
             await this.addBadgeImageUrlColumn();
 
             // Ensure roster + roster-based matches/ELO schema exists (SQLite + Postgres) and migrate legacy data.
+            if (debugInit) console.log('DB init: ensuring roster schema');
             await this.ensureRosterSchema();
 
             // Create/update admin user from env
+            if (debugInit) console.log('DB init: ensuring admin user');
             await this.createAdminUser();
 
             console.log('Database initialized successfully');
@@ -531,13 +544,19 @@ class Database {
 
     run(sql, params = []) {
         if (this.isPg) {
+            const debugSql = process.env.DB_SQL_DEBUG === '1';
             const { text, values } = this._toPg(sql, params);
             const isInsert = /^\s*insert\s+/i.test(text) && !/returning\s+id/i.test(text);
             const textWithReturning = isInsert ? `${text} RETURNING id` : text;
             return this.pool
                 .query(textWithReturning, values)
                 .then((result) => ({ id: result.rows?.[0]?.id, changes: result.rowCount }))
-                .catch((err) => { throw err; });
+                .catch((err) => {
+                    if (debugSql) {
+                        console.error('DB query failed (run):', textWithReturning, { paramCount: values?.length ?? 0 });
+                    }
+                    throw err;
+                });
         }
         return new Promise((resolve, reject) => {
             this.db.run(sql, params, function(err) {
@@ -552,11 +571,17 @@ class Database {
 
     get(sql, params = []) {
         if (this.isPg) {
+            const debugSql = process.env.DB_SQL_DEBUG === '1';
             const { text, values } = this._toPg(sql, params);
             return this.pool
                 .query(text, values)
                 .then((result) => result.rows?.[0])
-                .catch((err) => { throw err; });
+                .catch((err) => {
+                    if (debugSql) {
+                        console.error('DB query failed (get):', text, { paramCount: values?.length ?? 0 });
+                    }
+                    throw err;
+                });
         }
         return new Promise((resolve, reject) => {
             this.db.get(sql, params, (err, row) => {
@@ -571,11 +596,17 @@ class Database {
 
     all(sql, params = []) {
         if (this.isPg) {
+            const debugSql = process.env.DB_SQL_DEBUG === '1';
             const { text, values } = this._toPg(sql, params);
             return this.pool
                 .query(text, values)
                 .then((result) => result.rows)
-                .catch((err) => { throw err; });
+                .catch((err) => {
+                    if (debugSql) {
+                        console.error('DB query failed (all):', text, { paramCount: values?.length ?? 0 });
+                    }
+                    throw err;
+                });
         }
         return new Promise((resolve, reject) => {
             this.db.all(sql, params, (err, rows) => {
@@ -620,6 +651,7 @@ class Database {
 
     async withTransaction(fn) {
         if (this.isPg) {
+            const debugSql = process.env.DB_SQL_DEBUG === '1';
             const client = await this.pool.connect();
             try {
                 await client.query('BEGIN');
@@ -628,18 +660,39 @@ class Database {
                         const { text, values } = this._toPg(sql, params);
                         const isInsert = /^\s*insert\s+/i.test(text) && !/returning\s+id/i.test(text);
                         const textWithReturning = isInsert ? `${text} RETURNING id` : text;
-                        const result = await client.query(textWithReturning, values);
-                        return { id: result.rows?.[0]?.id, changes: result.rowCount };
+                        try {
+                            const result = await client.query(textWithReturning, values);
+                            return { id: result.rows?.[0]?.id, changes: result.rowCount };
+                        } catch (err) {
+                            if (debugSql) {
+                                console.error('DB query failed (tx.run):', textWithReturning, { paramCount: values?.length ?? 0 });
+                            }
+                            throw err;
+                        }
                     },
                     get: async (sql, params = []) => {
                         const { text, values } = this._toPg(sql, params);
-                        const result = await client.query(text, values);
-                        return result.rows?.[0];
+                        try {
+                            const result = await client.query(text, values);
+                            return result.rows?.[0];
+                        } catch (err) {
+                            if (debugSql) {
+                                console.error('DB query failed (tx.get):', text, { paramCount: values?.length ?? 0 });
+                            }
+                            throw err;
+                        }
                     },
                     all: async (sql, params = []) => {
                         const { text, values } = this._toPg(sql, params);
-                        const result = await client.query(text, values);
-                        return result.rows;
+                        try {
+                            const result = await client.query(text, values);
+                            return result.rows;
+                        } catch (err) {
+                            if (debugSql) {
+                                console.error('DB query failed (tx.all):', text, { paramCount: values?.length ?? 0 });
+                            }
+                            throw err;
+                        }
                     }
                 };
                 const result = await fn(tx);

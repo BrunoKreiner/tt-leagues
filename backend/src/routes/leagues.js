@@ -768,19 +768,22 @@ router.get('/:id/leaderboard', optionalAuth, validateId, validatePagination, asy
         const leaderboardWithBadges = await Promise.all(leaderboard.map(async (player) => {
             let topBadges = [];
             try {
-                topBadges = await database.all(`
-                    SELECT 
-                        b.id, b.name, b.description, b.icon, b.badge_type, b.image_url,
-                        ub.earned_at
-                    FROM user_badges ub
-                    JOIN badges b ON ub.badge_id = b.id
-                    WHERE ub.user_id = ?
-                    AND (ub.league_id = ? OR ub.league_id IS NULL)
-                    ORDER BY ub.earned_at DESC
-                    LIMIT 3
-                `, [player.id, leagueId]);
+                const userId = player.user_id;
+                if (userId != null) {
+                    topBadges = await database.all(`
+                        SELECT 
+                            b.id, b.name, b.description, b.icon, b.badge_type, b.image_url,
+                            ub.earned_at
+                        FROM user_badges ub
+                        JOIN badges b ON ub.badge_id = b.id
+                        WHERE ub.user_id = ?
+                        AND (ub.league_id = ? OR ub.league_id IS NULL)
+                        ORDER BY ub.earned_at DESC
+                        LIMIT 3
+                    `, [userId, leagueId]);
+                }
             } catch (badgeError) {
-                console.warn(`Failed to fetch badges for user ${player.id}:`, badgeError.message);
+                console.warn(`Failed to fetch badges for leaderboard player (user_id=${player.user_id}):`, badgeError.message);
             }
             
             return {
