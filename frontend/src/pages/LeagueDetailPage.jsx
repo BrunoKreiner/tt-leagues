@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { leaguesAPI, matchesAPI } from '@/services/api';
-import { badgesAPI } from '@/services/api';
+import { leaguesAPI, matchesAPI, badgesAPI } from '@/services/api';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -667,7 +666,7 @@ const LeagueDetailPage = () => {
                   <div className="sm:hidden space-y-2">
                     {leaderboard.map((p) => (
                       <div
-                        key={p.id}
+                        key={p.roster_id}
                         className="rounded-lg border border-gray-800 bg-gray-900/30 p-2"
                       >
                         <div className="flex items-start gap-2 min-w-0">
@@ -683,13 +682,19 @@ const LeagueDetailPage = () => {
 
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2 min-w-0">
-                              <Link
-                                to={`/profile/${p.username}`}
-                                className="min-w-0 truncate text-blue-400 hover:text-blue-300 font-medium text-sm"
-                                title={p.username}
-                              >
-                                {p.username}
-                              </Link>
+                              {p.username ? (
+                                <Link
+                                  to={`/profile/${p.username}`}
+                                  className="min-w-0 truncate text-blue-400 hover:text-blue-300 font-medium text-sm"
+                                  title={p.display_name || p.username}
+                                >
+                                  {p.display_name || p.username}
+                                </Link>
+                              ) : (
+                                <span className="min-w-0 truncate text-gray-200 font-medium text-sm" title={p.display_name}>
+                                  {p.display_name}
+                                </span>
+                              )}
                               <div className="shrink-0 text-sm text-gray-200 font-semibold tabular-nums whitespace-nowrap">
                                 {t('leagues.elo')}: {p.current_elo}
                               </div>
@@ -704,7 +709,11 @@ const LeagueDetailPage = () => {
                                 <span>{p.win_rate}%</span>
                               </div>
                               <div className="shrink-0">
-                                <EloSparkline userId={p.id} leagueId={id} width={72} height={14} points={15} />
+                                {p.user_id ? (
+                                  <EloSparkline userId={p.user_id} leagueId={id} width={72} height={14} points={15} />
+                                ) : (
+                                  <span className="text-xs text-gray-500">—</span>
+                                )}
                               </div>
                             </div>
 
@@ -772,6 +781,7 @@ const LeagueDetailPage = () => {
                               ) : (
                                 <span className="text-xs text-gray-500">—</span>
                               )}
+                            </td>
                             <td className="px-3 py-2 text-gray-200 tabular-nums whitespace-nowrap align-middle text-xs">
                               <span className="text-gray-300">{p.matches_won}/{p.matches_played - p.matches_won}</span>
                               <span className="text-gray-600"> • </span>
@@ -971,9 +981,9 @@ const LeagueDetailPage = () => {
                       <SelectValue placeholder="Select member" />
                     </SelectTrigger>
                     <SelectContent>
-                      {members.map((m) => (
-                        <SelectItem key={m.id} value={String(m.id)}>
-                          {m.username}
+                      {members.filter((m) => m.user_id).map((m) => (
+                        <SelectItem key={m.user_id} value={String(m.user_id)}>
+                          {m.display_name || m.username}
                         </SelectItem>
                       ))}
                     </SelectContent>

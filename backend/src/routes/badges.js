@@ -299,7 +299,7 @@ router.post('/users/:id/badges', authenticateToken, validateId, async (req, res)
             }
 
             const membership = await database.get(
-                'SELECT is_admin FROM league_members WHERE league_id = ? AND user_id = ?',
+                'SELECT is_admin FROM league_roster WHERE league_id = ? AND user_id = ?',
                 [leagueIdInt, req.user.id]
             );
 
