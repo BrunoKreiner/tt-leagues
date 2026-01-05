@@ -655,35 +655,35 @@ const LeagueDetailPage = () => {
                 <p className="text-sm text-gray-400">{t('leagues.noPlayers')}</p>
               ) : (
                 <>
-                  {/* Mobile leaderboard: stacked rows (no horizontal overflow) */}
+                  {/* Mobile leaderboard: compact single-row stats */}
                   <div className="sm:hidden space-y-2">
                     {leaderboard.map((p) => (
                       <div
                         key={p.id}
-                        className="rounded-lg border border-gray-800 bg-gray-900/30 p-3"
+                        className="rounded-lg border border-gray-800 bg-gray-900/30 p-2"
                       >
-                        <div className="flex items-start gap-3 min-w-0">
+                        <div className="flex items-start gap-2 min-w-0">
                           <div className="shrink-0">
                             {p.rank <= 3 ? (
-                              <MedalIcon rank={p.rank} size={40} userAvatar={p.avatar_url} />
+                              <MedalIcon rank={p.rank} size={32} userAvatar={p.avatar_url} />
                             ) : (
-                              <div className="h-10 w-10 rounded-full border border-gray-800 bg-gray-900/60 flex items-center justify-center">
-                                <span className="text-gray-200 text-base font-bold">{p.rank}</span>
+                              <div className="h-8 w-8 rounded-full border border-gray-800 bg-gray-900/60 flex items-center justify-center">
+                                <span className="text-gray-200 text-sm font-bold">{p.rank}</span>
                               </div>
                             )}
                           </div>
 
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-baseline justify-between gap-2 min-w-0">
+                            <div className="flex items-center justify-between gap-2 min-w-0">
                               <Link
                                 to={`/profile/${p.username}`}
-                                className="min-w-0 truncate text-blue-400 hover:text-blue-300 font-medium"
+                                className="min-w-0 truncate text-blue-400 hover:text-blue-300 font-medium text-sm"
                                 title={p.username}
                               >
                                 {p.username}
                               </Link>
-                              <div className="shrink-0 text-sm text-gray-200 font-semibold tabular-nums">
-                                {p.current_elo}
+                              <div className="shrink-0 text-sm text-gray-200 font-semibold tabular-nums whitespace-nowrap">
+                                {t('leagues.elo')}: {p.current_elo}
                               </div>
                             </div>
 
@@ -693,28 +693,21 @@ const LeagueDetailPage = () => {
                                 size="sm"
                                 showDate={false}
                                 showLeague={false}
-                                className="mt-1"
+                                className="mt-1 flex-nowrap overflow-x-auto scrollbar-hide gap-1 pb-1"
                               />
                             )}
 
-                            <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                              <div className="rounded-md border border-gray-800 bg-gray-950/30 p-2">
-                                <div className="text-gray-400">{t('leagues.wl')}</div>
-                                <div className="text-gray-200 font-medium tabular-nums">
-                                  {p.matches_won}/{p.matches_played - p.matches_won}
-                                </div>
-                              </div>
-                              <div className="rounded-md border border-gray-800 bg-gray-950/30 p-2">
-                                <div className="text-gray-400">{t('leagues.winPercent')}</div>
-                                <div className="text-gray-200 font-medium tabular-nums">
-                                  {p.win_rate}%
-                                </div>
-                              </div>
+                            <div className="mt-1 flex items-center gap-2 text-[11px] text-gray-300 tabular-nums whitespace-nowrap">
+                              <span className="text-gray-400">{t('leagues.wl')}:</span>
+                              <span>{p.matches_won}/{p.matches_played - p.matches_won}</span>
+                              <span className="text-gray-600">•</span>
+                              <span className="text-gray-400">{t('leagues.winPercent')}:</span>
+                              <span>{p.win_rate}%</span>
                             </div>
 
-                            <div className="mt-2 flex items-center justify-between gap-2">
-                              <div className="text-xs text-gray-400">{t('leagues.trend')}</div>
-                              <EloSparkline userId={p.id} leagueId={id} width={84} height={18} points={15} />
+                            <div className="mt-1 flex items-center justify-between gap-2">
+                              <div className="text-[11px] text-gray-400">{t('leagues.trend')}</div>
+                              <EloSparkline userId={p.id} leagueId={id} width={72} height={14} points={15} />
                             </div>
                           </div>
                         </div>
@@ -722,7 +715,7 @@ const LeagueDetailPage = () => {
                     ))}
                   </div>
 
-                  {/* Desktop/tablet leaderboard */}
+                  {/* Desktop/tablet leaderboard: compact single-row stats */}
                   <div className="hidden sm:block overflow-x-auto max-w-full">
                     <table className="w-full text-sm">
                       <thead>
@@ -731,22 +724,21 @@ const LeagueDetailPage = () => {
                           <th className="px-3 py-2 font-medium">{t('leagues.player')}</th>
                           <th className="px-3 py-2 font-medium">{t('leagues.elo')}</th>
                           <th className="px-3 py-2 font-medium">{t('leagues.trend')}</th>
-                          <th className="px-3 py-2 font-medium">{t('leagues.wl')}</th>
-                          <th className="px-3 py-2 font-medium">{t('leagues.winPercent')}</th>
+                          <th className="px-3 py-2 font-medium whitespace-nowrap">{t('leagues.wl')} / {t('leagues.winPercent')}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {leaderboard.map((p) => (
                           <tr key={p.id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
-                            <td className="px-3 py-3">
+                            <td className="px-3 py-2 align-middle">
                               {p.rank <= 3 ? (
-                                <MedalIcon rank={p.rank} size={40} userAvatar={p.avatar_url} />
+                                <MedalIcon rank={p.rank} size={32} userAvatar={p.avatar_url} />
                               ) : (
-                                <span className="text-gray-300 text-lg font-bold">{p.rank}</span>
+                                <span className="text-gray-300 text-base font-bold">{p.rank}</span>
                               )}
                             </td>
-                            <td className="px-3 py-3 min-w-0">
-                              <div className="flex flex-col gap-1 min-w-0">
+                            <td className="px-3 py-2 min-w-0 align-middle">
+                              <div className="flex items-center gap-2 min-w-0">
                                 <Link
                                   to={`/profile/${p.username}`}
                                   className="text-blue-400 hover:text-blue-300 font-medium truncate"
@@ -760,19 +752,20 @@ const LeagueDetailPage = () => {
                                     size="sm"
                                     showDate={false}
                                     showLeague={false}
-                                    className="mt-1"
+                                    className="flex-nowrap overflow-x-auto scrollbar-hide gap-1"
                                   />
                                 )}
                               </div>
                             </td>
-                            <td className="px-3 py-3 text-gray-200 font-medium tabular-nums">{p.current_elo}</td>
-                            <td className="px-3 py-3">
-                              <EloSparkline userId={p.id} leagueId={id} width={60} height={18} points={15} />
+                            <td className="px-3 py-2 text-gray-200 font-medium tabular-nums whitespace-nowrap align-middle">{p.current_elo}</td>
+                            <td className="px-3 py-2 align-middle">
+                              <EloSparkline userId={p.id} leagueId={id} width={56} height={14} points={15} />
                             </td>
-                            <td className="px-3 py-3 text-gray-200 tabular-nums whitespace-nowrap">
-                              {p.matches_won}/{p.matches_played - p.matches_won}
+                            <td className="px-3 py-2 text-gray-200 tabular-nums whitespace-nowrap align-middle text-xs">
+                              <span className="text-gray-300">{p.matches_won}/{p.matches_played - p.matches_won}</span>
+                              <span className="text-gray-600"> • </span>
+                              <span className="text-gray-300">{p.win_rate}%</span>
                             </td>
-                            <td className="px-3 py-3 text-gray-200 tabular-nums whitespace-nowrap">{p.win_rate}%</td>
                           </tr>
                         ))}
                       </tbody>
@@ -884,19 +877,19 @@ const LeagueDetailPage = () => {
                 <p className="text-sm text-gray-400">{t('leagues.noMembers')}</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-xs sm:text-sm">
                     <thead>
                       <tr className="text-left text-gray-400 border-b border-gray-700">
-                        <th className="px-3 py-2 font-medium">{t('leagues.user')}</th>
-                        <th className="px-3 py-2 font-medium">{t('leagues.role')}</th>
-                        <th className="px-3 py-2 font-medium">{t('leagues.joined')}</th>
-                        <th className="px-3 py-2 font-medium text-right">{t('table.actions')}</th>
+                        <th className="px-2 sm:px-3 py-2 font-medium">{t('leagues.user')}</th>
+                        <th className="px-2 sm:px-3 py-2 font-medium">{t('leagues.role')}</th>
+                        <th className="px-2 sm:px-3 py-2 font-medium hidden md:table-cell">{t('leagues.joined')}</th>
+                        <th className="px-2 sm:px-3 py-2 font-medium text-right">{t('table.actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {members.map((m) => (
                         <tr key={m.id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
-                          <td className="px-3 py-3">
+                          <td className="px-2 sm:px-3 py-2">
                             <div className="flex flex-col">
                               <span className="font-medium">
                                 <Link to={`/profile/${m.username}`} className="text-blue-400 hover:text-blue-300">{m.username}</Link>
@@ -906,15 +899,15 @@ const LeagueDetailPage = () => {
                               )}
                             </div>
                           </td>
-                          <td className="px-3 py-3">
+                          <td className="px-2 sm:px-3 py-2">
                             {m.is_league_admin ? (
                               <Badge variant="secondary">{t('leagues.admin')}</Badge>
                             ) : (
                               <Badge variant="outline">{t('leagues.member')}</Badge>
                             )}
                           </td>
-                          <td className="px-3 py-3 text-gray-300">{m.joined_at ? format(new Date(m.joined_at), 'PP') : '-'}</td>
-                          <td className="px-3 py-3 text-right">
+                          <td className="px-2 sm:px-3 py-2 text-gray-300 hidden md:table-cell">{m.joined_at ? format(new Date(m.joined_at), 'PP') : '-'}</td>
+                          <td className="px-2 sm:px-3 py-2 text-right">
                             {m.is_league_admin ? (
                               <Button
                                 variant="outline"
@@ -999,8 +992,8 @@ const LeagueDetailPage = () => {
               {/* Invite Users */}
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-300">Invite Users</h4>
-                <form className="flex gap-2" onSubmit={handleInvite}>
-                  <div className="flex-1">
+                <form className="flex flex-col sm:flex-row gap-2" onSubmit={handleInvite}>
+                  <div className="flex-1 min-w-0">
                     <UserSearchSelect
                       value={inviteUserId ? String(inviteUserId) : ''}
                       onValueChange={(userId) => setInviteUserId(userId ? parseInt(userId) : null)}
@@ -1009,7 +1002,7 @@ const LeagueDetailPage = () => {
                       excludeUserIds={members.map(m => m.id)}
                     />
                   </div>
-                  <Button type="submit" disabled={inviteLoading || !inviteUserId}>
+                  <Button type="submit" disabled={inviteLoading || !inviteUserId} className="w-full sm:w-auto">
                     {inviteLoading ? t('status.inviting') : 'Send Invite'}
                   </Button>
                 </form>
@@ -1087,7 +1080,7 @@ const LeagueDetailPage = () => {
               {/* Quick Stats */}
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-300">Quick Stats</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div className="bg-gray-800 p-3 rounded border border-gray-700">
                     <div className="text-gray-400">Pending Invites</div>
                     <div className="text-2xl font-bold text-blue-400">{invites.length}</div>
