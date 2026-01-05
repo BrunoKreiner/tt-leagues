@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { leaguesAPI, matchesAPI } from '@/services/api';
+import { badgesAPI } from '@/services/api';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -58,7 +59,7 @@ const LeagueDetailPage = () => {
   const [leaderboardPagination, setLeaderboardPagination] = useState({ page: 1, pages: 1, total: 0, limit: 20 });
   const [members, setMembers] = useState([]);
   const [matches, setMatches] = useState([]);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAdmin } = useAuth();
   const [inviteCode, setInviteCode] = useState('');
   const [joinLoading, setJoinLoading] = useState(false);
   const [inviteUserId, setInviteUserId] = useState(null);
@@ -67,13 +68,23 @@ const LeagueDetailPage = () => {
   const [leaveLoading, setLeaveLoading] = useState(false);
   const [updateLoading, setUpdateLoading] = useState(false);
   const [invites, setInvites] = useState([]);
-  const [invitesLoading, setInvitesLoading] = useState(false);
+  const [_invitesLoading, setInvitesLoading] = useState(false);
   const [roleChanging, setRoleChanging] = useState({}); // { [userId]: true }
-  const [revokingInvite, setRevokingInvite] = useState({}); // { [inviteId]: true }
+  const [_revokingInvite, setRevokingInvite] = useState({}); // { [inviteId]: true }
   const [eloMode, setEloMode] = useState('immediate');
   const [showRecordMatch, setShowRecordMatch] = useState(false);
 
   const [consolidating, setConsolidating] = useState(false);
+
+  // Award badge (league admins + site admins)
+  const [badges, setBadges] = useState([]);
+  const [loadingBadges, setLoadingBadges] = useState(false);
+  const [awardBadgeId, setAwardBadgeId] = useState('');
+  const [awardMemberId, setAwardMemberId] = useState('');
+  const [awardSeason, setAwardSeason] = useState('');
+  const [awardingBadge, setAwardingBadge] = useState(false);
+
+  const canManageLeague = isAuthenticated && (isAdmin || userMembership?.is_admin);
 
   const editSchema = useMemo(() => (
     z.object({
@@ -185,7 +196,7 @@ const LeagueDetailPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [league]);
 
-  const eloDiff = (after, before) => {
+  const _eloDiff = (after, before) => {
     if (after == null || before == null) return null;
     const diff = after - before;
     const sign = diff > 0 ? '+' : '';
@@ -237,7 +248,7 @@ const LeagueDetailPage = () => {
   };
 
   const fetchInvites = async () => {
-    if (!isAuthenticated || !userMembership?.is_admin) return;
+    if (!isAuthenticated || !(isAdmin || userMembership?.is_admin)) return;
     try {
       setInvitesLoading(true);
       const res = await leaguesAPI.listInvites(id, { status: 'pending' });
@@ -252,13 +263,62 @@ const LeagueDetailPage = () => {
 
   useEffect(() => {
     // Load pending invites when user is an admin
-    if (isAuthenticated && userMembership?.is_admin) {
+    if (isAuthenticated && (isAdmin || userMembership?.is_admin)) {
       fetchInvites();
     } else {
       setInvites([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, isAuthenticated, userMembership?.is_admin]);
+  }, [id, isAuthenticated, isAdmin, userMembership?.is_admin]);
+
+  const fetchBadges = async () => {
+    try {
+      setLoadingBadges(true);
+      const res = await badgesAPI.getAll({ page: 1, limit: 100 });
+      setBadges(res.data?.badges || []);
+    } catch (e) {
+      console.error('Failed to load badges', e);
+      setBadges([]);
+    } finally {
+      setLoadingBadges(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!canManageLeague) return;
+    fetchBadges();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManageLeague]);
+
+  useEffect(() => {
+    if (!league) return;
+    setAwardSeason(league.season || '');
+  }, [league]);
+
+  const handleAwardBadge = async (e) => {
+    e.preventDefault();
+    if (!awardMemberId || !awardBadgeId) {
+      toast.error('Please select a user and a badge');
+      return;
+    }
+    try {
+      setAwardingBadge(true);
+      const selectedBadge = badges.find((b) => String(b.id) === String(awardBadgeId));
+      await badgesAPI.awardToUser(parseInt(awardMemberId), {
+        badge_id: parseInt(awardBadgeId),
+        league_id: parseInt(id),
+        season: awardSeason?.trim() || undefined,
+      });
+      toast.success(`Badge "${selectedBadge?.name || 'selected'}" awarded successfully`);
+      setAwardMemberId('');
+      setAwardBadgeId('');
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Failed to award badge';
+      toast.error(msg);
+    } finally {
+      setAwardingBadge(false);
+    }
+  };
 
   const handlePromote = async (userId, username) => {
     if (!window.confirm(t('leagues.promoteConfirm', { username }))) return;
@@ -295,7 +355,7 @@ const LeagueDetailPage = () => {
     }
   };
 
-  const handleRevokeInvite = async (inviteId) => {
+  const _handleRevokeInvite = async (inviteId) => {
     if (!window.confirm(t('leagues.revokeConfirm'))) return;
     try {
       setRevokingInvite((m) => ({ ...m, [inviteId]: true }));
@@ -310,7 +370,7 @@ const LeagueDetailPage = () => {
     }
   };
 
-  const handleUpdate = async (values) => {
+  const _handleUpdate = async (values) => {
     try {
       setUpdateLoading(true);
       const payload = {
@@ -443,14 +503,14 @@ const LeagueDetailPage = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="cyberpunk-title text-3xl text-blue-300">{league.name}</h1>
           <p className="cyberpunk-text text-gray-400">{t('leagues.createdBy', { user: '' })}<Link to={`/profile/${league.created_by_username}`} className="text-blue-400 hover:text-blue-300">{league.created_by_username}</Link> • {format(new Date(league.created_at), 'PPP')}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {league.description && (
-            <span className="text-sm text-gray-300 px-2 py-1 bg-gray-800 rounded border border-gray-700">
+            <span className="max-w-full text-sm text-gray-300 px-2 py-1 bg-gray-800 rounded border border-gray-700 break-words">
               {league.description}
             </span>
           )}
@@ -590,71 +650,133 @@ const LeagueDetailPage = () => {
       )}
 
       {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-3 min-w-0">
         {/* Leaderboard - Takes 2/3 width */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 min-w-0">
           <Card className="vg-card">
             <CardHeader className="py-4">
               <CardTitle className="cyberpunk-subtitle text-lg">{t('leagues.leaderboard')}</CardTitle>
               <CardDescription className="text-gray-400">{t('leagues.rankedByElo', { count: leaderboardPagination.total })}</CardDescription>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent className="pt-0 min-w-0">
               {leaderboard.length === 0 ? (
                 <p className="text-sm text-gray-400">{t('leagues.noPlayers')}</p>
               ) : (
                 <>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-base">
+                  {/* Mobile leaderboard: compact single-row stats */}
+                  <div className="sm:hidden space-y-2">
+                    {leaderboard.map((p) => (
+                      <div
+                        key={p.id}
+                        className="rounded-lg border border-gray-800 bg-gray-900/30 p-2"
+                      >
+                        <div className="flex items-start gap-2 min-w-0">
+                          <div className="shrink-0">
+                            {p.rank <= 3 ? (
+                              <MedalIcon rank={p.rank} size={32} userAvatar={p.avatar_url} />
+                            ) : (
+                              <div className="h-8 w-8 rounded-full border border-gray-800 bg-gray-900/60 flex items-center justify-center">
+                                <span className="text-gray-200 text-sm font-bold">{p.rank}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2 min-w-0">
+                              <Link
+                                to={`/profile/${p.username}`}
+                                className="min-w-0 truncate text-blue-400 hover:text-blue-300 font-medium text-sm"
+                                title={p.username}
+                              >
+                                {p.username}
+                              </Link>
+                              <div className="shrink-0 text-sm text-gray-200 font-semibold tabular-nums whitespace-nowrap">
+                                {t('leagues.elo')}: {p.current_elo}
+                              </div>
+                            </div>
+
+                            <div className="mt-1 flex items-center justify-between gap-2 min-w-0">
+                              <div className="flex items-center gap-2 text-[11px] text-gray-300 tabular-nums whitespace-nowrap min-w-0">
+                                <span className="text-gray-400">{t('leagues.wl')}:</span>
+                                <span>{p.matches_won}/{p.matches_played - p.matches_won}</span>
+                                <span className="text-gray-600">•</span>
+                                <span className="text-gray-400">{t('leagues.winPercent')}:</span>
+                                <span>{p.win_rate}%</span>
+                              </div>
+                              <div className="shrink-0">
+                                <EloSparkline userId={p.id} leagueId={id} width={72} height={14} points={15} />
+                              </div>
+                            </div>
+
+                            {p.badges && p.badges.length > 0 && (
+                              <BadgeList
+                                badges={p.badges}
+                                size="sm"
+                                showDate={false}
+                                showLeague={false}
+                                className="mt-1 flex-nowrap overflow-x-auto scrollbar-hide gap-1 pb-1"
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Desktop/tablet leaderboard: compact single-row stats */}
+                  <div className="hidden sm:block overflow-x-auto max-w-full">
+                    <table className="w-full text-sm">
                       <thead>
                         <tr className="text-left text-gray-400 border-b border-gray-700">
-                          <th className="px-3 py-2 font-medium text-lg">{t('leagues.rank')}</th>
+                          <th className="px-3 py-2 font-medium">{t('leagues.rank')}</th>
                           <th className="px-3 py-2 font-medium">{t('leagues.player')}</th>
                           <th className="px-3 py-2 font-medium">{t('leagues.elo')}</th>
                           <th className="px-3 py-2 font-medium">{t('leagues.trend')}</th>
-                          <th className="px-3 py-2 font-medium">{t('leagues.wl')}</th>
-                          <th className="px-3 py-2 font-medium">{t('leagues.winPercent')}</th>
+                          <th className="px-3 py-2 font-medium whitespace-nowrap">{t('leagues.wl')} / {t('leagues.winPercent')}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {leaderboard.map((p) => (
                           <tr key={p.roster_id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
-                            <td className="px-3 py-4">
+                            <td className="px-3 py-4 align-middle">
                               {p.rank <= 3 ? (
-                                <MedalIcon rank={p.rank} size={48} userAvatar={p.avatar_url} />
+                                <MedalIcon rank={p.rank} size={32} userAvatar={p.avatar_url} />
                               ) : (
-                                <span className="text-gray-300 text-2xl font-bold">{p.rank}</span>
+                                <span className="text-gray-300 text-base font-bold">{p.rank}</span>
                               )}
                             </td>
-                            <td className="px-3 py-4">
-                              <div className="flex flex-col gap-1">
+                            <td className="px-3 py-2 min-w-0 align-middle">
+                              <div className="flex items-center gap-2 min-w-0">
                                 {p.username ? (
-                                  <Link to={`/profile/${p.username}`} className="text-blue-400 hover:text-blue-300 text-lg">
+                                  <Link to={`/profile/${p.username}`} className="text-blue-400 hover:text-blue-300 font-medium truncate">
                                     {p.display_name || p.username}
                                   </Link>
                                 ) : (
-                                  <span className="text-gray-200 text-lg">{p.display_name}</span>
+                                  <span className="text-gray-200 text-lg font-medium truncate">{p.display_name}</span>
                                 )}
                                 {p.badges && p.badges.length > 0 && (
-                                  <BadgeList 
-                                    badges={p.badges} 
+                                  <BadgeList
+                                    badges={p.badges}
                                     size="sm"
                                     showDate={false}
                                     showLeague={false}
-                                    className="mt-1"
+                                    className="flex-nowrap overflow-x-auto scrollbar-hide gap-1"
                                   />
                                 )}
                               </div>
                             </td>
-                            <td className="px-3 py-4 text-gray-300 text-lg">{p.current_elo}</td>
-                            <td className="px-3 py-4">
+                            <td className="px-3 py-2 text-gray-200 font-medium tabular-nums whitespace-nowrap align-middle">{p.current_elo}</td>
+                            <td className="px-3 py-2 align-middle">
                               {p.user_id ? (
-                                <EloSparkline userId={p.user_id} leagueId={id} width={50} height={16} points={15} />
+                                <EloSparkline userId={p.user_id} leagueId={id} width={56} height={14} points={15} />
                               ) : (
                                 <span className="text-xs text-gray-500">—</span>
                               )}
+                            <td className="px-3 py-2 text-gray-200 tabular-nums whitespace-nowrap align-middle text-xs">
+                              <span className="text-gray-300">{p.matches_won}/{p.matches_played - p.matches_won}</span>
+                              <span className="text-gray-600"> • </span>
+                              <span className="text-gray-300">{p.win_rate}%</span>
                             </td>
-                            <td className="px-3 py-4 text-gray-300 text-lg">{p.matches_won}/{p.matches_played - p.matches_won}</td>
-                            <td className="px-3 py-4 text-gray-300 text-lg">{p.win_rate}%</td>
                           </tr>
                         ))}
                       </tbody>
@@ -710,7 +832,7 @@ const LeagueDetailPage = () => {
         </div>
 
         {/* Sidebar - Takes 1/3 width */}
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0">
           {/* Overview */}
           <Card className="vg-card">
             <CardHeader className="py-3">
@@ -753,7 +875,7 @@ const LeagueDetailPage = () => {
       </div>
 
       {/* Members List and Admin Panel - Side by Side */}
-      {isAuthenticated && userMembership?.is_admin ? (
+      {canManageLeague ? (
         <div className="grid gap-6 lg:grid-cols-2 mt-6">
           {/* Members List - Left */}
           <Card id="members" className="vg-card">
@@ -766,19 +888,19 @@ const LeagueDetailPage = () => {
                 <p className="text-sm text-gray-400">{t('leagues.noMembers')}</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-xs sm:text-sm">
                     <thead>
                       <tr className="text-left text-gray-400 border-b border-gray-700">
-                        <th className="px-3 py-2 font-medium">{t('leagues.user')}</th>
-                        <th className="px-3 py-2 font-medium">{t('leagues.role')}</th>
-                        <th className="px-3 py-2 font-medium">{t('leagues.joined')}</th>
-                        <th className="px-3 py-2 font-medium text-right">{t('table.actions')}</th>
+                        <th className="px-2 sm:px-3 py-2 font-medium">{t('leagues.user')}</th>
+                        <th className="px-2 sm:px-3 py-2 font-medium">{t('leagues.role')}</th>
+                        <th className="px-2 sm:px-3 py-2 font-medium hidden md:table-cell">{t('leagues.joined')}</th>
+                        <th className="px-2 sm:px-3 py-2 font-medium text-right">{t('table.actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {members.map((m) => (
                         <tr key={m.roster_id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
-                          <td className="px-3 py-3">
+                          <td className="px-3 sm:px-3 py-2">
                             <div className="flex flex-col">
                               <span className="font-medium">
                                 {m.username ? (
@@ -794,15 +916,15 @@ const LeagueDetailPage = () => {
                               )}
                             </div>
                           </td>
-                          <td className="px-3 py-3">
+                          <td className="px-2 sm:px-3 py-2">
                             {m.is_league_admin ? (
                               <Badge variant="secondary">{t('leagues.admin')}</Badge>
                             ) : (
                               <Badge variant="outline">{t('leagues.member')}</Badge>
                             )}
                           </td>
-                          <td className="px-3 py-3 text-gray-300">{m.joined_at ? format(new Date(m.joined_at), 'PP') : '-'}</td>
-                          <td className="px-3 py-3 text-right">
+                          <td className="px-2 sm:px-3 py-2 text-gray-300 hidden md:table-cell">{m.joined_at ? format(new Date(m.joined_at), 'PP') : '-'}</td>
+                          <td className="px-2 sm:px-3 py-2 text-right">
                             {!m.user_id ? (
                               <span className="text-xs text-gray-500">—</span>
                             ) : m.is_league_admin ? (
@@ -840,11 +962,57 @@ const LeagueDetailPage = () => {
               <CardTitle className="cyberpunk-subtitle text-lg">Admin Panel</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Award Badge */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-gray-300">Award Badge</h4>
+                <form className="flex flex-col gap-2" onSubmit={handleAwardBadge}>
+                  <Select value={awardMemberId} onValueChange={setAwardMemberId}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select member" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {members.map((m) => (
+                        <SelectItem key={m.id} value={String(m.id)}>
+                          {m.username}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={awardBadgeId} onValueChange={setAwardBadgeId} disabled={loadingBadges}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={loadingBadges ? 'Loading badges...' : 'Select badge'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {badges.length === 0 ? (
+                        <SelectItem disabled value="0">
+                          No badges available
+                        </SelectItem>
+                      ) : (
+                        badges.map((b) => (
+                          <SelectItem key={b.id} value={String(b.id)}>
+                            {b.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={awardSeason}
+                    onChange={(ev) => setAwardSeason(ev.target.value)}
+                    placeholder="Season (optional)"
+                    disabled={awardingBadge}
+                  />
+                  <Button type="submit" disabled={awardingBadge || !awardMemberId || !awardBadgeId}>
+                    {awardingBadge ? 'Awarding...' : 'Award Badge'}
+                  </Button>
+                </form>
+              </div>
+
               {/* Invite Users */}
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-300">Invite Users</h4>
-                <form className="flex gap-2" onSubmit={handleInvite}>
-                  <div className="flex-1">
+                <form className="flex flex-col sm:flex-row gap-2" onSubmit={handleInvite}>
+                  <div className="flex-1 min-w-0">
                     <UserSearchSelect
                       value={inviteUserId ? String(inviteUserId) : ''}
                       onValueChange={(userId) => setInviteUserId(userId ? parseInt(userId) : null)}
@@ -853,7 +1021,7 @@ const LeagueDetailPage = () => {
                       excludeUserIds={members.map(m => m.user_id).filter(Boolean)}
                     />
                   </div>
-                  <Button type="submit" disabled={inviteLoading || !inviteUserId}>
+                  <Button type="submit" disabled={inviteLoading || !inviteUserId} className="w-full sm:w-auto">
                     {inviteLoading ? t('status.inviting') : 'Send Invite'}
                   </Button>
                 </form>
@@ -931,7 +1099,7 @@ const LeagueDetailPage = () => {
               {/* Quick Stats */}
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-300">Quick Stats</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div className="bg-gray-800 p-3 rounded border border-gray-700">
                     <div className="text-gray-400">Pending Invites</div>
                     <div className="text-2xl font-bold text-blue-400">{invites.length}</div>

@@ -16,7 +16,7 @@ const DashboardPage = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState(null);
+  const [_stats, setStats] = useState(null);
   const [recentMatches, setRecentMatches] = useState([]);
   const [userLeagues, setUserLeagues] = useState([]);
   const [leagueLeaderboards, setLeagueLeaderboards] = useState({});
@@ -236,9 +236,12 @@ const DashboardPage = () => {
 
       {/* Section 3: Leaderboards */}
       <div>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
           <h2 className="cyberpunk-title text-2xl text-purple-300">Leaderboards</h2>
-          <Link to="/leagues" className="text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2">
+          <Link
+            to="/leagues"
+            className="self-end sm:self-auto text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2"
+          >
             Browse all leagues <ArrowRight className="h-4 w-4" />
           </Link>
         </div>

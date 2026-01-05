@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -116,30 +116,31 @@ const ProfilePage = () => {
     fetchProfileData();
   }, [currentUser?.id, username, isOwnProfile]);
 
+  const fetchEloHistory = useCallback(async () => {
+    if (!selectedLeague || !isOwnProfile || !currentUser?.id) return;
+    try {
+      setEloLoading(true);
+      setEloError(null);
+      const res = await usersAPI.getEloHistory(currentUser.id, {
+        league_id: selectedLeague,
+        page: 1,
+        limit: 100, // Get more data for charting
+      });
+      setEloHistory(res.data.items || []);
+    } catch (error) {
+      console.error('Failed to fetch ELO history:', error);
+      setEloError(error);
+      toast.error('Failed to load ELO history');
+    } finally {
+      setEloLoading(false);
+    }
+  }, [currentUser?.id, isOwnProfile, selectedLeague]);
+
   useEffect(() => {
     if (!selectedLeague || !isOwnProfile) return; // Only fetch ELO history for own profile
 
-    const fetchEloHistory = async () => {
-      try {
-        setEloLoading(true);
-        setEloError(null);
-        const res = await usersAPI.getEloHistory(currentUser.id, { 
-          league_id: selectedLeague, 
-          page: 1, 
-          limit: 100 // Get more data for charting
-        });
-        setEloHistory(res.data.items || []);
-      } catch (error) {
-        console.error('Failed to fetch ELO history:', error);
-        setEloError(error);
-        toast.error('Failed to load ELO history');
-      } finally {
-        setEloLoading(false);
-      }
-    };
-
     fetchEloHistory();
-  }, [currentUser?.id, selectedLeague, isOwnProfile]);
+  }, [fetchEloHistory, isOwnProfile, selectedLeague]);
 
   const filteredEloHistory = eloHistory.filter(item => {
     if (timeWindow === 'all') return true;
@@ -321,7 +322,9 @@ const ProfilePage = () => {
       // Refresh auth user so top-right avatar updates immediately
       try {
         await refreshUser();
-      } catch (_) {}
+      } catch {
+        // ignore refresh errors
+      }
     } catch (e) {
       toast.error(e?.response?.data?.error || t('profile.saveError'));
     } finally {

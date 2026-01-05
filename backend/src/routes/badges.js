@@ -6,10 +6,10 @@ const database = require('../models/database');
 const router = express.Router();
 
 /**
- * Get all badges (admin only)
+ * Get all badges (authenticated)
  * GET /api/badges
  */
-router.get('/', authenticateToken, requireAdmin, validatePagination, async (req, res) => {
+router.get('/', authenticateToken, validatePagination, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
@@ -273,13 +273,40 @@ router.delete('/:id', authenticateToken, requireAdmin, validateId, async (req, r
 });
 
 /**
- * Award a badge to a user (admin only)
+ * Award a badge to a user (site admin OR league admin for the specified league)
+ *
+ * Notes:
+ * - If `league_id` is provided, a league admin of that league may award.
+ * - If `league_id` is not provided, only a site admin may award (global badge award).
  * POST /api/users/:id/badges
  */
-router.post('/users/:id/badges', authenticateToken, requireAdmin, validateId, async (req, res) => {
+router.post('/users/:id/badges', authenticateToken, validateId, async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
         const { badge_id, league_id, season } = req.body;
+
+        // Authorization:
+        // - Site admins may always award
+        // - League admins may award only when league_id is provided and they are admin of that league
+        if (!req.user?.is_admin) {
+            if (!league_id) {
+                return res.status(400).json({ error: 'league_id is required for league admins' });
+            }
+
+            const leagueIdInt = parseInt(league_id);
+            if (Number.isNaN(leagueIdInt)) {
+                return res.status(400).json({ error: 'league_id must be a number' });
+            }
+
+            const membership = await database.get(
+                'SELECT is_admin FROM league_members WHERE league_id = ? AND user_id = ?',
+                [leagueIdInt, req.user.id]
+            );
+
+            if (!membership || !membership.is_admin) {
+                return res.status(403).json({ error: 'League admin access required' });
+            }
+        }
         
         // Validate required fields
         if (!badge_id) {
