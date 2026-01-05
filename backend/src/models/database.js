@@ -80,15 +80,15 @@ class Database {
             if (debugInit) {
                 console.log(`DB init: executing schema from ${this.schemaPath} (${statements.length} statements)`);
             }
-            for (const statement of statements) {
+            for (let i = 0; i < statements.length; i += 1) {
+                const statement = statements[i];
                 const sql = statement.trim();
                 if (sql) {
                     try {
                         await this.run(sql);
                     } catch (err) {
-                        if (debugInit) {
-                            console.error('DB init: schema statement failed:', sql);
-                        }
+                        const snippet = sql.length > 1200 ? `${sql.slice(0, 1200)}\n... (truncated)` : sql;
+                        console.error(`DB init: schema statement failed (index=${i + 1}/${statements.length}):\n${snippet}`);
                         throw err;
                     }
                 }
