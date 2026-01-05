@@ -236,9 +236,9 @@ const DashboardPage = () => {
 
       {/* Section 3: Leaderboards */}
       <div>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 gap-4">
           <h2 className="cyberpunk-title text-2xl text-purple-300">Leaderboards</h2>
-          <Link to="/leagues" className="text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2">
+          <Link to="/leagues" className="text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2 whitespace-nowrap">
             Browse all leagues <ArrowRight className="h-4 w-4" />
           </Link>
         </div>

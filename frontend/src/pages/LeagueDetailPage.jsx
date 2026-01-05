@@ -656,30 +656,59 @@ const LeagueDetailPage = () => {
               ) : (
                 <>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-base">
+                    <table className="w-full text-sm">
                       <thead>
                         <tr className="text-left text-gray-400 border-b border-gray-700">
-                          <th className="px-3 py-2 font-medium text-lg">{t('leagues.rank')}</th>
-                          <th className="px-3 py-2 font-medium">{t('leagues.player')}</th>
-                          <th className="px-3 py-2 font-medium">{t('leagues.elo')}</th>
-                          <th className="px-3 py-2 font-medium">{t('leagues.trend')}</th>
-                          <th className="px-3 py-2 font-medium">{t('leagues.wl')}</th>
-                          <th className="px-3 py-2 font-medium">{t('leagues.winPercent')}</th>
+                          <th className="px-2 py-2 font-medium w-16">{t('leagues.rank')}</th>
+                          <th className="px-2 py-2 font-medium">{t('leagues.player')}</th>
+                          <th className="px-2 py-2 font-medium hidden sm:table-cell">{t('leagues.elo')}</th>
+                          <th className="px-2 py-2 font-medium hidden sm:table-cell">{t('leagues.trend')}</th>
+                          <th className="px-2 py-2 font-medium hidden sm:table-cell">{t('leagues.wl')}</th>
+                          <th className="px-2 py-2 font-medium hidden sm:table-cell">{t('leagues.winPercent')}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {leaderboard.map((p) => (
                           <tr key={p.id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
-                            <td className="px-3 py-4">
+                            <td className="px-2 py-3 align-top">
                               {p.rank <= 3 ? (
-                                <MedalIcon rank={p.rank} size={48} userAvatar={p.avatar_url} />
+                                <>
+                                  <span className="sm:hidden">
+                                    <MedalIcon rank={p.rank} size={32} userAvatar={p.avatar_url} />
+                                  </span>
+                                  <span className="hidden sm:inline">
+                                    <MedalIcon rank={p.rank} size={44} userAvatar={p.avatar_url} />
+                                  </span>
+                                </>
                               ) : (
-                                <span className="text-gray-300 text-2xl font-bold">{p.rank}</span>
+                                <>
+                                  <span className="sm:hidden text-gray-300 text-base font-bold">{p.rank}</span>
+                                  <span className="hidden sm:inline text-gray-300 text-xl font-bold">{p.rank}</span>
+                                </>
                               )}
                             </td>
-                            <td className="px-3 py-4">
+                            <td className="px-2 py-3">
                               <div className="flex flex-col gap-1">
-                                <Link to={`/profile/${p.username}`} className="text-blue-400 hover:text-blue-300 text-lg">{p.username}</Link>
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-3">
+                                  <Link to={`/profile/${p.username}`} className="text-blue-400 hover:text-blue-300 font-medium">
+                                    {p.username}
+                                  </Link>
+                                  {/* Mobile-only compact stats: keep everything in one row */}
+                                  <div className="sm:hidden flex items-center gap-3 text-xs text-gray-300">
+                                    <span className="inline-flex items-center gap-1">
+                                      <span className="text-gray-500">ELO</span>
+                                      <span className="font-semibold">{p.current_elo}</span>
+                                    </span>
+                                    <span className="inline-flex items-center gap-1">
+                                      <span className="text-gray-500">W/L</span>
+                                      <span className="font-semibold">{p.matches_won}/{p.matches_played - p.matches_won}</span>
+                                    </span>
+                                    <span className="inline-flex items-center gap-1">
+                                      <span className="text-gray-500">Win%</span>
+                                      <span className="font-semibold">{p.win_rate}%</span>
+                                    </span>
+                                  </div>
+                                </div>
                                 {p.badges && p.badges.length > 0 && (
                                   <BadgeList 
                                     badges={p.badges} 
@@ -691,12 +720,18 @@ const LeagueDetailPage = () => {
                                 )}
                               </div>
                             </td>
-                            <td className="px-3 py-4 text-gray-300 text-lg">{p.current_elo}</td>
-                            <td className="px-3 py-4">
-                              <EloSparkline userId={p.id} leagueId={id} width={50} height={16} points={15} />
+                            <td className="px-2 py-3 text-gray-300 hidden sm:table-cell align-top">
+                              <span className="font-semibold">{p.current_elo}</span>
                             </td>
-                            <td className="px-3 py-4 text-gray-300 text-lg">{p.matches_won}/{p.matches_played - p.matches_won}</td>
-                            <td className="px-3 py-4 text-gray-300 text-lg">{p.win_rate}%</td>
+                            <td className="px-2 py-3 hidden sm:table-cell align-top">
+                              <EloSparkline userId={p.id} leagueId={id} width={46} height={14} points={15} />
+                            </td>
+                            <td className="px-2 py-3 text-gray-300 hidden sm:table-cell align-top">
+                              {p.matches_won}/{p.matches_played - p.matches_won}
+                            </td>
+                            <td className="px-2 py-3 text-gray-300 hidden sm:table-cell align-top">
+                              {p.win_rate}%
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -796,7 +831,7 @@ const LeagueDetailPage = () => {
 
       {/* Members List and Admin Panel - Side by Side */}
       {canManageLeague ? (
-        <div className="grid gap-6 lg:grid-cols-2 mt-6">
+        <div className="grid gap-6 xl:grid-cols-2 mt-6">
           {/* Members List - Left */}
           <Card id="members" className="vg-card">
             <CardHeader className="py-4">
@@ -923,7 +958,7 @@ const LeagueDetailPage = () => {
               {/* Invite Users */}
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-300">Invite Users</h4>
-                <form className="flex gap-2" onSubmit={handleInvite}>
+                <form className="flex flex-col sm:flex-row gap-2" onSubmit={handleInvite}>
                   <div className="flex-1">
                     <UserSearchSelect
                       value={inviteUserId ? String(inviteUserId) : ''}
@@ -933,7 +968,7 @@ const LeagueDetailPage = () => {
                       excludeUserIds={members.map(m => m.id)}
                     />
                   </div>
-                  <Button type="submit" disabled={inviteLoading || !inviteUserId}>
+                  <Button type="submit" disabled={inviteLoading || !inviteUserId} className="sm:w-auto w-full">
                     {inviteLoading ? t('status.inviting') : 'Send Invite'}
                   </Button>
                 </form>
