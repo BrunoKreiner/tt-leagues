@@ -88,10 +88,10 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
 });
 
 /**
- * Create a new badge (admin only)
+ * Create a new badge (authenticated)
  * POST /api/badges
  */
-router.post('/', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/', authenticateToken, async (req, res) => {
     try {
         const { name, description, icon, badge_type, image_url } = req.body;
         
@@ -146,10 +146,10 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 /**
- * Update a badge (admin only)
+ * Update a badge (authenticated)
  * PUT /api/badges/:id
  */
-router.put('/:id', authenticateToken, requireAdmin, validateId, async (req, res) => {
+router.put('/:id', authenticateToken, validateId, async (req, res) => {
     try {
         const badgeId = parseInt(req.params.id);
         const { name, description, icon, badge_type, image_url } = req.body;
@@ -233,10 +233,10 @@ router.put('/:id', authenticateToken, requireAdmin, validateId, async (req, res)
 });
 
 /**
- * Delete a badge (admin only)
+ * Delete a badge (authenticated)
  * DELETE /api/badges/:id
  */
-router.delete('/:id', authenticateToken, requireAdmin, validateId, async (req, res) => {
+router.delete('/:id', authenticateToken, validateId, async (req, res) => {
     try {
         const badgeId = parseInt(req.params.id);
         
@@ -276,8 +276,9 @@ router.delete('/:id', authenticateToken, requireAdmin, validateId, async (req, r
  * Award a badge to a user (site admin OR league admin for the specified league)
  *
  * Notes:
- * - If `league_id` is provided, a league admin of that league may award.
- * - If `league_id` is not provided, only a site admin may award (global badge award).
+ * - `league_id` is REQUIRED for all awards (no global awards).
+ * - A league admin of that league may award.
+ * - Site admins may award in any league.
  * POST /api/users/:id/badges
  */
 router.post('/users/:id/badges', authenticateToken, validateId, async (req, res) => {
@@ -285,27 +286,24 @@ router.post('/users/:id/badges', authenticateToken, validateId, async (req, res)
         const userId = parseInt(req.params.id);
         const { badge_id, league_id, season } = req.body;
 
+        if (!league_id) {
+            return res.status(400).json({ error: 'league_id is required' });
+        }
+
+        const leagueIdInt = parseInt(league_id);
+        if (Number.isNaN(leagueIdInt)) {
+            return res.status(400).json({ error: 'league_id must be a number' });
+        }
+
         // Authorization:
-        // - Site admins may always award
-        // - League admins may award only when league_id is provided and they are admin of that league
-        if (!req.user?.is_admin) {
-            if (!league_id) {
-                return res.status(400).json({ error: 'league_id is required for league admins' });
-            }
+        // Only league admins of the specified league may award badges.
+        const awardingMembership = await database.get(
+            'SELECT is_admin FROM league_roster WHERE league_id = ? AND user_id = ?',
+            [leagueIdInt, req.user.id]
+        );
 
-            const leagueIdInt = parseInt(league_id);
-            if (Number.isNaN(leagueIdInt)) {
-                return res.status(400).json({ error: 'league_id must be a number' });
-            }
-
-            const membership = await database.get(
-                'SELECT is_admin FROM league_roster WHERE league_id = ? AND user_id = ?',
-                [leagueIdInt, req.user.id]
-            );
-
-            if (!membership || !membership.is_admin) {
-                return res.status(403).json({ error: 'League admin access required' });
-            }
+        if (!awardingMembership || !awardingMembership.is_admin) {
+            return res.status(403).json({ error: 'League admin access required' });
         }
         
         // Validate required fields
@@ -334,27 +332,25 @@ router.post('/users/:id/badges', authenticateToken, validateId, async (req, res)
         }
         
         // Check if league exists (if provided) and validate membership
-        if (league_id) {
-            const league = await database.get(
-                'SELECT name FROM leagues WHERE id = ? AND is_active = ?',
-                [league_id, true]
-            );
-            
-            if (!league) {
-                return res.status(404).json({ error: 'League not found' });
-            }
-            
-            // Validate user is a member of the league
-            const membership = await database.get(
-                'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
-                [league_id, userId]
-            );
-            
-            if (!membership) {
-                return res.status(400).json({ 
-                    error: 'User is not a member of the specified league' 
-                });
-            }
+        const league = await database.get(
+            'SELECT name FROM leagues WHERE id = ? AND is_active = ?',
+            [leagueIdInt, true]
+        );
+        
+        if (!league) {
+            return res.status(404).json({ error: 'League not found' });
+        }
+        
+        // Validate user is a member of the league
+        const membership = await database.get(
+            'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
+            [leagueIdInt, userId]
+        );
+        
+        if (!membership) {
+            return res.status(400).json({ 
+                error: 'User is not a member of the specified league' 
+            });
         }
         
         // Check if user already has this badge (for the same league/season if applicable)
@@ -363,15 +359,15 @@ router.post('/users/:id/badges', authenticateToken, validateId, async (req, res)
             existingAward = await database.get(`
                 SELECT id FROM user_badges 
                 WHERE user_id = ? AND badge_id = ? 
-                AND (league_id = ? OR (league_id IS NULL AND ? IS NULL))
+                AND league_id = ?
                 AND (season = ? OR (season IS NULL AND ? IS NULL))
-            `, [userId, badge_id, league_id || null, league_id || null, season || null, season || null]);
+            `, [userId, badge_id, leagueIdInt, season || null, season || null]);
         } catch (checkError) {
             console.error('Failed to check existing badge award:', checkError);
             console.error('Check error details:', {
                 userId,
                 badge_id,
-                league_id,
+                league_id: leagueIdInt,
                 error: checkError.message
             });
         }
@@ -386,13 +382,13 @@ router.post('/users/:id/badges', authenticateToken, validateId, async (req, res)
             result = await database.run(`
                 INSERT INTO user_badges (user_id, badge_id, league_id, season)
                 VALUES (?, ?, ?, ?)
-            `, [userId, badge_id, league_id || null, season || null]);
+            `, [userId, badge_id, leagueIdInt, season || null]);
         } catch (insertError) {
             console.error('Failed to insert badge award:', insertError);
             console.error('Insert error details:', {
                 userId,
                 badge_id,
-                league_id,
+                league_id: leagueIdInt,
                 season,
                 error: insertError.message,
                 stack: insertError.stack,

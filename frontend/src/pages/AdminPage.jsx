@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '@/components/ui/form';
-import { leaguesAPI, matchesAPI, badgesAPI, usersAPI } from '@/services/api';
+import { leaguesAPI, matchesAPI, badgesAPI } from '@/services/api';
 import { toast } from 'sonner';
 import { Shield, PlusCircle, Award, Edit, Trash2, Gift } from 'lucide-react';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -46,6 +46,7 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '@/contexts/AuthContext';
 
 const schema = z.object({
   name: z.string().min(1, 'Name is required').max(200, 'Max 200 characters'),
@@ -68,6 +69,7 @@ const badgeTypes = ['league_winner', 'tournament_winner', 'achievement'];
 const AdminPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
 
   // Pending matches state (admin approvals)
@@ -92,11 +94,12 @@ const AdminPage = () => {
   const [awardSeason, setAwardSeason] = useState('');
   const [awarding, setAwarding] = useState(false);
   const [leagues, setLeagues] = useState([]);
-  const [userLeagues, setUserLeagues] = useState([]); // Leagues for selected user
-  const [loadingUserLeagues, setLoadingUserLeagues] = useState(false);
   const [badgeUsers, setBadgeUsers] = useState([]);
   const [loadingBadgeUsers, setLoadingBadgeUsers] = useState(false);
   const [uploadedImageSrc, setUploadedImageSrc] = useState(null);
+
+  const [awardLeagueMembers, setAwardLeagueMembers] = useState([]);
+  const [loadingAwardLeagueMembers, setLoadingAwardLeagueMembers] = useState(false);
 
   // League roster management (placeholders + assignment)
   const [rosterLeagueId, setRosterLeagueId] = useState('');
@@ -181,6 +184,25 @@ const AdminPage = () => {
     }
   };
 
+  const fetchAwardLeagueMembers = async (leagueId) => {
+    if (!leagueId) {
+      setAwardLeagueMembers([]);
+      return;
+    }
+    try {
+      setLoadingAwardLeagueMembers(true);
+      const { data } = await leaguesAPI.getMembers(Number(leagueId));
+      const members = (data.members || []).filter((m) => m.user_id != null);
+      setAwardLeagueMembers(members);
+    } catch (e) {
+      console.error('Failed to load award league members', e);
+      toast.error('Failed to load league members for awarding');
+      setAwardLeagueMembers([]);
+    } finally {
+      setLoadingAwardLeagueMembers(false);
+    }
+  };
+
   const fetchRosterMembers = async (leagueId) => {
     if (!leagueId) {
       setRosterMembers([]);
@@ -251,35 +273,7 @@ const AdminPage = () => {
     }
   };
 
-  // Fetch leagues for a specific user
-  const fetchUserLeagues = async (userId) => {
-    if (!userId) {
-      setUserLeagues([]);
-      return;
-    }
-    try {
-      setLoadingUserLeagues(true);
-      const { data } = await usersAPI.getById(Number(userId));
-      const userLeaguesData = (data?.leagues || []).map((league) => ({
-        id: league.id,
-        name: league.name,
-      }));
-      setUserLeagues(userLeaguesData);
-      // Clear selected league if it's not in user's leagues
-      if (awardLeagueId && !userLeaguesData.find(l => l.id === parseInt(awardLeagueId))) {
-        setAwardLeagueId('');
-      }
-    } catch (e) {
-      console.error('Failed to load user leagues', e);
-      // If profile fetch fails, clear user leagues (user might not be in any leagues)
-      setUserLeagues([]);
-    } finally {
-      setLoadingUserLeagues(false);
-    }
-  };
-
-  // Get available leagues (either selected user's leagues, or all leagues)
-  const availableLeagues = awardUserId ? userLeagues : leagues;
+  const adminLeagues = (leagues || []).filter((l) => Number(l.is_league_admin) === 1);
   const rosterAssignedUserIds = rosterMembers.filter((m) => m.user_id != null).map((m) => m.user_id);
 
   const handleCreateBadge = async (values) => {
@@ -339,15 +333,15 @@ const AdminPage = () => {
   };
 
   const handleAwardBadge = async () => {
-    if (!selectedBadgeForAward || !awardUserId) {
-      toast.error('Please select a badge and user');
+    if (!selectedBadgeForAward || !awardLeagueId || !awardUserId) {
+      toast.error('Please select a badge, league, and user');
       return;
     }
     try {
       setAwarding(true);
       await badgesAPI.awardToUser(parseInt(awardUserId), {
         badge_id: selectedBadgeForAward.id,
-        league_id: awardLeagueId ? parseInt(awardLeagueId) : undefined,
+        league_id: parseInt(awardLeagueId),
         season: awardSeason || undefined,
       });
       toast.success(`Badge "${selectedBadgeForAward.name}" awarded successfully`);
@@ -356,6 +350,7 @@ const AdminPage = () => {
       setAwardLeagueId('');
       setAwardSeason('');
       setSelectedBadgeForAward(null);
+      setAwardLeagueMembers([]);
     } catch (e) {
       const msg = e.response?.data?.error || 'Failed to award badge';
       toast.error(msg);
@@ -402,7 +397,9 @@ const AdminPage = () => {
       image_url: badge.image_url || '',
     });
     setBadgeFormOpen(true);
-    fetchBadgeUsers(badge.id);
+    if (user?.is_admin) {
+      fetchBadgeUsers(badge.id);
+    }
   };
 
   const openCreateBadge = () => {
@@ -423,20 +420,8 @@ const AdminPage = () => {
     setAwardUserId('');
     setAwardLeagueId('');
     setAwardSeason('');
-    setUserLeagues([]);
+    setAwardLeagueMembers([]);
     setAwardDialogOpen(true);
-  };
-
-  // Handle user selection change
-  const handleUserIdChange = (userId) => {
-    const nextUserId = userId ? String(userId) : '';
-    setAwardUserId(nextUserId);
-    setAwardLeagueId(''); // Clear league selection when user changes
-    if (nextUserId) {
-      fetchUserLeagues(nextUserId);
-    } else {
-      setUserLeagues([]);
-    }
   };
 
   const acceptMatch = async (id) => {
@@ -610,7 +595,7 @@ const AdminPage = () => {
                   <SelectValue placeholder="Select a league" />
                 </SelectTrigger>
                 <SelectContent>
-                  {leagues.map((league) => (
+                  {adminLeagues.map((league) => (
                     <SelectItem key={league.id} value={String(league.id)}>
                       {league.name}
                     </SelectItem>
@@ -996,7 +981,7 @@ const AdminPage = () => {
                         </FormItem>
                       )}
                     />
-                    {editingBadge && (
+                    {user?.is_admin && editingBadge && (
                       <div className="space-y-2">
                         <FormLabel>Users with this badge ({badgeUsers.length})</FormLabel>
                         {loadingBadgeUsers ? (
@@ -1188,49 +1173,36 @@ const AdminPage = () => {
           <DialogHeader>
             <DialogTitle>Award Badge: {selectedBadgeForAward?.name}</DialogTitle>
             <DialogDescription>
-              Award this badge to a user. You can optionally associate it with a league and season.
+              Award this badge to a user in a league you admin.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium">User</label>
-              <div className="mt-1">
-                <UserSearchSelect
-                  value={awardUserId}
-                  onValueChange={handleUserIdChange}
-                  placeholder="Search and select user..."
-                  disabled={awarding}
-                />
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium">
-                League (optional)
-                {awardUserId && userLeagues.length > 0 && (
-                  <span className="text-xs text-gray-400 ml-2">(Only showing leagues where user is a member)</span>
-                )}
-              </label>
+              <label className="text-sm font-medium">League</label>
               <Select 
                 value={awardLeagueId || undefined} 
-                onValueChange={(value) => setAwardLeagueId(value || '')}
-                disabled={loadingUserLeagues}
+                onValueChange={(value) => {
+                  const next = value || '';
+                  setAwardLeagueId(next);
+                  setAwardUserId('');
+                  fetchAwardLeagueMembers(next);
+                }}
+                disabled={awarding}
               >
                 <SelectTrigger className="w-full mt-1">
                   <SelectValue placeholder={
-                    loadingUserLeagues 
-                      ? 'Loading user leagues...' 
-                      : awardUserId && userLeagues.length === 0
-                      ? 'User is not a member of any leagues'
-                      : 'Select league (optional)'
+                    adminLeagues.length === 0
+                      ? 'You are not an admin in any league'
+                      : 'Select league'
                   } />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableLeagues.length === 0 ? (
+                  {adminLeagues.length === 0 ? (
                     <SelectItem disabled value="0">
-                      {awardUserId ? 'User is not a member of any leagues' : 'No leagues available'}
+                      No leagues available
                     </SelectItem>
                   ) : (
-                    availableLeagues.map((league) => (
+                    adminLeagues.map((league) => (
                       <SelectItem key={league.id} value={String(league.id)}>
                         {league.name}
                       </SelectItem>
@@ -1238,17 +1210,33 @@ const AdminPage = () => {
                   )}
                 </SelectContent>
               </Select>
-              {awardLeagueId && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="mt-1 text-xs"
-                  onClick={() => setAwardLeagueId('')}
-                >
-                  Clear
-                </Button>
-              )}
+            </div>
+            <div>
+              <label className="text-sm font-medium">User</label>
+              <Select
+                value={awardUserId || undefined}
+                onValueChange={(value) => setAwardUserId(value || '')}
+                disabled={awarding || !awardLeagueId || loadingAwardLeagueMembers}
+              >
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder={
+                    !awardLeagueId
+                      ? 'Select a league first'
+                      : loadingAwardLeagueMembers
+                      ? 'Loading league members...'
+                      : awardLeagueMembers.length === 0
+                      ? 'No eligible users in this league'
+                      : 'Select user'
+                  } />
+                </SelectTrigger>
+                <SelectContent>
+                  {awardLeagueMembers.map((m) => (
+                    <SelectItem key={m.user_id} value={String(m.user_id)}>
+                      {m.username ? `${m.username} (${m.display_name})` : m.display_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className="text-sm font-medium">Season (optional)</label>
@@ -1262,7 +1250,7 @@ const AdminPage = () => {
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setAwardDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleAwardBadge} disabled={awarding || !awardUserId}>
+            <Button onClick={handleAwardBadge} disabled={awarding || !awardLeagueId || !awardUserId}>
               {awarding ? 'Awarding...' : 'Award Badge'}
             </Button>
           </DialogFooter>

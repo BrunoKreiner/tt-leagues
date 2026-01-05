@@ -101,7 +101,7 @@ function AppRoutes() {
           <Route path="profile" element={<ProfilePage />} />
           <Route path="profile/:username" element={<ProfilePage />} />
           <Route path="admin" element={
-            <ProtectedRoute adminOnly>
+            <ProtectedRoute>
               <AdminPage />
             </ProtectedRoute>
           } />
