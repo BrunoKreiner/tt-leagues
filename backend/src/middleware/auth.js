@@ -17,7 +17,7 @@ async function authenticateToken(req, res, next) {
         
         // Get fresh user data from database
         const user = await database.get(
-            'SELECT id, username, first_name, last_name, email, is_admin FROM users WHERE id = ?',
+            'SELECT id, username, first_name, last_name, email, is_admin, avatar_url FROM users WHERE id = ?',
             [decoded.id]
         );
         
@@ -87,7 +87,7 @@ async function optionalAuth(req, res, next) {
         if (token) {
             const decoded = verifyToken(token);
             const user = await database.get(
-                'SELECT id, username, first_name, last_name, email, is_admin FROM users WHERE id = ?',
+                'SELECT id, username, first_name, last_name, email, is_admin, avatar_url FROM users WHERE id = ?',
                 [decoded.id]
             );
             

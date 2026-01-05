@@ -336,7 +336,7 @@ router.get('/:id/stats', authenticateToken, validateId, async (req, res) => {
                 COALESCE((SELECT AVG(lr3.current_elo) FROM league_roster lr3 WHERE lr3.user_id = ?), 1200) as average_elo
             FROM users u
             WHERE u.id = ?
-        `, [userId, true, userId, userId, userId, true, userId, userId, userId]);
+        `, [userId, true, userId, userId, userId, true, userId, userId]);
         
         // Get league-specific stats
         const leagueStats = await database.all(`
