@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trophy, Users, Swords, ChevronRight } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Trophy, Users, Swords, ChevronRight, ListChecks, Calendar, Globe } from 'lucide-react';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
-import { badgesAPI, leaguesAPI } from '../services/api';
+import { leaguesAPI } from '../services/api';
 import MedalIcon from '@/components/MedalIcon';
 import EloSparkline from '@/components/EloSparkline';
-import BadgeDisplay from '@/components/BadgeDisplay';
+import { BadgeList } from '@/components/BadgeDisplay';
 import { useTranslation } from 'react-i18next';
 
 const LandingPage = () => {
@@ -15,9 +16,6 @@ const LandingPage = () => {
   const [publicLeagues, setPublicLeagues] = useState([]);
   const [leagueLeaderboards, setLeagueLeaderboards] = useState({});
   const [loading, setLoading] = useState(true);
-  const [badges, setBadges] = useState([]);
-  const [badgesLoading, setBadgesLoading] = useState(true);
-  const [badgesError, setBadgesError] = useState(null);
 
   useEffect(() => {
     const fetchPublicLeagues = async () => {
@@ -52,25 +50,6 @@ const LandingPage = () => {
     };
 
     fetchPublicLeagues();
-  }, []);
-
-  useEffect(() => {
-    const fetchBadges = async () => {
-      try {
-        setBadgesLoading(true);
-        setBadgesError(null);
-        const res = await badgesAPI.getAll({ page: 1, limit: 60 });
-        setBadges(res.data?.badges || []);
-      } catch (e) {
-        console.error('Failed to fetch badges:', e);
-        setBadgesError('Failed to load badges');
-        setBadges([]);
-      } finally {
-        setBadgesLoading(false);
-      }
-    };
-
-    fetchBadges();
   }, []);
 
   const features = [
@@ -147,32 +126,6 @@ const LandingPage = () => {
             <div className="text-emerald-400 font-medium">Free to use · No ads</div>
           </section>
 
-          {/* Badges */}
-          <section>
-            <h2 className="cyberpunk-title text-lg text-gray-300 mb-2">Badges</h2>
-            <p className="text-sm text-gray-400 mb-4">
-              Earn badges for achievements and league milestones.
-            </p>
-
-            {badgesLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <LoadingSpinner size="sm" />
-              </div>
-            ) : badgesError ? (
-              <div className="text-sm text-red-400 py-2">{badgesError}</div>
-            ) : badges.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {badges.map((badge) => (
-                  <div key={badge.id} className="flex items-center">
-                    <BadgeDisplay badge={badge} showDate={false} showLeague={false} size="lg" />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500 text-center py-6">No badges yet</p>
-            )}
-          </section>
-
           {/* Public Leagues with Leaderboards */}
           <section>
             <h2 className="cyberpunk-title text-lg text-gray-300 mb-4">Public Leagues</h2>
@@ -185,20 +138,33 @@ const LandingPage = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {publicLeagues.slice(0, 2).map((league) => (
                   <Card key={league.id} className="vg-card">
-                    <CardHeader className="pb-3">
-                      <Link to={`/league/${league.id}`} className="group">
-                        <CardTitle className="cyberpunk-subtitle text-lg text-gray-100 flex items-center gap-2 group-hover:text-blue-400 transition-colors">
-                          <Trophy className="h-5 w-5 text-yellow-500" />
-                          {league.name}
-                        </CardTitle>
-                      </Link>
-                      <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
+                    <CardHeader className="space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <Link to={`/league/${league.id}`} className="min-w-0">
+                          <CardTitle className="cyberpunk-subtitle text-xl truncate text-blue-400 hover:text-blue-300 transition-colors">
+                            {league.name}
+                          </CardTitle>
+                        </Link>
+                        <Badge variant="secondary" className="ml-2 flex items-center gap-1 shrink-0">
+                          <Globe className="h-3.5 w-3.5" />
+                          Public
+                        </Badge>
+                      </div>
+                      {league.description && (
+                        <CardDescription className="line-clamp-2 text-gray-400">{league.description}</CardDescription>
+                      )}
+                      <div className="flex flex-wrap gap-3 text-sm text-gray-500 pt-1">
                         <span className="flex items-center gap-1">
                           <Users className="h-4 w-4" /> {league.member_count || 0} members
                         </span>
                         <span className="flex items-center gap-1">
-                          <Swords className="h-4 w-4" /> {league.match_count || 0} matches
+                          <ListChecks className="h-4 w-4" /> {league.match_count || 0} matches
                         </span>
+                        {league.season && (
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4" /> {league.season}
+                          </span>
+                        )}
                       </div>
                     </CardHeader>
                     <CardContent className="pt-0">
@@ -227,7 +193,7 @@ const LandingPage = () => {
                                     </div>
                                   </td>
                                   <td className="px-2 py-3 align-middle">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 min-w-0">
                                       {p.avatar_url ? (
                                         <img 
                                           src={p.avatar_url} 
@@ -239,9 +205,18 @@ const LandingPage = () => {
                                           {(p.display_name || p.username || 'P').charAt(0).toUpperCase()}
                                         </div>
                                       )}
-                                      <span className="text-blue-400 font-medium">
+                                      <span className="text-blue-400 font-medium truncate">
                                         {p.display_name || p.username || 'Player'}
                                       </span>
+                                      {p.badges && p.badges.length > 0 && (
+                                        <BadgeList
+                                          badges={p.badges}
+                                          size="sm"
+                                          showDate={false}
+                                          showLeague={false}
+                                          className="flex-nowrap overflow-x-auto scrollbar-hide gap-1"
+                                        />
+                                      )}
                                     </div>
                                   </td>
                                   <td className="px-2 py-3 text-gray-200 font-medium tabular-nums align-middle">
