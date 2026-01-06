@@ -8,7 +8,6 @@ import {
   Trophy, 
   Swords, 
   User, 
-  Settings, 
   LogOut,
   Bell,
   Shield,
@@ -34,11 +33,16 @@ const MobileMenu = ({
   const { t } = useTranslation();
   const location = useLocation();
 
+  const handleLogoutClick = async () => {
+    await onLogout();
+    onClose();
+  };
+
   // Close menu on route change
   useEffect(() => {
     onClose();
     // Intentionally only depend on pathname to avoid closing immediately on open
-  }, [location.pathname]);
+  }, [location.pathname, onClose]);
 
   // Handle escape key
   useEffect(() => {
@@ -164,14 +168,15 @@ const MobileMenu = ({
               <User className="h-5 w-5" />
               <span>Profile</span>
             </Link>
-            <Link
-              to="/app/settings"
-              className="flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-700 transition-colors min-h-[44px] touch-manipulation"
-              onClick={onClose}
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleLogoutClick}
+              className="w-full justify-start px-3 py-3 rounded-lg text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-900/20 min-h-[44px] touch-manipulation"
             >
-              <Settings className="h-5 w-5" />
-              <span>Settings</span>
-            </Link>
+              <LogOut className="h-5 w-5" />
+              <span>Log out</span>
+            </Button>
           </div>
 
           {/* Notifications Section */}
@@ -290,18 +295,6 @@ const MobileMenu = ({
             )}
           </div>
         </nav>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-gray-700">
-          <Button 
-            variant="ghost" 
-            onClick={onLogout} 
-            className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-red-900/20 min-h-[44px] touch-manipulation"
-          >
-            <LogOut className="mr-3 h-4 w-4" />
-            <span>Log out</span>
-          </Button>
-        </div>
       </div>
     </>
   );
