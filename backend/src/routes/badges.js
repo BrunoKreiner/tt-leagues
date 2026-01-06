@@ -175,15 +175,18 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
             return res.status(500).json({ error: 'Badges table not found. Please ensure database is initialized.' });
         }
         
-        const requestedVisibility = (visibility || '').trim() || (req.user.is_admin ? 'public' : 'private');
+        let requestedVisibility = (visibility || '').trim() || (req.user.is_admin ? 'public' : 'private');
         if (!VALID_BADGE_VISIBILITIES.has(requestedVisibility)) {
             return res.status(400).json({ error: "visibility must be 'public' or 'private'" });
         }
 
-        const isPublic = requestedVisibility === 'public';
-        if (isPublic && !req.user.is_admin) {
-            return res.status(403).json({ error: 'Admin access required to create public badges' });
+        // Non-site-admins are never allowed to create public badges.
+        // If a client accidentally sends "public", force it to "private" so badge creation still works.
+        if (!req.user.is_admin) {
+            requestedVisibility = 'private';
         }
+
+        const isPublic = requestedVisibility === 'public';
 
         const ownerId = isPublic ? null : req.user.id;
 

@@ -119,6 +119,10 @@ class Database {
             if (debugInit) console.log('DB init: ensuring roster schema');
             await this.ensureRosterSchema();
 
+            // Ensure support ticketing schema exists
+            if (debugInit) console.log('DB init: ensuring tickets schema');
+            await this.ensureTicketsSchema();
+
             // Create/update admin user from env
             if (debugInit) console.log('DB init: ensuring admin user');
             await this.createAdminUser();
@@ -433,6 +437,42 @@ class Database {
         await this.run('CREATE INDEX IF NOT EXISTS idx_league_roster_league_elo ON league_roster(league_id, current_elo)');
         await this.run('CREATE INDEX IF NOT EXISTS idx_matches_roster_ids ON matches(league_id, player1_roster_id, player2_roster_id)');
         await this.run('CREATE INDEX IF NOT EXISTS idx_elo_history_roster_id ON elo_history(roster_id)');
+    }
+
+    async ensureTicketsSchema() {
+        // Idempotently ensure the tickets table exists on both SQLite and Postgres.
+        if (this.isPg) {
+            await this.run(`
+                CREATE TABLE IF NOT EXISTS tickets (
+                    id SERIAL PRIMARY KEY,
+                    category VARCHAR(50) NOT NULL,
+                    subject VARCHAR(200),
+                    email VARCHAR(255),
+                    message TEXT NOT NULL,
+                    status VARCHAR(20) NOT NULL DEFAULT 'open',
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW(),
+                    closed_at TIMESTAMP
+                )
+            `);
+        } else {
+            await this.run(`
+                CREATE TABLE IF NOT EXISTS tickets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    category VARCHAR(50) NOT NULL,
+                    subject VARCHAR(200),
+                    email VARCHAR(255),
+                    message TEXT NOT NULL,
+                    status VARCHAR(20) NOT NULL DEFAULT 'open',
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    closed_at DATETIME
+                )
+            `);
+        }
+
+        await this.run('CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status)');
+        await this.run('CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets(created_at)');
     }
 
     async ensureColumnExists(tableName, columnName, columnType) {

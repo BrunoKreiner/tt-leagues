@@ -21,6 +21,9 @@ export default function SiteFooter() {
           <Link to="/contact" className="text-gray-400 hover:text-gray-200 underline underline-offset-4">
             Contact
           </Link>
+          <Link to="/support" className="text-gray-400 hover:text-gray-200 underline underline-offset-4">
+            Support
+          </Link>
         </div>
       </div>
     </footer>

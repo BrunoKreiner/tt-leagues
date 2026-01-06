@@ -122,5 +122,12 @@ export const badgesAPI = {
   removeFromUser: (userId, badgeId) => api.delete(`/badges/users/${userId}/badges/${badgeId}`),
 };
 
+// Tickets API (support/feedback)
+export const ticketsAPI = {
+  create: (ticketData) => api.post('/tickets', ticketData),
+  getAll: (params) => api.get('/tickets', { params }),
+  updateStatus: (id, status) => api.patch(`/tickets/${id}`, { status }),
+};
+
 export default api;
 
