@@ -4,14 +4,20 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Trophy, Users, Swords, ChevronRight } from 'lucide-react';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
-import { leaguesAPI } from '../services/api';
+import { badgesAPI, leaguesAPI } from '../services/api';
 import MedalIcon from '@/components/MedalIcon';
 import EloSparkline from '@/components/EloSparkline';
+import BadgeDisplay from '@/components/BadgeDisplay';
+import { useTranslation } from 'react-i18next';
 
 const LandingPage = () => {
+  const { t } = useTranslation();
   const [publicLeagues, setPublicLeagues] = useState([]);
   const [leagueLeaderboards, setLeagueLeaderboards] = useState({});
   const [loading, setLoading] = useState(true);
+  const [badges, setBadges] = useState([]);
+  const [badgesLoading, setBadgesLoading] = useState(true);
+  const [badgesError, setBadgesError] = useState(null);
 
   useEffect(() => {
     const fetchPublicLeagues = async () => {
@@ -26,7 +32,8 @@ const LandingPage = () => {
           try {
             const res = await leaguesAPI.getLeaderboard(league.id, { limit: 5 });
             return { leagueId: league.id, data: res.data?.leaderboard || [] };
-          } catch (e) {
+          } catch (err) {
+            console.error(`Failed to load leaderboard for league ${league.id}:`, err);
             return { leagueId: league.id, data: [] };
           }
         });
@@ -47,6 +54,25 @@ const LandingPage = () => {
     fetchPublicLeagues();
   }, []);
 
+  useEffect(() => {
+    const fetchBadges = async () => {
+      try {
+        setBadgesLoading(true);
+        setBadgesError(null);
+        const res = await badgesAPI.getAll({ page: 1, limit: 60 });
+        setBadges(res.data?.badges || []);
+      } catch (e) {
+        console.error('Failed to fetch badges:', e);
+        setBadgesError('Failed to load badges');
+        setBadges([]);
+      } finally {
+        setBadgesLoading(false);
+      }
+    };
+
+    fetchBadges();
+  }, []);
+
   const features = [
     'Create or join leagues',
     'Track your ELO rating and performance',
@@ -63,13 +89,15 @@ const LandingPage = () => {
   return (
     <div className="min-h-screen">
       {/* Nav */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-gray-950/95 backdrop-blur-sm border-b border-gray-800/50">
+      <header className="sticky top-0 z-40 border-b border-gray-800/60 bg-gradient-to-r from-gray-900/95 via-gray-900/98 to-gray-900/95 backdrop-blur-xl">
         <div className="max-w-5xl mx-auto px-4">
-          <div className="flex justify-between items-center h-14">
-            <div className="flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-yellow-400" />
-              <span className="cyberpunk-title text-base text-gray-100">Leagues</span>
-            </div>
+          <div className="flex justify-between items-center h-16">
+            <Link to="/" className="flex items-center space-x-2 group">
+              <img src="/img/logo.png" alt="Logo" className="h-8 w-8 group-hover:scale-105 transition-transform" />
+              <span className="cyberpunk-title text-lg bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                {t('app.title')}
+              </span>
+            </Link>
             <div className="flex items-center gap-3">
               <Button variant="ghost" size="sm" asChild className="text-gray-400 hover:text-white">
                 <Link to="/login">Log in</Link>
@@ -80,10 +108,10 @@ const LandingPage = () => {
             </div>
           </div>
         </div>
-      </nav>
+      </header>
 
       {/* Main Content */}
-      <main className="pt-20 pb-12 px-4">
+      <main className="py-12 px-4">
         <div className="max-w-5xl mx-auto space-y-10">
           
           {/* Hero */}
@@ -117,6 +145,32 @@ const LandingPage = () => {
               <span className="text-gray-500">Coming soon:</span> {comingSoon.join(' · ')}
             </div>
             <div className="text-emerald-400 font-medium">Free to use · No ads</div>
+          </section>
+
+          {/* Badges */}
+          <section>
+            <h2 className="cyberpunk-title text-lg text-gray-300 mb-2">Badges</h2>
+            <p className="text-sm text-gray-400 mb-4">
+              Earn badges for achievements and league milestones.
+            </p>
+
+            {badgesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <LoadingSpinner size="sm" />
+              </div>
+            ) : badgesError ? (
+              <div className="text-sm text-red-400 py-2">{badgesError}</div>
+            ) : badges.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {badges.map((badge) => (
+                  <div key={badge.id} className="flex items-center">
+                    <BadgeDisplay badge={badge} showDate={false} showLeague={false} size="lg" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-6">No badges yet</p>
+            )}
           </section>
 
           {/* Public Leagues with Leaderboards */}
@@ -153,7 +207,7 @@ const LandingPage = () => {
                           <table className="w-full text-sm">
                             <thead>
                               <tr className="text-left text-gray-400 border-b border-gray-700">
-                                <th className="px-2 py-2 font-medium">Rank</th>
+                                <th className="px-2 py-2 font-medium w-16 text-center">Rank</th>
                                 <th className="px-2 py-2 font-medium">Player</th>
                                 <th className="px-2 py-2 font-medium">ELO</th>
                                 <th className="px-2 py-2 font-medium">Trend</th>
@@ -164,11 +218,13 @@ const LandingPage = () => {
                               {leagueLeaderboards[league.id].map((p, idx) => (
                                 <tr key={p.roster_id || idx} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
                                   <td className="px-2 py-3 align-middle">
-                                    {p.rank <= 3 ? (
-                                      <MedalIcon rank={p.rank} size={p.rank === 1 ? 32 : 28} />
-                                    ) : (
-                                      <span className="text-gray-300 text-sm font-bold">{p.rank}.</span>
-                                    )}
+                                    <div className="w-10 flex items-center justify-center">
+                                      {p.rank <= 3 ? (
+                                        <MedalIcon rank={p.rank} size={p.rank === 1 ? 32 : 28} />
+                                      ) : (
+                                        <span className="text-gray-300 text-sm font-bold tabular-nums">{p.rank}.</span>
+                                      )}
+                                    </div>
                                   </td>
                                   <td className="px-2 py-3 align-middle">
                                     <div className="flex items-center gap-2">
