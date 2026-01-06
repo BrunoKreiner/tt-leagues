@@ -58,8 +58,7 @@ const LeaguesPage = () => {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="cyberpunk-title text-3xl text-blue-400">{t('nav.leagues')}</h1>
-          <p className="cyberpunk-subtitle text-gray-400">{t('leagues.subtitle')}</p>
+          <h1 className="text-3xl font-bold tracking-tight text-white">{t('nav.leagues')}</h1>
         </div>
         {isAdmin && (
           <Button asChild>

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Users, Swords, ChevronRight, ListChecks, Calendar, Globe } from 'lucide-react';
+import { Trophy, Users, ChevronRight, ListChecks, Calendar, Globe, Sparkles } from 'lucide-react';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { leaguesAPI } from '../services/api';
 import MedalIcon from '@/components/MedalIcon';
@@ -78,6 +78,9 @@ const LandingPage = () => {
               </span>
             </Link>
             <div className="flex items-center gap-3">
+              <Badge variant="secondary" className="hidden sm:inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+                Free
+              </Badge>
               <Button variant="ghost" size="sm" asChild className="text-gray-400 hover:text-white">
                 <Link to="/login">Log in</Link>
               </Button>
@@ -119,11 +122,25 @@ const LandingPage = () => {
           </section>
 
           {/* Coming Soon + Free */}
-          <section className="text-center space-y-2 py-4 border-t border-b border-gray-800/50">
-            <div className="text-sm text-gray-400">
-              <span className="text-gray-500">Coming soon:</span> {comingSoon.join(' · ')}
+          <section className="py-5 border-t border-b border-gray-800/50">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-purple-300" />
+                <span className="text-sm font-semibold text-gray-200">Coming soon</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {comingSoon.map((item) => (
+                  <Badge
+                    key={item}
+                    variant="outline"
+                    className="border-purple-500/30 text-purple-200 bg-purple-500/5"
+                  >
+                    {item}
+                  </Badge>
+                ))}
+              </div>
             </div>
-            <div className="text-emerald-400 font-medium">Free to use · No ads</div>
+            <div className="mt-3 text-xs text-gray-500">Free to use · No ads</div>
           </section>
 
           {/* Public Leagues with Leaderboards */}
