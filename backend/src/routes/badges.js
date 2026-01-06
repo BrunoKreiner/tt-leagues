@@ -155,6 +155,10 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
  */
 router.post('/', authenticateToken, async (req, res) => {
     try {
+        // Diagnostics: helps confirm which backend build is serving requests.
+        // Safe to remove later.
+        res.set('X-Badges-Create-Route-Rev', '2026-01-06a');
+
         const { name, description, icon, badge_type, image_url, visibility } = req.body;
 
         moderateText(
@@ -188,6 +192,7 @@ router.post('/', authenticateToken, async (req, res) => {
         }
 
         const isPublic = requestedVisibility === 'public';
+        res.set('X-Badge-Requested-Visibility', requestedVisibility);
 
         const ownerId = isPublic ? null : req.user.id;
 
