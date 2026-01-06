@@ -4,10 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Trophy, Users, Swords, ChevronRight } from 'lucide-react';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
-import { badgesAPI, leaguesAPI } from '../services/api';
+import { leaguesAPI } from '../services/api';
 import MedalIcon from '@/components/MedalIcon';
 import EloSparkline from '@/components/EloSparkline';
-import BadgeDisplay from '@/components/BadgeDisplay';
+import { BadgeList } from '@/components/BadgeDisplay';
 import { useTranslation } from 'react-i18next';
 
 const LandingPage = () => {
@@ -15,9 +15,6 @@ const LandingPage = () => {
   const [publicLeagues, setPublicLeagues] = useState([]);
   const [leagueLeaderboards, setLeagueLeaderboards] = useState({});
   const [loading, setLoading] = useState(true);
-  const [badges, setBadges] = useState([]);
-  const [badgesLoading, setBadgesLoading] = useState(true);
-  const [badgesError, setBadgesError] = useState(null);
 
   useEffect(() => {
     const fetchPublicLeagues = async () => {
@@ -52,25 +49,6 @@ const LandingPage = () => {
     };
 
     fetchPublicLeagues();
-  }, []);
-
-  useEffect(() => {
-    const fetchBadges = async () => {
-      try {
-        setBadgesLoading(true);
-        setBadgesError(null);
-        const res = await badgesAPI.getAll({ page: 1, limit: 60 });
-        setBadges(res.data?.badges || []);
-      } catch (e) {
-        console.error('Failed to fetch badges:', e);
-        setBadgesError('Failed to load badges');
-        setBadges([]);
-      } finally {
-        setBadgesLoading(false);
-      }
-    };
-
-    fetchBadges();
   }, []);
 
   const features = [
@@ -147,32 +125,6 @@ const LandingPage = () => {
             <div className="text-emerald-400 font-medium">Free to use · No ads</div>
           </section>
 
-          {/* Badges */}
-          <section>
-            <h2 className="cyberpunk-title text-lg text-gray-300 mb-2">Badges</h2>
-            <p className="text-sm text-gray-400 mb-4">
-              Earn badges for achievements and league milestones.
-            </p>
-
-            {badgesLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <LoadingSpinner size="sm" />
-              </div>
-            ) : badgesError ? (
-              <div className="text-sm text-red-400 py-2">{badgesError}</div>
-            ) : badges.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {badges.map((badge) => (
-                  <div key={badge.id} className="flex items-center">
-                    <BadgeDisplay badge={badge} showDate={false} showLeague={false} size="lg" />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500 text-center py-6">No badges yet</p>
-            )}
-          </section>
-
           {/* Public Leagues with Leaderboards */}
           <section>
             <h2 className="cyberpunk-title text-lg text-gray-300 mb-4">Public Leagues</h2>
@@ -227,7 +179,7 @@ const LandingPage = () => {
                                     </div>
                                   </td>
                                   <td className="px-2 py-3 align-middle">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 min-w-0">
                                       {p.avatar_url ? (
                                         <img 
                                           src={p.avatar_url} 
@@ -239,9 +191,18 @@ const LandingPage = () => {
                                           {(p.display_name || p.username || 'P').charAt(0).toUpperCase()}
                                         </div>
                                       )}
-                                      <span className="text-blue-400 font-medium">
+                                      <span className="text-blue-400 font-medium truncate">
                                         {p.display_name || p.username || 'Player'}
                                       </span>
+                                      {p.badges && p.badges.length > 0 && (
+                                        <BadgeList
+                                          badges={p.badges}
+                                          size="sm"
+                                          showDate={false}
+                                          showLeague={false}
+                                          className="flex-nowrap overflow-x-auto scrollbar-hide gap-1"
+                                        />
+                                      )}
                                     </div>
                                   </td>
                                   <td className="px-2 py-3 text-gray-200 font-medium tabular-nums align-middle">
