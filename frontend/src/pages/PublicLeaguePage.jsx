@@ -25,15 +25,25 @@ const PublicLeaguePage = () => {
         setLoading(true);
         setError(null);
         
-        const [leagueRes, leaderboardRes, matchesRes] = await Promise.all([
+        const [leagueRes, leaderboardRes, matchesRes] = await Promise.allSettled([
           leaguesAPI.getById(id),
           leaguesAPI.getLeaderboard(id, { limit: 20 }),
           leaguesAPI.getMatches(id, { limit: 10 }),
         ]);
-        
-        setLeague(leagueRes.data.league);
-        setLeaderboard(leaderboardRes.data.leaderboard || []);
-        setMatches(matchesRes.data.matches || []);
+
+        if (leagueRes.status === 'rejected') {
+          throw leagueRes.reason;
+        }
+
+        setLeague(leagueRes.value.data.league);
+        setLeaderboard(leaderboardRes.status === 'fulfilled' ? (leaderboardRes.value.data.leaderboard || []) : []);
+
+        // Matches may be restricted for unauthenticated users; treat that as non-fatal.
+        if (matchesRes.status === 'fulfilled') {
+          setMatches(matchesRes.value.data.matches || []);
+        } else {
+          setMatches([]);
+        }
       } catch (err) {
         console.error('Failed to load league:', err);
         setError(err.response?.data?.error || 'Failed to load league');

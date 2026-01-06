@@ -1082,6 +1082,42 @@ router.get('/:id/matches', optionalAuth, validateId, validatePagination, async (
             return res.status(403).json({ error: 'Access denied to private league' });
         }
         
+        // Match visibility:
+        // - Site admins and league admins may view all accepted matches in the league.
+        // - Regular users may only view matches they participated in.
+        //
+        // NOTE: We keep this endpoint reachable without auth (public league page),
+        // but unauthenticated users will receive an empty list (no match leakage).
+        if (!req.user) {
+            return res.json({
+                matches: [],
+                pagination: {
+                    page,
+                    limit,
+                    total: 0,
+                    pages: 0
+                }
+            });
+        }
+
+        const isSiteAdmin = !!req.user.is_admin;
+        let isLeagueAdmin = false;
+        if (!isSiteAdmin) {
+            const adminRow = await database.get(
+                'SELECT is_admin FROM league_roster WHERE league_id = ? AND user_id = ?',
+                [leagueId, req.user.id]
+            );
+            isLeagueAdmin = !!adminRow?.is_admin;
+        }
+
+        let whereClause = 'm.league_id = ? AND m.is_accepted = ?';
+        const params = [leagueId, true];
+
+        if (!isSiteAdmin && !isLeagueAdmin) {
+            whereClause += ' AND (m.player1_id = ? OR m.player2_id = ?)';
+            params.push(req.user.id, req.user.id);
+        }
+
         const matches = await database.all(`
             SELECT 
                 m.id, m.player1_sets_won, m.player2_sets_won, m.player1_points_total, m.player2_points_total,
@@ -1101,14 +1137,14 @@ router.get('/:id/matches', optionalAuth, validateId, validatePagination, async (
             LEFT JOIN users u2 ON r2.user_id = u2.id
             LEFT JOIN users u1_fallback ON m.player1_id = u1_fallback.id
             LEFT JOIN users u2_fallback ON m.player2_id = u2_fallback.id
-            WHERE m.league_id = ? AND m.is_accepted = ?
+            WHERE ${whereClause}
             ORDER BY m.played_at DESC
             LIMIT ? OFFSET ?
-        `, [leagueId, true, limit, offset]);
+        `, [...params, limit, offset]);
         
         const totalCount = await database.get(
-            'SELECT COUNT(*) as count FROM matches WHERE league_id = ? AND is_accepted = ?',
-            [leagueId, true]
+            `SELECT COUNT(*) as count FROM matches m WHERE ${whereClause}`,
+            params
         );
         
         res.json({

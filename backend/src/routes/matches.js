@@ -31,9 +31,26 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
         const offset = (page - 1) * limit;
         const status = req.query.status; // 'pending', 'accepted', 'all'
 
-        // Use match-level player IDs which are always populated
+        // Visibility rules:
+        // - Any user may see their own matches.
+        // - League admins may also see matches in leagues they admin.
+        // - Site admins may see all matches.
+        //
+        // We use match-level player IDs which are always populated for user-owned visibility.
         let whereClause = '(m.player1_id = ? OR m.player2_id = ?)';
         const params = [req.user.id, req.user.id];
+
+        if (req.user.is_admin) {
+            whereClause = '1 = 1';
+            params.length = 0;
+        } else {
+            // Add league-admin visibility
+            whereClause = `(${whereClause} OR EXISTS (
+                SELECT 1 FROM league_roster lr
+                WHERE lr.league_id = m.league_id AND lr.user_id = ? AND lr.is_admin = ?
+            ))`;
+            params.push(req.user.id, true);
+        }
 
         if (status === 'pending') {
             whereClause += ' AND m.is_accepted = ?';
