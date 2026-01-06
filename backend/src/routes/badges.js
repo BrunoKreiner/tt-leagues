@@ -7,8 +7,12 @@ const database = require('../models/database');
 const router = express.Router();
 
 /**
- * Get all badges (authenticated)
+ * Get badges visible to the current user
  * GET /api/badges
+ *
+ * Visibility:
+ * - Public badges: visible to everyone authenticated
+ * - Private badges: visible only to the creator (created_by = current user)
  */
 router.get('/', authenticateToken, validatePagination, async (req, res) => {
     try {
@@ -33,7 +37,7 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
             });
         }
         
-        // Try to get badges with image_url, fallback if column doesn't exist
+        // Query with visibility columns; fallback if older schema missing columns.
         let badges;
         let totalCount;
         try {
@@ -41,17 +45,23 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
             badges = await database.all(`
                 SELECT 
                     b.id, b.name, b.description, b.icon, b.badge_type, b.image_url, b.created_at,
+                    COALESCE(b.is_public, 1) as is_public,
+                    b.created_by,
                     COALESCE((SELECT COUNT(*) FROM user_badges ub WHERE ub.badge_id = b.id), 0) as times_awarded
                 FROM badges b
+                WHERE (COALESCE(b.is_public, 1) = 1 OR b.created_by = ?)
                 ORDER BY b.created_at DESC
                 LIMIT ? OFFSET ?
-            `, [limit, offset]);
+            `, [req.user.id, limit, offset]);
             
-            totalCount = await database.get('SELECT COUNT(*) as count FROM badges');
+            totalCount = await database.get(
+                'SELECT COUNT(*) as count FROM badges b WHERE (COALESCE(b.is_public, 1) = 1 OR b.created_by = ?)',
+                [req.user.id]
+            );
         } catch (queryError) {
-            // If image_url column doesn't exist, try without it
-            if (queryError.message && queryError.message.includes('image_url')) {
-                console.warn('image_url column not found, querying without it:', queryError.message);
+            // Older schemas may be missing new columns. Fall back to legacy behavior.
+            if (queryError.message && (queryError.message.includes('image_url') || queryError.message.includes('is_public') || queryError.message.includes('created_by'))) {
+                console.warn('Badges visibility columns not found, querying legacy badges:', queryError.message);
                 badges = await database.all(`
                     SELECT 
                         b.id, b.name, b.description, b.icon, b.badge_type, b.created_at,
@@ -60,8 +70,8 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
                     ORDER BY b.created_at DESC
                     LIMIT ? OFFSET ?
                 `, [limit, offset]);
-                // Add null image_url for compatibility
-                badges = badges.map(b => ({ ...b, image_url: null }));
+                // Add compatibility fields
+                badges = badges.map(b => ({ ...b, image_url: null, is_public: 1, created_by: null }));
                 totalCount = await database.get('SELECT COUNT(*) as count FROM badges');
             } else {
                 throw queryError;
@@ -89,12 +99,18 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
 });
 
 /**
- * Create a new badge (site admin only)
+ * Create a new badge
  * POST /api/badges
+ *
+ * Rules:
+ * - Site admins may create public or private badges.
+ * - Regular users may only create private badges.
  */
-router.post('/', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/', authenticateToken, async (req, res) => {
     try {
         const { name, description, icon, badge_type, image_url } = req.body;
+        const requestedPublic = Boolean(req.body?.is_public);
+        const isPublic = req.user.is_admin ? requestedPublic : false;
 
         moderateText(
             { name, description, icon, badge_type },
@@ -114,21 +130,21 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
             return res.status(500).json({ error: 'Badges table not found. Please ensure database is initialized.' });
         }
         
-        // Check if badge with same name already exists
-        const existingBadge = await database.get(
-            'SELECT id FROM badges WHERE name = ?',
-            [name]
-        );
+        // Uniqueness:
+        // - Public badge names must be unique across public badges.
+        // - Private badge names must be unique per creator.
+        const existingBadge = isPublic
+            ? await database.get('SELECT id FROM badges WHERE COALESCE(is_public, 1) = 1 AND name = ?', [name])
+            : await database.get('SELECT id FROM badges WHERE COALESCE(is_public, 1) = 0 AND created_by = ? AND name = ?', [req.user.id, name]);
         
         if (existingBadge) {
             return res.status(409).json({ error: 'Badge with this name already exists' });
         }
         
-        // Insert new badge (handle image_url column potentially not existing)
         const result = await database.run(`
-            INSERT INTO badges (name, description, icon, badge_type, image_url)
-            VALUES (?, ?, ?, ?, ?)
-        `, [name, description || null, icon || null, badge_type, image_url || null]);
+            INSERT INTO badges (name, description, icon, badge_type, image_url, created_by, is_public)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [name, description || null, icon || null, badge_type, image_url || null, req.user.id, isPublic]);
         
         // Get the created badge
         const newBadge = await database.get(
@@ -155,13 +171,19 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 /**
- * Update a badge (site admin only)
+ * Update a badge
  * PUT /api/badges/:id
+ *
+ * Rules:
+ * - Public badges: site admin only.
+ * - Private badges: owner or site admin.
+ * - Only site admins can toggle a badge to public.
  */
-router.put('/:id', authenticateToken, requireAdmin, validateId, async (req, res) => {
+router.put('/:id', authenticateToken, validateId, async (req, res) => {
     try {
         const badgeId = parseInt(req.params.id);
         const { name, description, icon, badge_type, image_url } = req.body;
+        const requestedPublic = req.body?.is_public;
 
         moderateText(
             { name, description, icon, badge_type },
@@ -170,20 +192,34 @@ router.put('/:id', authenticateToken, requireAdmin, validateId, async (req, res)
         
         // Check if badge exists
         const existingBadge = await database.get(
-            'SELECT id FROM badges WHERE id = ?',
+            'SELECT id, created_by, COALESCE(is_public, 1) as is_public FROM badges WHERE id = ?',
             [badgeId]
         );
         
         if (!existingBadge) {
             return res.status(404).json({ error: 'Badge not found' });
         }
+
+        const isPublicBadge = Boolean(existingBadge.is_public);
+        const isOwner = existingBadge.created_by && Number(existingBadge.created_by) === Number(req.user.id);
+        if (isPublicBadge && !req.user.is_admin) {
+            return res.status(403).json({ error: 'Site admin access required' });
+        }
+        if (!isPublicBadge && !req.user.is_admin && !isOwner) {
+            return res.status(403).json({ error: 'Only the badge owner can edit this private badge' });
+        }
         
         // Check if name is being changed and if it conflicts
         if (name) {
-            const nameConflict = await database.get(
-                'SELECT id FROM badges WHERE name = ? AND id != ?',
-                [name, badgeId]
-            );
+            const nameConflict = isPublicBadge
+                ? await database.get(
+                    'SELECT id FROM badges WHERE COALESCE(is_public, 1) = 1 AND name = ? AND id != ?',
+                    [name, badgeId]
+                )
+                : await database.get(
+                    'SELECT id FROM badges WHERE COALESCE(is_public, 1) = 0 AND created_by = ? AND name = ? AND id != ?',
+                    [existingBadge.created_by, name, badgeId]
+                );
             
             if (nameConflict) {
                 return res.status(409).json({ error: 'Badge with this name already exists' });
@@ -218,6 +254,14 @@ router.put('/:id', authenticateToken, requireAdmin, validateId, async (req, res)
             updates.push('image_url = ?');
             values.push(image_url || null);
         }
+
+        if (requestedPublic !== undefined) {
+            if (!req.user.is_admin) {
+                return res.status(403).json({ error: 'Only site admins can change badge visibility' });
+            }
+            updates.push('is_public = ?');
+            values.push(Boolean(requestedPublic));
+        }
         
         if (updates.length === 0) {
             return res.status(400).json({ error: 'No valid fields to update' });
@@ -250,21 +294,34 @@ router.put('/:id', authenticateToken, requireAdmin, validateId, async (req, res)
 });
 
 /**
- * Delete a badge (site admin only)
+ * Delete a badge
  * DELETE /api/badges/:id
+ *
+ * Rules:
+ * - Public badges: site admin only.
+ * - Private badges: owner or site admin.
  */
-router.delete('/:id', authenticateToken, requireAdmin, validateId, async (req, res) => {
+router.delete('/:id', authenticateToken, validateId, async (req, res) => {
     try {
         const badgeId = parseInt(req.params.id);
         
         // Check if badge exists
         const badge = await database.get(
-            'SELECT name FROM badges WHERE id = ?',
+            'SELECT name, created_by, COALESCE(is_public, 1) as is_public FROM badges WHERE id = ?',
             [badgeId]
         );
         
         if (!badge) {
             return res.status(404).json({ error: 'Badge not found' });
+        }
+
+        const isPublicBadge = Boolean(badge.is_public);
+        const isOwner = badge.created_by && Number(badge.created_by) === Number(req.user.id);
+        if (isPublicBadge && !req.user.is_admin) {
+            return res.status(403).json({ error: 'Site admin access required' });
+        }
+        if (!isPublicBadge && !req.user.is_admin && !isOwner) {
+            return res.status(403).json({ error: 'Only the badge owner can delete this private badge' });
         }
         
         // Check if badge is awarded to any users
@@ -340,12 +397,20 @@ router.post('/users/:id/badges', authenticateToken, validateId, async (req, res)
         
         // Check if badge exists
         const badge = await database.get(
-            'SELECT name FROM badges WHERE id = ?',
+            'SELECT id, name, created_by, COALESCE(is_public, 1) as is_public FROM badges WHERE id = ?',
             [badge_id]
         );
         
         if (!badge) {
             return res.status(404).json({ error: 'Badge not found' });
+        }
+
+        // Private badges can only be awarded by their creator (who must also be a league admin per check above).
+        if (!badge.is_public) {
+            const isOwner = badge.created_by && Number(badge.created_by) === Number(req.user.id);
+            if (!isOwner) {
+                return res.status(403).json({ error: 'You can only award badges you created (private badge)' });
+            }
         }
         
         // Check if league exists (if provided) and validate membership

@@ -61,6 +61,7 @@ const badgeSchema = z.object({
   icon: z.string().min(1, 'Icon is required'),
   badge_type: z.string().min(1, 'Badge type is required'),
   image_url: z.string().nullable().optional().or(z.literal('')),
+  is_public: z.boolean().optional(),
 });
 
 const badgeIcons = ['trophy', 'star', 'fire', 'comeback', 'target', 'award', 'medal', 'crown', 'calendar', 'users', 'trending', 'heart'];
@@ -144,6 +145,7 @@ const AdminPage = () => {
       icon: 'trophy',
       badge_type: 'achievement',
       image_url: '',
+      is_public: true,
     },
   });
 
@@ -284,6 +286,9 @@ const AdminPage = () => {
         ...values,
         image_url: values.image_url || ''
       };
+      if (!user?.is_admin) {
+        payload.is_public = false;
+      }
       await badgesAPI.create(payload);
       toast.success('Badge created successfully');
       badgeForm.reset();
@@ -306,6 +311,9 @@ const AdminPage = () => {
         ...values,
         image_url: values.image_url || ''
       };
+      if (!user?.is_admin) {
+        payload.is_public = false;
+      }
       await badgesAPI.update(editingBadge.id, payload);
       toast.success('Badge updated successfully');
       badgeForm.reset();
@@ -395,6 +403,7 @@ const AdminPage = () => {
       icon: badge.icon || 'trophy',
       badge_type: badge.badge_type || 'achievement',
       image_url: badge.image_url || '',
+      is_public: !!badge.is_public,
     });
     setBadgeFormOpen(true);
     if (user?.is_admin) {
@@ -411,6 +420,7 @@ const AdminPage = () => {
       icon: 'trophy',
       badge_type: 'achievement',
       image_url: '',
+      is_public: true,
     });
     setBadgeFormOpen(true);
   };
@@ -987,6 +997,25 @@ const AdminPage = () => {
                         </FormItem>
                       )}
                     />
+                    {user?.is_admin && (
+                      <FormField
+                        name="is_public"
+                        control={badgeForm.control}
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border border-gray-700 p-3">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">Public badge</FormLabel>
+                              <FormDescription>
+                                Public badges are visible to everyone. Private badges are only visible to you.
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch checked={!!field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    )}
                     {user?.is_admin && editingBadge && (
                       <div className="space-y-2">
                         <FormLabel>Users with this badge ({badgeUsers.length})</FormLabel>
@@ -1060,6 +1089,7 @@ const AdminPage = () => {
                       <th className="text-left font-medium px-3 py-2">Name</th>
                       <th className="text-left font-medium px-3 py-2">Icon</th>
                       <th className="text-left font-medium px-3 py-2">Type</th>
+                      <th className="text-left font-medium px-3 py-2">Visibility</th>
                       <th className="text-left font-medium px-3 py-2">Times Awarded</th>
                       <th className="text-left font-medium px-3 py-2">Created</th>
                       <th className="text-right font-medium px-3 py-2">Actions</th>
@@ -1098,6 +1128,13 @@ const AdminPage = () => {
                         </td>
                         <td className="px-3 py-3">{badge.icon}</td>
                         <td className="px-3 py-3">{badge.badge_type?.replace('_', ' ') || '-'}</td>
+                        <td className="px-3 py-3">
+                          {badge.is_public ? (
+                            <span className="text-green-400">Public</span>
+                          ) : (
+                            <span className="text-yellow-400">Private</span>
+                          )}
+                        </td>
                         <td className="px-3 py-3">{badge.times_awarded || 0}</td>
                         <td className="px-3 py-3 text-muted-foreground">
                           {badge.created_at ? format(new Date(badge.created_at), 'MMM d, yyyy') : '-'}

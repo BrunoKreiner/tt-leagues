@@ -135,6 +135,8 @@ CREATE TABLE IF NOT EXISTS badges (
     icon VARCHAR(100),
     badge_type VARCHAR(50) NOT NULL,
     image_url TEXT,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    is_public BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
