@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '@/components/ui/form';
-import { leaguesAPI, matchesAPI, badgesAPI } from '@/services/api';
+import { leaguesAPI, matchesAPI, badgesAPI, ticketsAPI } from '@/services/api';
 import { toast } from 'sonner';
 import { Shield, PlusCircle, Award, Edit, Trash2, Gift } from 'lucide-react';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -68,6 +68,14 @@ const badgeSchema = z.object({
 const badgeIcons = ['trophy', 'star', 'fire', 'comeback', 'target', 'award', 'medal', 'crown', 'calendar', 'users', 'trending', 'heart'];
 const badgeTypes = ['league_winner', 'tournament_winner', 'achievement'];
 
+const ticketCategoryLabels = {
+  bug_report: 'Report a bug',
+  feature_request: 'New feature idea',
+  question: 'Question',
+  account: 'Account / login issue',
+  other: 'Other',
+};
+
 const AdminPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -100,6 +108,15 @@ const AdminPage = () => {
   const [badgeUsers, setBadgeUsers] = useState([]);
   const [loadingBadgeUsers, setLoadingBadgeUsers] = useState(false);
   const [uploadedImageSrc, setUploadedImageSrc] = useState(null);
+
+  // Support tickets (site admin)
+  const [tickets, setTickets] = useState([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
+  const [ticketPage, setTicketPage] = useState(1);
+  const [ticketPages, setTicketPages] = useState(1);
+  const [ticketTotal, setTicketTotal] = useState(0);
+  const [ticketStatusFilter, setTicketStatusFilter] = useState('open');
+  const [updatingTicketId, setUpdatingTicketId] = useState(null);
 
   const [awardLeagueMembers, setAwardLeagueMembers] = useState([]);
   const [loadingAwardLeagueMembers, setLoadingAwardLeagueMembers] = useState(false);
@@ -163,6 +180,12 @@ const AdminPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [badgePage, badgeSort]);
 
+  useEffect(() => {
+    if (!user?.is_admin) return;
+    fetchTickets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.is_admin, ticketPage, ticketStatusFilter]);
+
   const fetchBadges = async (opts = {}) => {
     const nextPage = opts.page ?? badgePage;
     const nextSort = opts.sort ?? badgeSort;
@@ -186,6 +209,41 @@ const AdminPage = () => {
       setLeagues(data.leagues || []);
     } catch (e) {
       console.error('Failed to load leagues', e);
+    }
+  };
+
+  const fetchTickets = async (opts = {}) => {
+    const nextPage = opts.page ?? ticketPage;
+    const nextStatus = opts.status ?? ticketStatusFilter;
+    try {
+      setLoadingTickets(true);
+      const params = { page: nextPage, limit: 20 };
+      if (nextStatus !== 'all') {
+        params.status = nextStatus;
+      }
+      const { data } = await ticketsAPI.getAll(params);
+      setTickets(data.tickets || []);
+      setTicketPages(data.pagination?.pages || 1);
+      setTicketTotal(data.pagination?.total || 0);
+    } catch (e) {
+      console.error('Failed to load tickets', e);
+      toast.error('Failed to load tickets');
+    } finally {
+      setLoadingTickets(false);
+    }
+  };
+
+  const updateTicketStatus = async (ticketId, status) => {
+    try {
+      setUpdatingTicketId(ticketId);
+      await ticketsAPI.updateStatus(ticketId, status);
+      toast.success('Ticket updated');
+      await fetchTickets({ page: ticketPage });
+    } catch (e) {
+      const msg = e.response?.data?.error || 'Failed to update ticket';
+      toast.error(msg);
+    } finally {
+      setUpdatingTicketId(null);
     }
   };
 
@@ -1261,6 +1319,160 @@ const AdminPage = () => {
           )}
         </CardContent>
       </Card>
+
+      {user?.is_admin && (
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle>Support tickets</CardTitle>
+                <CardDescription>Anonymous tickets sent from the footer Support page</CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select
+                  value={ticketStatusFilter}
+                  onValueChange={(v) => {
+                    setTicketPage(1);
+                    setTicketStatusFilter(v);
+                  }}
+                >
+                  <SelectTrigger className="w-44">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="open">Open</SelectItem>
+                    <SelectItem value="closed">Closed</SelectItem>
+                    <SelectItem value="all">All</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fetchTickets({ page: ticketPage })}
+                  disabled={loadingTickets}
+                >
+                  {loadingTickets ? 'Refreshing…' : 'Refresh'}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {loadingTickets ? (
+              <div className="py-8"><LoadingSpinner /></div>
+            ) : tickets.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No tickets found.</div>
+            ) : (
+              <>
+                <div className="overflow-x-auto rounded-md border">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-muted/40 text-muted-foreground">
+                      <tr>
+                        <th className="text-left font-medium px-3 py-2">Created</th>
+                        <th className="text-left font-medium px-3 py-2">Category</th>
+                        <th className="text-left font-medium px-3 py-2">Subject</th>
+                        <th className="text-left font-medium px-3 py-2">Email</th>
+                        <th className="text-left font-medium px-3 py-2">Message</th>
+                        <th className="text-left font-medium px-3 py-2">Status</th>
+                        <th className="text-right font-medium px-3 py-2">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tickets.map((t) => (
+                        <tr key={t.id} className="border-t">
+                          <td className="px-3 py-3 text-muted-foreground">
+                            {(() => {
+                              try { return format(new Date(t.created_at), 'PP p'); } catch { return String(t.created_at || '-'); }
+                            })()}
+                          </td>
+                          <td className="px-3 py-3">{ticketCategoryLabels[t.category]}</td>
+                          <td className="px-3 py-3">
+                            <div className="max-w-[220px] truncate">{t.subject || '—'}</div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="max-w-[220px] truncate text-muted-foreground">{t.email || '—'}</div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="max-w-[520px] whitespace-pre-wrap break-words">
+                              {t.message?.length > 300 ? `${t.message.slice(0, 300)}…` : t.message}
+                            </div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <span className={t.status === 'open' ? 'text-yellow-300' : 'text-green-400'}>
+                              {t.status}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="flex items-center justify-end gap-2">
+                              {t.status === 'open' ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => updateTicketStatus(t.id, 'closed')}
+                                  disabled={updatingTicketId === t.id}
+                                >
+                                  {updatingTicketId === t.id ? 'Closing…' : 'Close'}
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => updateTicketStatus(t.id, 'open')}
+                                  disabled={updatingTicketId === t.id}
+                                >
+                                  {updatingTicketId === t.id ? 'Reopening…' : 'Reopen'}
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {ticketPages > 1 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
+                      <span>Total: {ticketTotal}</span>
+                      <span>Page {ticketPage} of {ticketPages}</span>
+                    </div>
+                    <Pagination>
+                      <PaginationContent>
+                        {ticketPage > 1 && (
+                          <PaginationItem>
+                            <PaginationPrevious
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setTicketPage((p) => Math.max(1, p - 1));
+                              }}
+                            />
+                          </PaginationItem>
+                        )}
+                        <PaginationItem>
+                          <PaginationLink isActive>{ticketPage}</PaginationLink>
+                        </PaginationItem>
+                        <span className="px-1 self-center text-sm text-muted-foreground">/ {ticketPages}</span>
+                        {ticketPage < ticketPages && (
+                          <PaginationItem>
+                            <PaginationNext
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setTicketPage((p) => Math.min(ticketPages, p + 1));
+                              }}
+                            />
+                          </PaginationItem>
+                        )}
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Award Badge Dialog */}
       <Dialog open={awardDialogOpen} onOpenChange={setAwardDialogOpen}>

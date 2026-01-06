@@ -127,6 +127,19 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Support tickets table (anonymous submissions)
+CREATE TABLE IF NOT EXISTS tickets (
+    id SERIAL PRIMARY KEY,
+    category VARCHAR(50) NOT NULL, -- 'bug_report' | 'feature_request' | 'question' | 'account' | 'other'
+    subject VARCHAR(200),
+    email VARCHAR(255),
+    message TEXT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'open', -- 'open' | 'closed'
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    closed_at TIMESTAMP
+);
+
 -- Badges table
 CREATE TABLE IF NOT EXISTS badges (
     id SERIAL PRIMARY KEY,
@@ -219,6 +232,10 @@ CREATE INDEX IF NOT EXISTS idx_user_badges_user_league ON user_badges(user_id, l
 -- Notifications table
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_read_created ON notifications(user_id, is_read, created_at);
+
+-- Tickets table
+CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
+CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets(created_at);
 
 -- ELO history table
 CREATE INDEX IF NOT EXISTS idx_elo_history_match_id ON elo_history(match_id);

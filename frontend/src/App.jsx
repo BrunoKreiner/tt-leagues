@@ -15,6 +15,7 @@ import RegisterPage from './pages/RegisterPage';
 import LandingPage from './pages/LandingPage';
 import PublicLeaguePage from './pages/PublicLeaguePage';
 import ContactPage from './pages/ContactPage';
+import SupportTicketPage from './pages/SupportTicketPage';
 
 // Main pages
 import DashboardPage from './pages/DashboardPage';
@@ -99,6 +100,7 @@ function AppRoutes() {
         {/* Public league view - accessible to everyone */}
         <Route path="/league/:id" element={<PublicLeaguePage />} />
         <Route path="/contact" element={<ContactPage />} />
+        <Route path="/support" element={<SupportTicketPage />} />
 
         {/* Protected routes */}
         <Route path="/app" element={
