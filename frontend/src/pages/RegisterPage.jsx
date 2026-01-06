@@ -6,11 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Trophy, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import SiteFooter from '@/components/layout/SiteFooter';
+import { useTranslation } from 'react-i18next';
 
 const RegisterPage = () => {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -87,14 +89,25 @@ const RegisterPage = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-950 via-gray-900 to-gray-800">
-      <div className="flex-1 flex items-center justify-center px-4 py-8">
-        <Card className="w-full max-w-md vg-card">
+      <header className="border-b border-gray-800/60 bg-gradient-to-r from-gray-900/95 via-gray-900/98 to-gray-900/95 backdrop-blur-xl">
+        <div className="max-w-5xl mx-auto px-4">
+          <div className="flex justify-between items-center h-16">
+            <Link to="/" className="flex items-center space-x-2 group">
+              <img src="/img/logo.png" alt="Logo" className="h-8 w-8 group-hover:scale-105 transition-transform" />
+              <span className="cyberpunk-title text-lg bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                {t('app.title')}
+              </span>
+            </Link>
+            <Button variant="ghost" size="sm" asChild className="text-gray-400 hover:text-white">
+              <Link to="/login">Log in</Link>
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex-1 flex items-center justify-center px-4 py-10">
+        <Card className="w-full max-w-md vg-card no-hover">
           <CardHeader className="text-center">
-            <div className="flex justify-center mb-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-600 text-white shadow-md">
-                <Trophy className="h-6 w-6" />
-              </div>
-            </div>
             <CardTitle className="text-2xl text-blue-300">Create account</CardTitle>
             <CardDescription className="text-gray-400">
               Join the Table Tennis League community
@@ -235,7 +248,7 @@ const RegisterPage = () => {
                 )}
               </div>
 
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full hover:scale-100 hover:shadow-sm" disabled={loading}>
                 {loading ? (
                   <>
                     <LoadingSpinner size="sm" className="mr-2" />

@@ -8,7 +8,12 @@ export default function SiteFooter() {
     <footer className="py-8 px-4 border-t border-gray-800/30">
       <div className="max-w-5xl mx-auto flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm text-gray-500">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-gray-400">{t('app.title')}</span>
+          <Link to="/" className="flex items-center gap-2 group">
+            <img src="/img/logo.png" alt="Logo" className="h-5 w-5 group-hover:scale-105 transition-transform" />
+            <span className="cyberpunk-title text-sm bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              {t('app.title')}
+            </span>
+          </Link>
           <span className="text-gray-700">•</span>
           <span>© {new Date().getFullYear()}</span>
         </div>

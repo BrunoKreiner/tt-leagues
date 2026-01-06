@@ -1063,12 +1063,12 @@ const AdminPage = () => {
                         ) : (
                           <div className="border border-gray-700 rounded-lg max-h-60 overflow-y-auto">
                             <table className="w-full text-sm">
-                              <thead className="bg-gray-800 sticky top-0">
+                              <thead className="sticky top-0 z-10 bg-muted/40 text-muted-foreground">
                                 <tr>
-                                  <th className="text-left px-3 py-2">User</th>
-                                  <th className="text-left px-3 py-2">League</th>
-                                  <th className="text-left px-3 py-2">Earned</th>
-                                  <th className="text-right px-3 py-2">Actions</th>
+                                  <th className="text-left font-medium px-3 py-2">User</th>
+                                  <th className="text-left font-medium px-3 py-2">League</th>
+                                  <th className="text-left font-medium px-3 py-2">Earned</th>
+                                  <th className="text-right font-medium px-3 py-2">Actions</th>
                                 </tr>
                               </thead>
                               <tbody>
