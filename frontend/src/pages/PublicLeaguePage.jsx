@@ -3,11 +3,13 @@ import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Users, Swords, ArrowLeft, TrendingUp } from 'lucide-react';
+import { Users, ListChecks, Calendar, ArrowLeft, TrendingUp, Globe } from 'lucide-react';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { leaguesAPI } from '../services/api';
 import MedalIcon from '@/components/MedalIcon';
 import EloSparkline from '@/components/EloSparkline';
+import { format } from 'date-fns';
+import { BadgeList } from '@/components/BadgeDisplay';
 
 const PublicLeaguePage = () => {
   const { id } = useParams();
@@ -104,25 +106,44 @@ const PublicLeaguePage = () => {
       {/* Content */}
       <main className="max-w-5xl mx-auto px-4 py-8">
         {/* League Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <Trophy className="h-7 w-7 text-yellow-500" />
-            <h1 className="cyberpunk-title text-3xl text-gray-100">{league?.name}</h1>
-            <Badge variant="outline" className="text-xs border-green-500/30 text-green-400">
-              Public
-            </Badge>
+        <div className="space-y-4 mb-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <h1 className="cyberpunk-title text-3xl text-blue-300">{league?.name}</h1>
+              {league?.created_by_username && league?.created_at ? (
+                <p className="cyberpunk-text text-gray-400">
+                  Created by {league.created_by_username} • {format(new Date(league.created_at), 'PPP')}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {league?.description ? (
+                <span className="max-w-full text-sm text-gray-300 px-2 py-1 bg-gray-800 rounded border border-gray-700 break-words">
+                  {league.description}
+                </span>
+              ) : null}
+              <Badge variant="secondary" className="flex items-center gap-1">
+                <Globe className="h-3.5 w-3.5" />
+                Public
+              </Badge>
+              {league?.season ? (
+                <Badge variant="outline">Season: {league.season}</Badge>
+              ) : null}
+            </div>
           </div>
-          {league?.description && (
-            <p className="text-gray-400 mb-4">{league.description}</p>
-          )}
-          <div className="flex items-center gap-5 text-sm text-gray-500">
+
+          <div className="flex flex-wrap gap-4 text-sm text-gray-500">
             <span className="flex items-center gap-1">
               <Users className="h-4 w-4" /> {league?.member_count || 0} members
             </span>
             <span className="flex items-center gap-1">
-              <Swords className="h-4 w-4" /> {league?.match_count || 0} matches
+              <ListChecks className="h-4 w-4" /> {league?.match_count || 0} matches
             </span>
-            {league?.season && <span>Season: {league.season}</span>}
+            {league?.season ? (
+              <span className="flex items-center gap-1">
+                <Calendar className="h-4 w-4" /> {league.season}
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -177,6 +198,15 @@ const PublicLeaguePage = () => {
                                 <span className="text-blue-400 font-medium">
                                   {p.display_name || p.username || 'Unknown'}
                                 </span>
+                                {p.badges && p.badges.length > 0 && (
+                                  <BadgeList
+                                    badges={p.badges}
+                                    size="sm"
+                                    showDate={false}
+                                    showLeague={false}
+                                    className="flex-nowrap overflow-x-auto scrollbar-hide gap-1"
+                                  />
+                                )}
                               </div>
                             </td>
                             <td className="px-3 py-2 text-gray-200 font-medium tabular-nums whitespace-nowrap align-middle">

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trophy, Users, Swords, ChevronRight } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Trophy, Users, Swords, ChevronRight, ListChecks, Calendar, Globe } from 'lucide-react';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { leaguesAPI } from '../services/api';
 import MedalIcon from '@/components/MedalIcon';
@@ -137,20 +138,33 @@ const LandingPage = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {publicLeagues.slice(0, 2).map((league) => (
                   <Card key={league.id} className="vg-card">
-                    <CardHeader className="pb-3">
-                      <Link to={`/league/${league.id}`} className="group">
-                        <CardTitle className="cyberpunk-subtitle text-lg text-gray-100 flex items-center gap-2 group-hover:text-blue-400 transition-colors">
-                          <Trophy className="h-5 w-5 text-yellow-500" />
-                          {league.name}
-                        </CardTitle>
-                      </Link>
-                      <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
+                    <CardHeader className="space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <Link to={`/league/${league.id}`} className="min-w-0">
+                          <CardTitle className="cyberpunk-subtitle text-xl truncate text-blue-400 hover:text-blue-300 transition-colors">
+                            {league.name}
+                          </CardTitle>
+                        </Link>
+                        <Badge variant="secondary" className="ml-2 flex items-center gap-1 shrink-0">
+                          <Globe className="h-3.5 w-3.5" />
+                          Public
+                        </Badge>
+                      </div>
+                      {league.description && (
+                        <CardDescription className="line-clamp-2 text-gray-400">{league.description}</CardDescription>
+                      )}
+                      <div className="flex flex-wrap gap-3 text-sm text-gray-500 pt-1">
                         <span className="flex items-center gap-1">
                           <Users className="h-4 w-4" /> {league.member_count || 0} members
                         </span>
                         <span className="flex items-center gap-1">
-                          <Swords className="h-4 w-4" /> {league.match_count || 0} matches
+                          <ListChecks className="h-4 w-4" /> {league.match_count || 0} matches
                         </span>
+                        {league.season && (
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4" /> {league.season}
+                          </span>
+                        )}
                       </div>
                     </CardHeader>
                     <CardContent className="pt-0">
