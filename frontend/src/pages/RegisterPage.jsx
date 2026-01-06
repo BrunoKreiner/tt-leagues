@@ -108,10 +108,7 @@ const RegisterPage = () => {
       <div className="flex-1 flex items-center justify-center px-4 py-10">
         <Card className="w-full max-w-md vg-card no-hover">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl text-blue-300">Create account</CardTitle>
-            <CardDescription className="text-gray-400">
-              Join the Table Tennis League community
-            </CardDescription>
+            <CardTitle className="text-2xl text-blue-300">Register</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -252,10 +249,10 @@ const RegisterPage = () => {
                 {loading ? (
                   <>
                     <LoadingSpinner size="sm" className="mr-2" />
-                    Creating account...
+                    Registering...
                   </>
                 ) : (
-                  'Create account'
+                  'Register'
                 )}
               </Button>
             </form>
