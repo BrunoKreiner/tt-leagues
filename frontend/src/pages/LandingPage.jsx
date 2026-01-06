@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Trophy, Users, ChevronRight, ListChecks, Calendar, Globe, Sparkles } from 'lucide-react';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { leaguesAPI } from '../services/api';
@@ -78,9 +77,9 @@ const LandingPage = () => {
               </span>
             </Link>
             <div className="flex items-center gap-3">
-              <Badge variant="secondary" className="hidden sm:inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+              <span className="hidden sm:inline-flex items-center text-[11px] font-semibold tracking-wide uppercase text-emerald-200/70 bg-emerald-500/5 border border-emerald-500/15 px-2 py-1 rounded-md">
                 Free
-              </Badge>
+              </span>
               <Button variant="ghost" size="sm" asChild className="text-gray-400 hover:text-white">
                 <Link to="/login">Log in</Link>
               </Button>
@@ -123,24 +122,24 @@ const LandingPage = () => {
 
           {/* Coming Soon + Free */}
           <section className="py-5 border-t border-b border-gray-800/50">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2">
+            <div className="max-w-2xl mx-auto text-center">
+              <div className="flex items-center justify-center gap-2 mb-3">
                 <Sparkles className="h-4 w-4 text-purple-300" />
                 <span className="text-sm font-semibold text-gray-200">Coming soon</span>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <ul className="space-y-2">
                 {comingSoon.map((item) => (
-                  <Badge
+                  <li
                     key={item}
-                    variant="outline"
-                    className="border-purple-500/30 text-purple-200 bg-purple-500/5"
+                    className="flex items-center gap-3 py-2 px-4 rounded-lg border-l-2 border-purple-500/50 bg-gray-900/40 hover:bg-gray-800/50 transition-colors text-left"
                   >
-                    {item}
-                  </Badge>
+                    <ChevronRight className="h-4 w-4 text-purple-300 flex-shrink-0" />
+                    <span className="text-gray-200">{item}</span>
+                  </li>
                 ))}
-              </div>
+              </ul>
+              <div className="mt-3 text-xs text-gray-500">Free to use · No ads</div>
             </div>
-            <div className="mt-3 text-xs text-gray-500">Free to use · No ads</div>
           </section>
 
           {/* Public Leagues with Leaderboards */}
@@ -301,9 +300,18 @@ const LandingPage = () => {
       </main>
 
       {/* Footer */}
-      <footer className="py-6 px-4 border-t border-gray-800/30">
-        <div className="max-w-5xl mx-auto flex items-center justify-center text-sm text-gray-600">
-          <span>🏆</span>
+      <footer className="py-8 px-4 border-t border-gray-800/30">
+        <div className="max-w-5xl mx-auto flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm text-gray-500">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-gray-400">{t('app.title')}</span>
+            <span className="text-gray-700">•</span>
+            <span>© {new Date().getFullYear()}</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link to="/contact" className="text-gray-400 hover:text-gray-200 underline underline-offset-4">
+              Contact
+            </Link>
+          </div>
         </div>
       </footer>
     </div>
