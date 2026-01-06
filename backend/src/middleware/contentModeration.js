@@ -125,7 +125,10 @@ async function openAiModerate({ inputText, inputImageUrl }) {
       input.push({ type: 'text', text: String(inputText) });
     }
     if (inputImageUrl) {
-      input.push({ type: 'image_url', image_url: String(inputImageUrl) });
+      input.push({
+        type: 'image_url',
+        image_url: { url: String(inputImageUrl) },
+      });
     }
 
     const res = await fetch('https://api.openai.com/v1/moderations', {
