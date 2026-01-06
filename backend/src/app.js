@@ -110,7 +110,8 @@ app.get('/health', (req, res) => {
     res.json({ 
         status: 'OK', 
         timestamp: new Date().toISOString(),
-        version: '1.0.0'
+        version: '1.0.0',
+        git: process.env.VERCEL_GIT_COMMIT_SHA || null
     });
 });
 
