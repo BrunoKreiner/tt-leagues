@@ -1,7 +1,7 @@
 const express = require('express');
 const { authenticateToken, requireAdmin, optionalAuth } = require('../middleware/auth');
 const { validateId, validatePagination } = require('../middleware/validation');
-const { moderateText, moderateImage, ModerationError } = require('../middleware/contentModeration');
+const { moderateText, ModerationError } = require('../middleware/contentModeration');
 const database = require('../models/database');
 
 const router = express.Router();
@@ -196,7 +196,6 @@ router.put('/:id', authenticateToken, validateId, async (req, res) => {
             { first_name, last_name, forehand_rubber, backhand_rubber, blade_wood, playstyle, strengths, weaknesses, goals },
             { context: 'profile fields' }
         );
-        await moderateImage(avatar_url, { context: 'avatar' });
         
         // Users can only update their own profile unless they're admin
         if (userId !== req.user.id && !req.user.is_admin) {

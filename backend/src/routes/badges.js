@@ -1,7 +1,7 @@
 const express = require('express');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const { validateId, validatePagination } = require('../middleware/validation');
-const { moderateText, moderateImage, ModerationError } = require('../middleware/contentModeration');
+const { moderateText, ModerationError } = require('../middleware/contentModeration');
 const database = require('../models/database');
 
 const router = express.Router();
@@ -89,10 +89,10 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
 });
 
 /**
- * Create a new badge (authenticated)
+ * Create a new badge (site admin only)
  * POST /api/badges
  */
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { name, description, icon, badge_type, image_url } = req.body;
 
@@ -100,7 +100,6 @@ router.post('/', authenticateToken, async (req, res) => {
             { name, description, icon, badge_type },
             { context: 'badge fields' }
         );
-        await moderateImage(image_url, { context: 'badge image' });
         
         // Validate required fields
         if (!name || !badge_type) {
@@ -156,10 +155,10 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 /**
- * Update a badge (authenticated)
+ * Update a badge (site admin only)
  * PUT /api/badges/:id
  */
-router.put('/:id', authenticateToken, validateId, async (req, res) => {
+router.put('/:id', authenticateToken, requireAdmin, validateId, async (req, res) => {
     try {
         const badgeId = parseInt(req.params.id);
         const { name, description, icon, badge_type, image_url } = req.body;
@@ -168,7 +167,6 @@ router.put('/:id', authenticateToken, validateId, async (req, res) => {
             { name, description, icon, badge_type },
             { context: 'badge fields' }
         );
-        await moderateImage(image_url, { context: 'badge image' });
         
         // Check if badge exists
         const existingBadge = await database.get(
@@ -252,10 +250,10 @@ router.put('/:id', authenticateToken, validateId, async (req, res) => {
 });
 
 /**
- * Delete a badge (authenticated)
+ * Delete a badge (site admin only)
  * DELETE /api/badges/:id
  */
-router.delete('/:id', authenticateToken, validateId, async (req, res) => {
+router.delete('/:id', authenticateToken, requireAdmin, validateId, async (req, res) => {
     try {
         const badgeId = parseInt(req.params.id);
         
