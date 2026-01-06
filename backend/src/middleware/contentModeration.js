@@ -1,11 +1,12 @@
 const LeoProfanity = require('leo-profanity');
 
 class ModerationError extends Error {
-  constructor(message, { status = 400, code = 'CONTENT_REJECTED' } = {}) {
+  constructor(message, { status = 400, code = 'CONTENT_REJECTED', meta } = {}) {
     super(message);
     this.name = 'ModerationError';
     this.status = status;
     this.code = code;
+    this.meta = meta;
   }
 }
 
@@ -139,9 +140,16 @@ async function openAiModerate({ inputText, inputImageUrl }) {
 
     if (!res.ok) {
       const body = await res.text();
-      throw new ModerationError(`Moderation provider error: ${res.status}`, {
+      const snippet = String(body || '').slice(0, 1200);
+      console.error('OpenAI moderation request failed', {
+        status: res.status,
+        statusText: res.statusText,
+        body: snippet,
+      });
+      throw new ModerationError('Moderation provider error', {
         status: 503,
         code: 'MODERATION_PROVIDER_ERROR',
+        meta: { provider_status: res.status },
       });
     }
 
@@ -224,6 +232,7 @@ function moderationErrorHandler(err, req, res, next) {
     return res.status(err.status || 400).json({
       error: err.message || 'Content rejected',
       code: err.code || 'CONTENT_REJECTED',
+      ...(err.meta ? { meta: err.meta } : {}),
     });
   }
   return next(err);
