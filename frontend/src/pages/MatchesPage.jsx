@@ -94,15 +94,15 @@ export default function MatchesPage() {
   };
 
   return (
-    <div className="px-4 py-6 mx-auto w-full max-w-5xl">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">{t('nav.matches')}</h1>
-          <p className="text-sm text-muted-foreground">{t('common.totalN', { count: total })}</p>
+          <h1 className="text-3xl font-bold tracking-tight text-white">{t('nav.matches')}</h1>
+          <p className="text-sm text-muted-foreground">{t('common.totalN', { n: total })}</p>
         </div>
         <div>
           <Button asChild>
-            <Link to="/matches/record">{t('cta.recordMatch')}</Link>
+            <Link to="/app/matches/record">{t('cta.recordMatch')}</Link>
           </Button>
         </div>
       </div>
@@ -150,7 +150,7 @@ export default function MatchesPage() {
                             <span className="text-blue-400">{m.player1_display_name}</span>
                           )}
                           {' '}
-                          {t('common.vs') || 'vs'}
+                          {t('common.vs')}
                           {' '}
                           {m.player2_username ? (
                             <Link to={`/app/profile/${m.player2_username}`} className="underline hover:no-underline">

@@ -3,13 +3,14 @@ import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, ListChecks, Calendar, ArrowLeft, TrendingUp, Globe } from 'lucide-react';
+import { Users, ListChecks, Calendar, ArrowLeft, TrendingUp, Globe, Swords } from 'lucide-react';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { leaguesAPI } from '../services/api';
 import MedalIcon from '@/components/MedalIcon';
 import EloSparkline from '@/components/EloSparkline';
 import { format } from 'date-fns';
 import { BadgeList } from '@/components/BadgeDisplay';
+import SiteFooter from '@/components/layout/SiteFooter';
 
 const PublicLeaguePage = () => {
   const { id } = useParams();
@@ -285,6 +286,8 @@ const PublicLeaguePage = () => {
           </Button>
         </div>
       </main>
+
+      <SiteFooter />
     </div>
   );
 };

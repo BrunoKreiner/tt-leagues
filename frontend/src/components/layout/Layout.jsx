@@ -1,4 +1,4 @@
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -27,10 +27,12 @@ import { notificationsAPI, leaguesAPI } from '@/services/api';
 import MobileMenu from './MobileMenu';
 import HamburgerButton from './HamburgerButton';
 import { useTranslation } from 'react-i18next';
+import SiteFooter from '@/components/layout/SiteFooter';
 
 const Layout = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -47,6 +49,7 @@ const Layout = () => {
 
   const handleLogout = async () => {
     await logout();
+    navigate('/');
   };
 
   const toggleMobileMenu = () => {
@@ -333,6 +336,8 @@ const Layout = () => {
           <Outlet />
         </div>
       </main>
+
+      <SiteFooter />
 
       {/* Mobile Menu */}
       <MobileMenu
