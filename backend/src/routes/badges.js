@@ -151,6 +151,11 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
 
 /**
  * Create a new badge (authenticated)
+ *
+ * Rules:
+ * - Site admins may create public or private badges
+ * - Regular users may only create private badges (server enforces)
+ *
  * POST /api/badges
  */
 router.post('/', authenticateToken, async (req, res) => {
