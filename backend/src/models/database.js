@@ -112,9 +112,6 @@ class Database {
             // Add image_url column to badges table if it doesn't exist (both SQLite and Postgres)
             await this.addBadgeImageUrlColumn();
 
-            // Add badge ownership/visibility columns if they don't exist (both SQLite and Postgres)
-            await this.addBadgeVisibilityColumns();
-
             // Ensure roster + roster-based matches/ELO schema exists (SQLite + Postgres) and migrate legacy data.
             if (debugInit) console.log('DB init: ensuring roster schema');
             await this.ensureRosterSchema();
@@ -187,62 +184,6 @@ class Database {
         } catch (err) {
             // Table might not exist yet, that's okay
             console.warn('Could not add image_url column to badges table (table might not exist):', err.message);
-        }
-    }
-
-    async addBadgeVisibilityColumns() {
-        try {
-            if (this.isPg) {
-                const createdByExists = await this.get(`
-                    SELECT EXISTS (
-                        SELECT 1 FROM information_schema.columns
-                        WHERE table_name = 'badges' AND column_name = 'created_by'
-                    ) as exists
-                `);
-                if (!createdByExists.exists) {
-                    try {
-                        await this.run('ALTER TABLE badges ADD COLUMN created_by INTEGER REFERENCES users(id) ON DELETE SET NULL');
-                    } catch (e) {
-                        // If FK fails for any reason, still add the column.
-                        await this.run('ALTER TABLE badges ADD COLUMN created_by INTEGER');
-                    }
-                    console.log('Added created_by column to badges table');
-                }
-
-                const isPublicExists = await this.get(`
-                    SELECT EXISTS (
-                        SELECT 1 FROM information_schema.columns
-                        WHERE table_name = 'badges' AND column_name = 'is_public'
-                    ) as exists
-                `);
-                if (!isPublicExists.exists) {
-                    await this.run('ALTER TABLE badges ADD COLUMN is_public BOOLEAN DEFAULT TRUE');
-                    console.log('Added is_public column to badges table');
-                }
-
-                // Normalize existing rows
-                await this.run('UPDATE badges SET is_public = TRUE WHERE is_public IS NULL');
-                return;
-            }
-
-            // SQLite: try select; if fails, add column
-            try {
-                await this.run('SELECT created_by FROM badges LIMIT 1');
-            } catch (_) {
-                await this.run('ALTER TABLE badges ADD COLUMN created_by INTEGER');
-                console.log('Added created_by column to badges table');
-            }
-
-            try {
-                await this.run('SELECT is_public FROM badges LIMIT 1');
-            } catch (_) {
-                await this.run('ALTER TABLE badges ADD COLUMN is_public BOOLEAN DEFAULT 1');
-                console.log('Added is_public column to badges table');
-            }
-
-            await this.run('UPDATE badges SET is_public = 1 WHERE is_public IS NULL');
-        } catch (err) {
-            console.warn('Could not add visibility columns to badges table (table might not exist):', err.message);
         }
     }
 
