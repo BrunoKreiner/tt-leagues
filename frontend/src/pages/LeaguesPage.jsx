@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Trophy, Users, ListChecks, Calendar, Lock, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -18,6 +19,8 @@ const LeaguesPage = () => {
   const [leagues, setLeagues] = useState([]);
   const [myQuery, setMyQuery] = useState('');
   const [publicQuery, setPublicQuery] = useState('');
+  const [mySort, setMySort] = useState('created_desc');
+  const [publicSort, setPublicSort] = useState('created_desc');
 
   useEffect(() => {
     let cancelled = false;
@@ -77,10 +80,49 @@ const LeaguesPage = () => {
     [myLeagues, myQuery]
   );
 
+  const compareLeagues = (a, b, sort) => {
+    switch (sort) {
+      case 'created_desc': {
+        const at = new Date(a.created_at).getTime();
+        const bt = new Date(b.created_at).getTime();
+        return bt - at;
+      }
+      case 'last_match_desc': {
+        const aHas = a.last_match_at != null;
+        const bHas = b.last_match_at != null;
+        if (aHas !== bHas) return aHas ? -1 : 1;
+        if (!aHas && !bHas) return 0;
+        const at = new Date(a.last_match_at).getTime();
+        const bt = new Date(b.last_match_at).getTime();
+        return bt - at;
+      }
+      case 'members_desc':
+        return Number(b.member_count) - Number(a.member_count);
+      case 'members_asc':
+        return Number(a.member_count) - Number(b.member_count);
+      case 'matches_desc':
+        return Number(b.match_count) - Number(a.match_count);
+      default:
+        return 0;
+    }
+  };
+
+  const mySorted = useMemo(() => {
+    const next = [...myFiltered];
+    next.sort((a, b) => compareLeagues(a, b, mySort));
+    return next;
+  }, [myFiltered, mySort]);
+
   const publicFiltered = useMemo(
     () => publicLeagues.filter((l) => matchesQuery(l, publicQuery)),
     [publicLeagues, publicQuery]
   );
+
+  const publicSorted = useMemo(() => {
+    const next = [...publicFiltered];
+    next.sort((a, b) => compareLeagues(a, b, publicSort));
+    return next;
+  }, [publicFiltered, publicSort]);
 
   return (
     <div className="space-y-6">
@@ -120,23 +162,39 @@ const LeaguesPage = () => {
           <section className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-gray-100">Leagues you’re part of</h2>
+                <h2 className="text-lg font-semibold text-gray-100">My Leagues</h2>
                 <p className="text-sm text-gray-500">{myLeagues.length} total</p>
               </div>
-              <div className="w-full sm:w-80">
-                <Input
-                  value={myQuery}
-                  onChange={(e) => setMyQuery(e.target.value)}
-                  placeholder="Search your leagues…"
-                />
+              <div className="w-full sm:w-[520px] flex flex-col sm:flex-row gap-2">
+                <div className="flex-1">
+                  <Input
+                    value={myQuery}
+                    onChange={(e) => setMyQuery(e.target.value)}
+                    placeholder="Search your leagues…"
+                  />
+                </div>
+                <div className="sm:w-64">
+                  <Select value={mySort} onValueChange={setMySort}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sort" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="created_desc">Most recent created</SelectItem>
+                      <SelectItem value="last_match_desc">Most recent match updates</SelectItem>
+                      <SelectItem value="members_desc">Most members</SelectItem>
+                      <SelectItem value="members_asc">Least members</SelectItem>
+                      <SelectItem value="matches_desc">Most matches</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
-            {myFiltered.length === 0 ? (
+            {mySorted.length === 0 ? (
               <div className="text-sm text-gray-500">No leagues match your search.</div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {myFiltered.map((l) => (
+                {mySorted.map((l) => (
                   <Card
                     key={l.id}
                     className="vg-card cursor-pointer hover:scale-105 transition-transform"
@@ -178,20 +236,36 @@ const LeaguesPage = () => {
                 <h2 className="text-lg font-semibold text-gray-100">Public leagues</h2>
                 <p className="text-sm text-gray-500">{publicLeagues.length} total</p>
               </div>
-              <div className="w-full sm:w-80">
-                <Input
-                  value={publicQuery}
-                  onChange={(e) => setPublicQuery(e.target.value)}
-                  placeholder="Search public leagues…"
-                />
+              <div className="w-full sm:w-[520px] flex flex-col sm:flex-row gap-2">
+                <div className="flex-1">
+                  <Input
+                    value={publicQuery}
+                    onChange={(e) => setPublicQuery(e.target.value)}
+                    placeholder="Search public leagues…"
+                  />
+                </div>
+                <div className="sm:w-64">
+                  <Select value={publicSort} onValueChange={setPublicSort}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sort" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="created_desc">Most recent created</SelectItem>
+                      <SelectItem value="last_match_desc">Most recent match updates</SelectItem>
+                      <SelectItem value="members_desc">Most members</SelectItem>
+                      <SelectItem value="members_asc">Least members</SelectItem>
+                      <SelectItem value="matches_desc">Most matches</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
-            {publicFiltered.length === 0 ? (
+            {publicSorted.length === 0 ? (
               <div className="text-sm text-gray-500">No public leagues match your search.</div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {publicFiltered.map((l) => (
+                {publicSorted.map((l) => (
                   <Card
                     key={l.id}
                     className="vg-card cursor-pointer hover:scale-105 transition-transform"

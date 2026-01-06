@@ -30,6 +30,7 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
         const limit = parseInt(req.query.limit) || 20;
         const offset = (page - 1) * limit;
         const status = req.query.status; // 'pending', 'accepted', 'all'
+        const sort = String(req.query.sort || 'created_desc');
 
         // Use match-level player IDs which are always populated
         let whereClause = '(m.player1_id = ? OR m.player2_id = ?)';
@@ -42,6 +43,21 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
             whereClause += ' AND m.is_accepted = ?';
             params.push(true);
         }
+
+        const orderBy = (() => {
+            switch (sort) {
+                case 'created_desc':
+                    return 'm.created_at DESC';
+                case 'created_asc':
+                    return 'm.created_at ASC';
+                case 'played_desc':
+                    return 'CASE WHEN m.played_at IS NULL THEN 1 ELSE 0 END ASC, m.played_at DESC, m.created_at DESC';
+                case 'played_asc':
+                    return 'CASE WHEN m.played_at IS NULL THEN 1 ELSE 0 END ASC, m.played_at ASC, m.created_at DESC';
+                default:
+                    return 'm.created_at DESC';
+            }
+        })();
 
         const matches = await database.all(`
             SELECT 
@@ -70,7 +86,7 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
             LEFT JOIN users u2_fallback ON m.player2_id = u2_fallback.id
             LEFT JOIN users accepter ON m.accepted_by = accepter.id
             WHERE ${whereClause}
-            ORDER BY m.created_at DESC
+            ORDER BY ${orderBy}
             LIMIT ? OFFSET ?
         `, [...params, limit, offset]);
 

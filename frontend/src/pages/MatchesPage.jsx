@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/pagination';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const PAGE_SIZE = 10;
 
@@ -25,6 +26,7 @@ export default function MatchesPage() {
   const [pages, setPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState('all'); // all | accepted | pending
+  const [sort, setSort] = useState('created_desc'); // created_desc | created_asc | played_desc | played_asc
   const [loading, setLoading] = useState(true);
 
   const me = useMemo(() => {
@@ -38,9 +40,10 @@ export default function MatchesPage() {
   const fetchData = async (opts = {}) => {
     const nextPage = opts.page ?? page;
     const nextStatus = opts.status ?? status;
+    const nextSort = opts.sort ?? sort;
     try {
       setLoading(true);
-      const res = await matchesAPI.getAll({ page: nextPage, limit: PAGE_SIZE, status: nextStatus });
+      const res = await matchesAPI.getAll({ page: nextPage, limit: PAGE_SIZE, status: nextStatus, sort: nextSort });
       setItems(res.data.matches || []);
       setPages(res.data.pagination?.pages || 1);
       setTotal(res.data.pagination?.total || 0);
@@ -55,7 +58,7 @@ export default function MatchesPage() {
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, status]);
+  }, [page, status, sort]);
 
   const canPrev = page > 1;
   const canNext = page < pages;
@@ -100,7 +103,26 @@ export default function MatchesPage() {
           <h1 className="text-3xl font-bold tracking-tight text-white">{t('nav.matches')}</h1>
           <p className="text-sm text-muted-foreground">{t('common.totalN', { n: total })}</p>
         </div>
-        <div>
+        <div className="flex items-center gap-2">
+          <div className="w-56">
+            <Select
+              value={sort}
+              onValueChange={(v) => {
+                setPage(1);
+                setSort(v);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="created_desc">Most recent created</SelectItem>
+                <SelectItem value="played_desc">Most recent match updates</SelectItem>
+                <SelectItem value="created_asc">Oldest created</SelectItem>
+                <SelectItem value="played_asc">Oldest match updates</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Button asChild>
             <Link to="/app/matches/record">{t('cta.recordMatch')}</Link>
           </Button>

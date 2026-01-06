@@ -15,6 +15,7 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
         const offset = (page - 1) * limit;
+        const sort = String(req.query.sort || 'created_desc');
         
         // Check if badges table exists first
         try {
@@ -37,13 +38,33 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
         let badges;
         let totalCount;
         try {
-            // Use subquery for times_awarded to avoid GROUP BY issues in PostgreSQL
+            const orderBy = (() => {
+                switch (sort) {
+                    case 'created_desc':
+                        return 'b.created_at DESC';
+                    case 'created_asc':
+                        return 'b.created_at ASC';
+                    case 'awarded_desc':
+                        return 'times_awarded DESC, b.created_at DESC';
+                    case 'awarded_asc':
+                        return 'times_awarded ASC, b.created_at DESC';
+                    case 'last_awarded_desc':
+                        return 'last_awarded_at DESC, b.created_at DESC';
+                    case 'last_awarded_asc':
+                        return 'last_awarded_at ASC, b.created_at DESC';
+                    default:
+                        return 'b.created_at DESC';
+                }
+            })();
+
+            // Use subqueries for aggregates to avoid GROUP BY issues in PostgreSQL
             badges = await database.all(`
                 SELECT 
                     b.id, b.name, b.description, b.icon, b.badge_type, b.image_url, b.created_at,
-                    COALESCE((SELECT COUNT(*) FROM user_badges ub WHERE ub.badge_id = b.id), 0) as times_awarded
+                    COALESCE((SELECT COUNT(*) FROM user_badges ub WHERE ub.badge_id = b.id), 0) as times_awarded,
+                    (SELECT MAX(ub.earned_at) FROM user_badges ub WHERE ub.badge_id = b.id) as last_awarded_at
                 FROM badges b
-                ORDER BY b.created_at DESC
+                ORDER BY ${orderBy}
                 LIMIT ? OFFSET ?
             `, [limit, offset]);
             
@@ -52,12 +73,31 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
             // If image_url column doesn't exist, try without it
             if (queryError.message && queryError.message.includes('image_url')) {
                 console.warn('image_url column not found, querying without it:', queryError.message);
+                const orderBy = (() => {
+                    switch (sort) {
+                        case 'created_desc':
+                            return 'b.created_at DESC';
+                        case 'created_asc':
+                            return 'b.created_at ASC';
+                        case 'awarded_desc':
+                            return 'times_awarded DESC, b.created_at DESC';
+                        case 'awarded_asc':
+                            return 'times_awarded ASC, b.created_at DESC';
+                        case 'last_awarded_desc':
+                            return 'last_awarded_at DESC, b.created_at DESC';
+                        case 'last_awarded_asc':
+                            return 'last_awarded_at ASC, b.created_at DESC';
+                        default:
+                            return 'b.created_at DESC';
+                    }
+                })();
                 badges = await database.all(`
                     SELECT 
                         b.id, b.name, b.description, b.icon, b.badge_type, b.created_at,
-                        COALESCE((SELECT COUNT(*) FROM user_badges ub WHERE ub.badge_id = b.id), 0) as times_awarded
+                        COALESCE((SELECT COUNT(*) FROM user_badges ub WHERE ub.badge_id = b.id), 0) as times_awarded,
+                        (SELECT MAX(ub.earned_at) FROM user_badges ub WHERE ub.badge_id = b.id) as last_awarded_at
                     FROM badges b
-                    ORDER BY b.created_at DESC
+                    ORDER BY ${orderBy}
                     LIMIT ? OFFSET ?
                 `, [limit, offset]);
                 // Add null image_url for compatibility
