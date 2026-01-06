@@ -53,10 +53,7 @@ const LoginPage = () => {
       <div className="flex-1 flex items-center justify-center px-4 py-10">
         <Card className="w-full max-w-md vg-card no-hover">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl text-blue-300">Welcome back</CardTitle>
-            <CardDescription className="text-gray-400">
-              Sign in to your Table Tennis League account
-            </CardDescription>
+            <CardTitle className="text-2xl text-blue-300">Sign In</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -114,7 +111,7 @@ const LoginPage = () => {
                     Signing in...
                   </>
                 ) : (
-                  'Sign in'
+                  'Sign In'
                 )}
               </Button>
             </form>
