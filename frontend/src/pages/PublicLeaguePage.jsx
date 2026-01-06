@@ -142,7 +142,7 @@ const PublicLeaguePage = () => {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="text-left text-gray-400 border-b border-gray-700">
-                          <th className="px-3 py-2 font-medium">Rank</th>
+                          <th className="px-3 py-2 font-medium w-16 text-center">Rank</th>
                           <th className="px-3 py-2 font-medium">Player</th>
                           <th className="px-3 py-2 font-medium">ELO</th>
                           <th className="px-3 py-2 font-medium">Trend</th>
@@ -153,11 +153,13 @@ const PublicLeaguePage = () => {
                         {leaderboard.map((p) => (
                           <tr key={p.roster_id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
                             <td className="px-3 py-4 align-middle">
-                              {p.rank <= 3 ? (
-                                <MedalIcon rank={p.rank} size={p.rank === 1 ? 36 : 32} />
-                              ) : (
-                                <span className="text-gray-300 text-base font-bold">{p.rank}.</span>
-                              )}
+                              <div className="w-10 flex items-center justify-center">
+                                {p.rank <= 3 ? (
+                                  <MedalIcon rank={p.rank} size={p.rank === 1 ? 36 : 32} />
+                                ) : (
+                                  <span className="text-gray-300 text-base font-bold tabular-nums">{p.rank}.</span>
+                                )}
+                              </div>
                             </td>
                             <td className="px-3 py-2 min-w-0 align-middle">
                               <div className="flex items-center gap-2">

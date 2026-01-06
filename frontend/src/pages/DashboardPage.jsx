@@ -270,11 +270,13 @@ const DashboardPage = () => {
                         className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-800 transition-colors"
                       >
                         <div className="flex items-center gap-2">
-                          {player.rank <= 3 ? (
-                            <MedalIcon rank={player.rank} size={player.rank === 1 ? 28 : 24} userAvatar={player.avatar_url} />
-                          ) : (
-                            <span className="text-sm text-gray-400 w-6 text-center">{player.rank}.</span>
-                          )}
+                          <div className="w-8 flex items-center justify-center shrink-0">
+                            {player.rank <= 3 ? (
+                              <MedalIcon rank={player.rank} size={player.rank === 1 ? 28 : 24} userAvatar={player.avatar_url} />
+                            ) : (
+                              <span className="text-sm text-gray-400 text-center tabular-nums">{player.rank}.</span>
+                            )}
+                          </div>
                           {player.username ? (
                             <Link 
                               to={`/app/profile/${player.username}`} 
