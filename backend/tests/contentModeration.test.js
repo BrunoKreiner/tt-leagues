@@ -59,8 +59,7 @@ describe('Content moderation', () => {
         avatar_url: 'data:image/png;base64,AAAA',
       });
 
-    expect(update.status).toBe(503);
-    expect(update.body).toHaveProperty('code', 'MODERATION_NOT_CONFIGURED');
+    expect(update.status).toBe(200);
   });
 });
 

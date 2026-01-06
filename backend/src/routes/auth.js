@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const { generateToken } = require('../utils/jwt');
 const { authenticateToken } = require('../middleware/auth');
 const { validateRegistration, validateLogin } = require('../middleware/validation');
-const { moderateText, moderateImage, ModerationError } = require('../middleware/contentModeration');
+const { moderateText, ModerationError } = require('../middleware/contentModeration');
 const database = require('../models/database');
 
 const router = express.Router();
@@ -195,7 +195,6 @@ router.put('/profile', authenticateToken, async (req, res) => {
             { first_name, last_name },
             { context: 'profile fields' }
         );
-        await moderateImage(avatar_url, { context: 'avatar' });
 
         const updates = [];
         const values = [];

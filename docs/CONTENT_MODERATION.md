@@ -14,8 +14,7 @@ To support a global user base, moderation must be enforced **server-side** (fron
   - `POST /api/leagues/:id/roster` (placeholder `display_name`)
 
 - **Image moderation (AI, fail-closed)**:
-  - When `avatar_url` or `badge.image_url` is set (either `https://...` or `data:image/...`), the backend calls OpenAI Moderation.
-  - If moderation is not configured, the API returns **503** and does **not** store the image.
+  - (Rolled back) Image moderation was removed because badge images are now restricted to site admins and the project prefers to avoid external API costs/rate limits.
 
 This backend is already deployed as a Vercel Serverless Function via `backend/vercel.json` (`@vercel/node`), so moderation runs “inside Vercel” automatically.
 
@@ -26,16 +25,11 @@ These are evaluated by the backend at runtime:
 - **Text moderation**
   - `TEXT_MODERATION_ENABLED` (default: `true`)
 
-- **Image moderation**
-  - `IMAGE_MODERATION_ENABLED` (default: `true`)
-  - `IMAGE_MODERATION_PROVIDER` (default: `openai`)
-  - `OPENAI_API_KEY` (**required** when image moderation is enabled and an image is being set)
-  - `OPENAI_MODERATION_MODEL` (default: `omni-moderation-latest`)
-  - `OPENAI_MODERATION_TIMEOUT_MS` (default: `8000`)
+If you re-enable image moderation in the future, add it back behind env flags and configure the provider in the backend only.
 
-### Why “fail-closed” for images?
+### Important note about images
 
-Without an image moderation provider, the system cannot reliably detect profanity/abuse embedded in images (including text inside images). Allowing uploads without checks is how unsafe content gets in.
+Without an image moderation provider, the system cannot reliably detect profanity/abuse embedded in images (including text inside images). For now, this repo mitigates risk by restricting badge creation/update/deletion to **site admins**.
 
 ### Recommended next steps (global-scale hardening)
 
