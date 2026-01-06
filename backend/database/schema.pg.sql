@@ -134,6 +134,8 @@ CREATE TABLE IF NOT EXISTS badges (
     description TEXT,
     icon VARCHAR(100),
     badge_type VARCHAR(50) NOT NULL,
+    visibility VARCHAR(20) NOT NULL DEFAULT 'public', -- 'public' (global) | 'private' (user-owned)
+    created_by INTEGER REFERENCES users(id), -- NULL for public/system badges; set for private badges
     image_url TEXT,
     created_at TIMESTAMP DEFAULT NOW()
 );

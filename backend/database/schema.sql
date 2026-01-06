@@ -144,6 +144,8 @@ CREATE TABLE IF NOT EXISTS badges (
     description TEXT,
     icon VARCHAR(100), -- icon name or path
     badge_type VARCHAR(50) NOT NULL, -- 'league_winner', 'tournament_winner', 'achievement'
+    visibility VARCHAR(20) NOT NULL DEFAULT 'public', -- 'public' (global) | 'private' (user-owned)
+    created_by INTEGER, -- NULL for public/system badges; set for private badges
     image_url TEXT, -- base64 image data or image URL
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -247,6 +249,6 @@ INSERT OR IGNORE INTO users (username, password_hash, first_name, last_name, ema
 VALUES ('admin', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Admin', 'User', 'admin@tabletennis.local', TRUE);
 
 -- Insert some default badges
-INSERT OR IGNORE INTO badges (name, description, icon, badge_type) VALUES
-('League Champion', 'Winner of a league season', 'trophy', 'league_winner');
+INSERT OR IGNORE INTO badges (name, description, icon, badge_type, visibility) VALUES
+('League Champion', 'Winner of a league season', 'trophy', 'league_winner', 'public');
 
