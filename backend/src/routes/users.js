@@ -913,6 +913,9 @@ router.post('/check-badges-tables', authenticateToken, requireAdmin, async (req,
                     description TEXT,
                     icon VARCHAR(100),
                     badge_type VARCHAR(50) NOT NULL,
+                    visibility VARCHAR(20) NOT NULL DEFAULT 'public',
+                    created_by INTEGER REFERENCES users(id),
+                    image_url TEXT,
                     created_at TIMESTAMP DEFAULT NOW()
                 )
             `);

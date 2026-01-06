@@ -112,6 +112,9 @@ class Database {
             // Add image_url column to badges table if it doesn't exist (both SQLite and Postgres)
             await this.addBadgeImageUrlColumn();
 
+            // Add visibility/owner columns to badges table (both SQLite and Postgres)
+            await this.addBadgeVisibilityColumns();
+
             // Ensure roster + roster-based matches/ELO schema exists (SQLite + Postgres) and migrate legacy data.
             if (debugInit) console.log('DB init: ensuring roster schema');
             await this.ensureRosterSchema();
@@ -184,6 +187,32 @@ class Database {
         } catch (err) {
             // Table might not exist yet, that's okay
             console.warn('Could not add image_url column to badges table (table might not exist):', err.message);
+        }
+    }
+
+    async addBadgeVisibilityColumns() {
+        try {
+            // Ensure visibility exists and defaults to 'public'
+            const visibilityType = this.isPg
+                ? "VARCHAR(20) NOT NULL DEFAULT 'public'"
+                : "TEXT NOT NULL DEFAULT 'public'";
+            await this.ensureColumnExists('badges', 'visibility', visibilityType);
+
+            // Ensure created_by exists (owner of private badges)
+            const createdByType = this.isPg
+                ? 'INTEGER REFERENCES users(id)'
+                : 'INTEGER';
+            await this.ensureColumnExists('badges', 'created_by', createdByType);
+
+            // Normalize existing rows
+            await this.run("UPDATE badges SET visibility = 'public' WHERE visibility IS NULL OR TRIM(visibility) = ''");
+
+            // Helpful indexes (safe to create repeatedly)
+            await this.run('CREATE INDEX IF NOT EXISTS idx_badges_visibility ON badges(visibility)');
+            await this.run('CREATE INDEX IF NOT EXISTS idx_badges_created_by ON badges(created_by)');
+        } catch (err) {
+            // Table might not exist yet, that's okay
+            console.warn('Could not add visibility/created_by columns to badges table (table might not exist):', err.message);
         }
     }
 

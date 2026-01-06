@@ -61,6 +61,7 @@ const badgeSchema = z.object({
   icon: z.string().min(1, 'Icon is required'),
   badge_type: z.string().min(1, 'Badge type is required'),
   image_url: z.string().nullable().optional().or(z.literal('')),
+  visibility: z.enum(['public', 'private']).optional(),
 });
 
 const badgeIcons = ['trophy', 'star', 'fire', 'comeback', 'target', 'award', 'medal', 'crown', 'calendar', 'users', 'trending', 'heart'];
@@ -144,6 +145,7 @@ const AdminPage = () => {
       icon: 'trophy',
       badge_type: 'achievement',
       image_url: '',
+      visibility: 'private',
     },
   });
 
@@ -284,6 +286,12 @@ const AdminPage = () => {
         ...values,
         image_url: values.image_url || ''
       };
+      if (!user?.is_admin) {
+        // Non-site-admins can only create private badges; backend enforces too.
+        delete payload.visibility;
+      } else {
+        payload.visibility = values.visibility || 'public';
+      }
       await badgesAPI.create(payload);
       toast.success('Badge created successfully');
       badgeForm.reset();
@@ -303,7 +311,10 @@ const AdminPage = () => {
       setSubmitting(true);
       // Ensure image_url is empty string instead of null
       const payload = {
-        ...values,
+        name: values.name,
+        description: values.description,
+        icon: values.icon,
+        badge_type: values.badge_type,
         image_url: values.image_url || ''
       };
       await badgesAPI.update(editingBadge.id, payload);
@@ -395,9 +406,10 @@ const AdminPage = () => {
       icon: badge.icon || 'trophy',
       badge_type: badge.badge_type || 'achievement',
       image_url: badge.image_url || '',
+      visibility: badge.visibility || (user?.is_admin ? 'public' : 'private'),
     });
     setBadgeFormOpen(true);
-    if (user?.is_admin) {
+    if (user?.is_admin || (badge.visibility === 'private' && badge.created_by === user?.id)) {
       fetchBadgeUsers(badge.id);
     }
   };
@@ -411,6 +423,7 @@ const AdminPage = () => {
       icon: 'trophy',
       badge_type: 'achievement',
       image_url: '',
+      visibility: user?.is_admin ? 'public' : 'private',
     });
     setBadgeFormOpen(true);
   };
@@ -892,6 +905,36 @@ const AdminPage = () => {
                         )}
                       />
                     </div>
+                    {user?.is_admin && (
+                      <FormField
+                        name="visibility"
+                        control={badgeForm.control}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Visibility</FormLabel>
+                            <Select
+                              value={field.value || 'public'}
+                              onValueChange={field.onChange}
+                              disabled={!!editingBadge} // immutable after creation
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select visibility" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="public">Public (global)</SelectItem>
+                                <SelectItem value="private">Private (only me)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormDescription>
+                              Public badges show up in everyone&apos;s badge list. Private badges are only visible to you.
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
                     <FormField
                       name="image_url"
                       control={badgeForm.control}
@@ -987,7 +1030,7 @@ const AdminPage = () => {
                         </FormItem>
                       )}
                     />
-                    {user?.is_admin && editingBadge && (
+                    {(editingBadge && (user?.is_admin || (editingBadge?.visibility === 'private' && editingBadge?.created_by === user?.id))) && (
                       <div className="space-y-2">
                         <FormLabel>Users with this badge ({badgeUsers.length})</FormLabel>
                         {loadingBadgeUsers ? (
@@ -1058,6 +1101,7 @@ const AdminPage = () => {
                     <tr>
                       <th className="text-left font-medium px-3 py-2">Image</th>
                       <th className="text-left font-medium px-3 py-2">Name</th>
+                      <th className="text-left font-medium px-3 py-2">Scope</th>
                       <th className="text-left font-medium px-3 py-2">Icon</th>
                       <th className="text-left font-medium px-3 py-2">Type</th>
                       <th className="text-left font-medium px-3 py-2">Times Awarded</th>
@@ -1096,6 +1140,11 @@ const AdminPage = () => {
                             <div className="text-xs text-muted-foreground mt-1">{badge.description}</div>
                           )}
                         </td>
+                        <td className="px-3 py-3">
+                          <span className={badge.visibility === 'public' ? 'text-green-400' : 'text-blue-400'}>
+                            {badge.visibility === 'public' ? 'Public' : 'Private'}
+                          </span>
+                        </td>
                         <td className="px-3 py-3">{badge.icon}</td>
                         <td className="px-3 py-3">{badge.badge_type?.replace('_', ' ') || '-'}</td>
                         <td className="px-3 py-3">{badge.times_awarded || 0}</td>
@@ -1104,37 +1153,53 @@ const AdminPage = () => {
                         </td>
                         <td className="px-3 py-3">
                           <div className="flex items-center justify-end gap-2">
-                            <Button size="sm" variant="outline" onClick={() => openEditBadge(badge)}>
-                              <Edit className="h-3 w-3 mr-1" />Edit
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => openAwardDialog(badge)}>
-                              <Gift className="h-3 w-3 mr-1" />Award
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="destructive" className="bg-red-600 hover:bg-red-700 text-white">
-                                  <Trash2 className="h-3 w-3 mr-1" />Delete
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent className="bg-gray-900 border-2 border-gray-700">
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Badge</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Are you sure you want to delete "{badge.name}"? 
-                                    {badge.times_awarded > 0 && ` This badge has been awarded to ${badge.times_awarded} user(s) and cannot be deleted.`}
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction 
-                                    onClick={() => handleDeleteBadge(badge.id)}
-                                    disabled={badge.times_awarded > 0}
-                                  >
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                            {(() => {
+                              const canManageBadge =
+                                (badge.visibility === 'public' && user?.is_admin) ||
+                                (badge.visibility === 'private' && badge.created_by === user?.id);
+                              const canAwardBadge =
+                                badge.visibility === 'public' || badge.created_by === user?.id;
+                              return (
+                                <>
+                                  <Button size="sm" variant="outline" onClick={() => openEditBadge(badge)} disabled={!canManageBadge}>
+                                    <Edit className="h-3 w-3 mr-1" />Edit
+                                  </Button>
+                                  <Button size="sm" variant="outline" onClick={() => openAwardDialog(badge)} disabled={!canAwardBadge}>
+                                    <Gift className="h-3 w-3 mr-1" />Award
+                                  </Button>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        className="bg-red-600 hover:bg-red-700 text-white"
+                                        disabled={!canManageBadge}
+                                      >
+                                        <Trash2 className="h-3 w-3 mr-1" />Delete
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent className="bg-gray-900 border-2 border-gray-700">
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Delete Badge</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Are you sure you want to delete "{badge.name}"?
+                                          {badge.times_awarded > 0 && ` This badge has been awarded to ${badge.times_awarded} user(s) and cannot be deleted.`}
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() => handleDeleteBadge(badge.id)}
+                                          disabled={badge.times_awarded > 0}
+                                        >
+                                          Delete
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </>
+                              );
+                            })()}
                           </div>
                         </td>
                       </tr>
