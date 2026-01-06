@@ -10,6 +10,7 @@ import MedalIcon from '@/components/MedalIcon';
 import EloSparkline from '@/components/EloSparkline';
 import { format } from 'date-fns';
 import { BadgeList } from '@/components/BadgeDisplay';
+import SiteFooter from '@/components/layout/SiteFooter';
 
 const PublicLeaguePage = () => {
   const { id } = useParams();
@@ -285,6 +286,8 @@ const PublicLeaguePage = () => {
           </Button>
         </div>
       </main>
+
+      <SiteFooter />
     </div>
   );
 };

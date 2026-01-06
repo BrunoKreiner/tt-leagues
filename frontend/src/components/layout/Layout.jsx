@@ -27,6 +27,7 @@ import { notificationsAPI, leaguesAPI } from '@/services/api';
 import MobileMenu from './MobileMenu';
 import HamburgerButton from './HamburgerButton';
 import { useTranslation } from 'react-i18next';
+import SiteFooter from '@/components/layout/SiteFooter';
 
 const Layout = () => {
   const { user, logout } = useAuth();
@@ -335,6 +336,8 @@ const Layout = () => {
           <Outlet />
         </div>
       </main>
+
+      <SiteFooter />
 
       {/* Mobile Menu */}
       <MobileMenu
