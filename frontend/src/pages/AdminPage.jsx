@@ -47,6 +47,7 @@ import {
 } from '@/components/ui/pagination';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
+import { Select as UiSelect, SelectContent as UiSelectContent, SelectItem as UiSelectItem, SelectTrigger as UiSelectTrigger, SelectValue as UiSelectValue } from '@/components/ui/select';
 
 const schema = z.object({
   name: z.string().min(1, 'Name is required').max(200, 'Max 200 characters'),
@@ -86,6 +87,7 @@ const AdminPage = () => {
   const [badgePage, setBadgePage] = useState(1);
   const [badgePages, setBadgePages] = useState(1);
   const [badgeTotal, setBadgeTotal] = useState(0);
+  const [badgeSort, setBadgeSort] = useState('created_desc');
   const [editingBadge, setEditingBadge] = useState(null);
   const [badgeFormOpen, setBadgeFormOpen] = useState(false);
   const [awardDialogOpen, setAwardDialogOpen] = useState(false);
@@ -159,13 +161,14 @@ const AdminPage = () => {
   useEffect(() => {
     fetchBadges();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [badgePage]);
+  }, [badgePage, badgeSort]);
 
   const fetchBadges = async (opts = {}) => {
     const nextPage = opts.page ?? badgePage;
+    const nextSort = opts.sort ?? badgeSort;
     try {
       setLoadingBadges(true);
-      const { data } = await badgesAPI.getAll({ page: nextPage, limit: 20 });
+      const { data } = await badgesAPI.getAll({ page: nextPage, limit: 20, sort: nextSort });
       setBadges(data.badges || []);
       setBadgePages(data.pagination?.pages || 1);
       setBadgeTotal(data.pagination?.total || 0);
@@ -820,6 +823,26 @@ const AdminPage = () => {
           </CardTitle>
               <CardDescription>Create, edit, and award badges to users</CardDescription>
             </div>
+            <div className="flex items-center gap-2">
+              <div className="w-64">
+                <UiSelect
+                  value={badgeSort}
+                  onValueChange={(v) => {
+                    setBadgePage(1);
+                    setBadgeSort(v);
+                  }}
+                >
+                  <UiSelectTrigger>
+                    <UiSelectValue placeholder="Sort" />
+                  </UiSelectTrigger>
+                  <UiSelectContent>
+                    <UiSelectItem value="created_desc">Most recent created</UiSelectItem>
+                    <UiSelectItem value="last_awarded_desc">Most recent awards</UiSelectItem>
+                    <UiSelectItem value="awarded_desc">Most awarded</UiSelectItem>
+                    <UiSelectItem value="awarded_asc">Least awarded</UiSelectItem>
+                  </UiSelectContent>
+                </UiSelect>
+              </div>
             <Dialog open={badgeFormOpen} onOpenChange={setBadgeFormOpen}>
               <DialogTrigger asChild>
                 <Button onClick={openCreateBadge}><PlusCircle className="h-4 w-4 mr-2" />Create Badge</Button>
@@ -1086,6 +1109,7 @@ const AdminPage = () => {
                 </Form>
               </DialogContent>
             </Dialog>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

@@ -23,6 +23,7 @@ router.get('/', optionalAuth, validatePagination, async (req, res) => {
                 u.username as created_by_username,
                 COUNT(DISTINCT lr.id) as member_count,
                 COUNT(DISTINCT m.id) as match_count,
+                MAX(m.played_at) as last_match_at,
                 ${req.user
                     ? 'MAX(CASE WHEN lr.user_id = ? THEN 1 ELSE 0 END) as is_member, MAX(CASE WHEN lr.user_id = ? THEN CASE WHEN lr.is_admin THEN 1 ELSE 0 END ELSE 0 END) as is_league_admin'
                     : '0 as is_member, 0 as is_league_admin'}
