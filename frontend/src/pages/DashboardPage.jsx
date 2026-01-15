@@ -16,26 +16,39 @@ const DashboardPage = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [_stats, setStats] = useState(null);
   const [recentMatches, setRecentMatches] = useState([]);
+  const [matchesError, setMatchesError] = useState(null);
   const [userLeagues, setUserLeagues] = useState([]);
+  const [leaguesError, setLeaguesError] = useState(null);
   const [leagueLeaderboards, setLeagueLeaderboards] = useState({});
+  const [leaderboardStatus, setLeaderboardStatus] = useState({});
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
+        setLoadError(null);
+        setMatchesError(null);
+        setLeaguesError(null);
         
         // Fetch base data
-        const [userResponse, matchesResponse, leaguesResponse] = await Promise.all([
-          authAPI.getMe(),
-          matchesAPI.getAll({ limit: 5, status: 'accepted' }),
-          leaguesAPI.getAll({ limit: 10 })
+        const [userResponse, matchesResponse, leaguesResponse] = await Promise.allSettled([
+          authAPI.getMe({ ttlMs: 10000 }),
+          matchesAPI.getAll({ limit: 5, status: 'accepted' }, { ttlMs: 10000 }),
+          leaguesAPI.getAll({ limit: 10 }, { ttlMs: 10000 })
         ]);
+
+        if (userResponse.status === 'rejected') {
+          const apiMessage = userResponse.reason?.response?.data?.error;
+          setLoadError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : 'Failed to load dashboard');
+          return;
+        }
 
         // Fetch up-to-date user stats (authoritative source)
         try {
-          const statsRes = await usersAPI.getStats(userResponse.data.user.id);
+          const statsRes = await usersAPI.getStats(userResponse.value.data.user.id, { ttlMs: 15000 });
           // Normalize to have a stable shape
           const normalized = statsRes.data?.overall
             ? { ...statsRes.data, avg_elo: statsRes.data.overall.average_elo, win_rate: statsRes.data.overall.win_rate, leagues_count: statsRes.data.overall.leagues_count, matches_played: statsRes.data.overall.matches_played }
@@ -43,36 +56,72 @@ const DashboardPage = () => {
           setStats(normalized);
         } catch (e) {
           console.error('Failed to load user stats, falling back to /auth/me stats', e);
-          const s = userResponse.data.stats || null;
+          const s = userResponse.value.data.stats || null;
           const normalized = s?.overall
             ? { ...s, avg_elo: s.overall.average_elo, win_rate: s.overall.win_rate, leagues_count: s.overall.leagues_count, matches_played: s.overall.matches_played }
             : s;
           setStats(normalized);
         }
-        setRecentMatches(matchesResponse.data.matches || []);
-        // Use backend-provided membership flag
-        const leagues = leaguesResponse.data.leagues?.filter((league) => !!league.is_member) || [];
-        setUserLeagues(leagues);
-        
-        // Fetch leaderboards for all user leagues
-        const leaderboardPromises = leagues.map(async (league) => {
-          try {
-            const res = await leaguesAPI.getLeaderboard(league.id, { page: 1, limit: 5 });
-            return { leagueId: league.id, data: res.data?.leaderboard || [] };
-          } catch (e) {
-            console.error(`Failed to load leaderboard for league ${league.id}:`, e);
-            return { leagueId: league.id, data: [] };
+
+        if (matchesResponse.status === 'fulfilled') {
+          const matchesData = matchesResponse.value.data?.matches;
+          setRecentMatches(Array.isArray(matchesData) ? matchesData : []);
+        } else {
+          const apiMessage = matchesResponse.reason?.response?.data?.error;
+          setMatchesError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : 'Failed to load matches');
+        }
+
+        if (leaguesResponse.status === 'fulfilled') {
+          const leagueData = leaguesResponse.value.data?.leagues;
+          // Use backend-provided membership flag
+          const leagues = Array.isArray(leagueData)
+            ? leagueData.filter((league) => !!league.is_member)
+            : [];
+          setUserLeagues(leagues);
+
+          if (leagues.length === 0) {
+            setLeagueLeaderboards({});
+            setLeaderboardStatus({});
+            return;
           }
-        });
+
+          const loadingStatus = {};
+          leagues.forEach((league) => {
+            loadingStatus[league.id] = { status: 'loading' };
+          });
+          setLeaderboardStatus((prev) => ({ ...prev, ...loadingStatus }));
+          
+          // Fetch leaderboards for all user leagues
+          const leaderboardResults = await Promise.allSettled(
+            leagues.map((league) =>
+              leaguesAPI.getLeaderboard(league.id, { page: 1, limit: 5 }, { ttlMs: 10000 })
+            )
+          );
+          const leaderboardMap = {};
+          const nextStatus = {};
+          leaderboardResults.forEach((result, index) => {
+            const leagueId = leagues[index]?.id;
+            if (!leagueId) return;
+            if (result.status === 'fulfilled') {
+              const data = result.value.data?.leaderboard;
+              leaderboardMap[leagueId] = Array.isArray(data) ? data : [];
+              nextStatus[leagueId] = { status: 'loaded' };
+            } else {
+              console.error(`Failed to load leaderboard for league ${leagueId}:`, result.reason);
+              nextStatus[leagueId] = { status: 'error' };
+            }
+          });
+          setLeagueLeaderboards((prev) => ({ ...prev, ...leaderboardMap }));
+          setLeaderboardStatus((prev) => ({ ...prev, ...nextStatus }));
+        } else {
+          const apiMessage = leaguesResponse.reason?.response?.data?.error;
+          setLeaguesError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : 'Failed to load leagues');
+        }
         
-        const leaderboardResults = await Promise.all(leaderboardPromises);
-        const leaderboardMap = {};
-        leaderboardResults.forEach(({ leagueId, data }) => {
-          leaderboardMap[leagueId] = data;
-        });
-        setLeagueLeaderboards(leaderboardMap);
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
+        const apiMessage = error?.response?.data?.error;
+        setLoadError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : 'Failed to load dashboard');
       } finally {
         setLoading(false);
       }
@@ -86,6 +135,16 @@ const DashboardPage = () => {
       <div className="flex items-center justify-center min-h-[400px]">
         <LoadingSpinner size="lg" />
       </div>
+    );
+  }
+  if (loadError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('common.error')}</CardTitle>
+          <CardDescription className="text-red-500">{loadError}</CardDescription>
+        </CardHeader>
+      </Card>
     );
   }
 
@@ -127,7 +186,11 @@ const DashboardPage = () => {
 
       {/* Section 2: Recent Matches */}
       <div>
-        {recentMatches.length > 0 ? (
+        {matchesError ? (
+          <div className="text-center py-4">
+            <p className="text-sm text-red-400">{matchesError}</p>
+          </div>
+        ) : recentMatches.length > 0 ? (
           <div className="relative mx-2">
             {/* Left Arrow */}
             <button 
@@ -245,6 +308,14 @@ const DashboardPage = () => {
             Browse all leagues <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
+        {leaguesError && (
+          <Card className="mb-4">
+            <CardHeader>
+              <CardTitle>{t('common.error')}</CardTitle>
+              <CardDescription className="text-red-500">{leaguesError}</CardDescription>
+            </CardHeader>
+          </Card>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {userLeagues.map((league) => (
             <Card 
@@ -262,60 +333,84 @@ const DashboardPage = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-0">
-                {leagueLeaderboards[league.id]?.length > 0 ? (
-                  <div className="space-y-2">
-                    {leagueLeaderboards[league.id].slice(0, 5).map((player) => (
-                      <div 
-                        key={player.roster_id || player.user_id} 
-                        className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-800 transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 flex items-center justify-center shrink-0">
-                            {player.rank <= 3 ? (
-                              <MedalIcon rank={player.rank} size={player.rank === 1 ? 28 : 24} userAvatar={player.avatar_url} />
-                            ) : (
-                              <span className="text-sm text-gray-400 text-center tabular-nums">{player.rank}.</span>
-                            )}
-                          </div>
-                          {player.username ? (
-                            <Link 
-                              to={`/app/profile/${player.username}`} 
-                              className="text-sm font-medium text-blue-400 hover:text-blue-300"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {player.display_name || player.username}
-                            </Link>
-                          ) : (
-                            <span
-                              className="text-sm font-medium text-blue-400"
-                              title="No user assigned"
-                            >
-                              {player.display_name || 'No user assigned'}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-400">{player.current_elo}</span>
-                          <div className="w-12 h-6">
-                            {player.user_id ? (
-                              <EloSparkline 
-                                userId={player.user_id} 
-                                leagueId={league.id} 
-                                width={48} 
-                                height={16} 
-                                points={15} 
-                              />
-                            ) : (
-                              <span className="text-xs text-gray-500">—</span>
-                            )}
-                          </div>
-                        </div>
+                {(() => {
+                  const status = leaderboardStatus[league.id]?.status;
+                  const resolvedStatus = typeof status === 'string' ? status : 'loaded';
+                  const leaderboardData = Array.isArray(leagueLeaderboards[league.id])
+                    ? leagueLeaderboards[league.id]
+                    : [];
+
+                  if (resolvedStatus === 'loading') {
+                    return (
+                      <div className="flex items-center justify-center py-3">
+                        <LoadingSpinner size="sm" />
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-400">{t('leagues.noPlayers')}</p>
-                )}
+                    );
+                  }
+
+                  if (resolvedStatus === 'error') {
+                    return (
+                      <p className="text-sm text-red-400">{t('leagues.leaderboardError')}</p>
+                    );
+                  }
+
+                  if (leaderboardData.length === 0) {
+                    return <p className="text-sm text-gray-400">{t('leagues.noPlayers')}</p>;
+                  }
+
+                  return (
+                    <div className="space-y-2">
+                      {leaderboardData.slice(0, 5).map((player) => (
+                        <div 
+                          key={player.roster_id || player.user_id} 
+                          className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-800 transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 flex items-center justify-center shrink-0">
+                              {player.rank <= 3 ? (
+                                <MedalIcon rank={player.rank} size={player.rank === 1 ? 28 : 24} userAvatar={player.avatar_url} />
+                              ) : (
+                                <span className="text-sm text-gray-400 text-center tabular-nums">{player.rank}.</span>
+                              )}
+                            </div>
+                            {player.username ? (
+                              <Link 
+                                to={`/app/profile/${player.username}`} 
+                                className="text-sm font-medium text-blue-400 hover:text-blue-300"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {player.display_name || player.username}
+                              </Link>
+                            ) : (
+                              <span
+                                className="text-sm font-medium text-blue-400"
+                                title="No user assigned"
+                              >
+                                {player.display_name || 'No user assigned'}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-400">{player.current_elo}</span>
+                            <div className="w-12 h-6">
+                              {player.user_id ? (
+                                <EloSparkline 
+                                  userId={player.user_id} 
+                                  leagueId={league.id} 
+                                  width={48} 
+                                  height={16} 
+                                  points={15} 
+                                />
+                              ) : (
+                                <span className="text-xs text-gray-500">—</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
           ))}

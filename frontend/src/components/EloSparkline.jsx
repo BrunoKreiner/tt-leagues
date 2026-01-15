@@ -14,18 +14,19 @@ const EloSparkline = ({ userId, rosterId, leagueId, width = 60, height = 20, poi
       try {
         setLoading(true);
         setError(null);
+        const cacheOptions = { ttlMs: 15000 };
         
         // Use roster-based API for placeholder members, user-based API for regular members
         const res = rosterId 
           ? await leaguesAPI.getRosterEloHistory(leagueId, rosterId, { 
               page: 1, 
               limit: Math.max(points - 1, 1),
-            })
+            }, cacheOptions)
           : await usersAPI.getEloHistory(userId, { 
               league_id: leagueId, 
               page: 1, 
               limit: Math.max(points - 1, 1),
-            });
+            }, cacheOptions);
         
         if (cancelled) return;
         

@@ -56,8 +56,14 @@ const LeagueDetailPage = () => {
   const [userMembership, setUserMembership] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
   const [leaderboardPagination, setLeaderboardPagination] = useState({ page: 1, pages: 1, total: 0, limit: 20 });
+  const [leaderboardStatus, setLeaderboardStatus] = useState('idle');
+  const [leaderboardError, setLeaderboardError] = useState(null);
   const [members, setMembers] = useState([]);
+  const [membersStatus, setMembersStatus] = useState('idle');
+  const [membersError, setMembersError] = useState(null);
   const [matches, setMatches] = useState([]);
+  const [matchesStatus, setMatchesStatus] = useState('idle');
+  const [matchesError, setMatchesError] = useState(null);
   const { isAuthenticated, isAdmin } = useAuth();
   const [inviteCode, setInviteCode] = useState('');
   const [joinLoading, setJoinLoading] = useState(false);
@@ -127,12 +133,22 @@ const LeagueDetailPage = () => {
       try {
         setLoading(true);
         setError(null);
+        setLeaderboardStatus('loading');
+        setLeaderboardError(null);
+        setMatchesStatus('loading');
+        setMatchesError(null);
+        if (isAuthenticated) {
+          setMembersStatus('loading');
+        } else {
+          setMembersStatus('loaded');
+        }
+        setMembersError(null);
 
-        const leagueP = leaguesAPI.getById(id);
-        const leaderboardP = leaguesAPI.getLeaderboard(id, { page: 1, limit: 20 });
-        const matchesP = leaguesAPI.getMatches(id, { page: 1, limit: 10 });
+        const leagueP = leaguesAPI.getById(id, { ttlMs: 10000 });
+        const leaderboardP = leaguesAPI.getLeaderboard(id, { page: 1, limit: 20 }, { ttlMs: 10000 });
+        const matchesP = leaguesAPI.getMatches(id, { page: 1, limit: 10 }, { ttlMs: 10000 });
         const membersP = isAuthenticated
-          ? leaguesAPI.getMembers(id)
+          ? leaguesAPI.getMembers(id, { ttlMs: 10000 })
           : Promise.resolve({ data: { members: [] } });
 
         const [leagueRes, leaderboardRes, membersRes, matchesRes] = await Promise.allSettled([
@@ -155,23 +171,45 @@ const LeagueDetailPage = () => {
         setUserMembership(leagueData.user_membership);
 
         if (leaderboardRes.status === 'fulfilled') {
-          setLeaderboard(leaderboardRes.value.data.leaderboard || []);
-          setLeaderboardPagination(leaderboardRes.value.data.pagination || { page: 1, pages: 1, total: 0, limit: 20 });
+          const leaderboardData = leaderboardRes.value.data?.leaderboard;
+          setLeaderboard(Array.isArray(leaderboardData) ? leaderboardData : []);
+          const paginationData = leaderboardRes.value.data?.pagination;
+          if (
+            paginationData &&
+            typeof paginationData.page === 'number' &&
+            typeof paginationData.pages === 'number' &&
+            typeof paginationData.total === 'number' &&
+            typeof paginationData.limit === 'number'
+          ) {
+            setLeaderboardPagination(paginationData);
+          } else {
+            setLeaderboardPagination({ page: 1, pages: 1, total: 0, limit: 20 });
+          }
+          setLeaderboardStatus('loaded');
         } else {
-          setLeaderboard([]);
-          setLeaderboardPagination({ page: 1, pages: 1, total: 0, limit: 20 });
+          const apiMessage = leaderboardRes.reason?.response?.data?.error;
+          setLeaderboardError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : t('leagues.leaderboardError'));
+          setLeaderboardStatus('error');
         }
 
         if (membersRes.status === 'fulfilled') {
-          setMembers(membersRes.value.data.members || []);
+          const memberData = membersRes.value.data?.members;
+          setMembers(Array.isArray(memberData) ? memberData : []);
+          setMembersStatus('loaded');
         } else {
-          setMembers([]);
+          const apiMessage = membersRes.reason?.response?.data?.error;
+          setMembersError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : 'Failed to load members');
+          setMembersStatus('error');
         }
 
         if (matchesRes.status === 'fulfilled') {
-          setMatches(matchesRes.value.data.matches || []);
+          const matchData = matchesRes.value.data?.matches;
+          setMatches(Array.isArray(matchData) ? matchData : []);
+          setMatchesStatus('loaded');
         } else {
-          setMatches([]);
+          const apiMessage = matchesRes.reason?.response?.data?.error;
+          setMatchesError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : 'Failed to load matches');
+          setMatchesStatus('error');
         }
       } catch (err) {
         if (cancelled) return;
@@ -207,40 +245,75 @@ const LeagueDetailPage = () => {
 
   const refreshLeagueData = async () => {
     try {
+      if (isAuthenticated) {
+        setMembersStatus('loading');
+      } else {
+        setMembersStatus('loaded');
+      }
+      setMembersError(null);
       const [leagueRes, membersRes] = await Promise.all([
-        leaguesAPI.getById(id),
-        isAuthenticated ? leaguesAPI.getMembers(id) : Promise.resolve({ data: { members: [] } }),
+        leaguesAPI.getById(id, { ttlMs: 10000 }),
+        isAuthenticated ? leaguesAPI.getMembers(id, { ttlMs: 10000 }) : Promise.resolve({ data: { members: [] } }),
       ]);
       setLeague(leagueRes.data.league);
       setUserMembership(leagueRes.data.user_membership);
-      setMembers(membersRes.data.members || []);
+      const memberData = membersRes.data?.members;
+      setMembers(Array.isArray(memberData) ? memberData : []);
+      setMembersStatus('loaded');
       // Update eloMode state to match the refreshed league data
       const newEloMode = leagueRes.data.league.elo_update_mode || 'immediate';
       setEloMode(newEloMode);
     } catch (e) {
       // Keep previous state; surface error softly
       console.error('Refresh league data failed', e);
+      const apiMessage = e?.response?.data?.error;
+      setMembersError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : 'Failed to load members');
+      setMembersStatus('error');
     }
   };
 
   const fetchLeaderboard = async (page = 1) => {
     try {
-      const res = await leaguesAPI.getLeaderboard(id, { page, limit: 20 });
-      const leaderboardData = res.data.leaderboard || [];
-      setLeaderboard(leaderboardData);
-      setLeaderboardPagination(res.data.pagination || { page: 1, pages: 1, total: 0, limit: 20 });
+      setLeaderboardStatus('loading');
+      setLeaderboardError(null);
+      const res = await leaguesAPI.getLeaderboard(id, { page, limit: 20 }, { ttlMs: 10000 });
+      const leaderboardData = res.data?.leaderboard;
+      setLeaderboard(Array.isArray(leaderboardData) ? leaderboardData : []);
+      const paginationData = res.data?.pagination;
+      if (
+        paginationData &&
+        typeof paginationData.page === 'number' &&
+        typeof paginationData.pages === 'number' &&
+        typeof paginationData.total === 'number' &&
+        typeof paginationData.limit === 'number'
+      ) {
+        setLeaderboardPagination(paginationData);
+      } else {
+        setLeaderboardPagination({ page: 1, pages: 1, total: 0, limit: 20 });
+      }
+      setLeaderboardStatus('loaded');
     } catch (e) {
       console.error('Failed to load leaderboard', e);
+      const apiMessage = e?.response?.data?.error;
+      setLeaderboardError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : t('leagues.leaderboardError'));
+      setLeaderboardStatus('error');
       toast.error(t('leagues.leaderboardError'));
     }
   };
 
   const fetchMatches = async () => {
     try {
-      const res = await leaguesAPI.getMatches(id, { page: 1, limit: 10 });
-      setMatches(res.data.matches || []);
+      setMatchesStatus('loading');
+      setMatchesError(null);
+      const res = await leaguesAPI.getMatches(id, { page: 1, limit: 10 }, { ttlMs: 10000 });
+      const matchData = res.data?.matches;
+      setMatches(Array.isArray(matchData) ? matchData : []);
+      setMatchesStatus('loaded');
     } catch (e) {
       console.error('Failed to load matches', e);
+      const apiMessage = e?.response?.data?.error;
+      setMatchesError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : 'Failed to load matches');
+      setMatchesStatus('error');
     }
   };
 
@@ -585,7 +658,13 @@ const LeagueDetailPage = () => {
       </div>
 
       {/* Recent Matches - Minimal */}
-      {matches.length === 0 ? (
+      {matchesStatus === 'loading' ? (
+        <div className="flex items-center justify-center py-4">
+          <LoadingSpinner size="sm" />
+        </div>
+      ) : matchesStatus === 'error' ? (
+        <p className="text-sm text-red-400">{matchesError && matchesError.length > 0 ? matchesError : 'Failed to load matches'}</p>
+      ) : matches.length === 0 ? (
         <p className="text-sm text-gray-400">{t('leagues.noMatchesYet')}</p>
       ) : (
         <div className="relative mx-4">
@@ -698,7 +777,17 @@ const LeagueDetailPage = () => {
               <CardDescription className="text-gray-400">{t('leagues.rankedByElo', { count: leaderboardPagination.total })}</CardDescription>
             </CardHeader>
             <CardContent className="pt-0 min-w-0">
-              {leaderboard.length === 0 ? (
+              {leaderboardStatus === 'loading' ? (
+                <div className="flex items-center justify-center py-4">
+                  <LoadingSpinner size="sm" />
+                </div>
+              ) : leaderboardStatus === 'error' ? (
+                <p className="text-sm text-red-400">
+                  {typeof leaderboardError === 'string' && leaderboardError.length > 0
+                    ? leaderboardError
+                    : t('leagues.leaderboardError')}
+                </p>
+              ) : leaderboard.length === 0 ? (
                 <p className="text-sm text-gray-400">{t('leagues.noPlayers')}</p>
               ) : (
                 <>
@@ -1007,7 +1096,17 @@ const LeagueDetailPage = () => {
               <CardDescription className="text-gray-400">{t('leagues.manageRoles')}</CardDescription>
             </CardHeader>
             <CardContent>
-              {members.length === 0 ? (
+              {membersStatus === 'loading' ? (
+                <div className="flex items-center justify-center py-4">
+                  <LoadingSpinner size="sm" />
+                </div>
+              ) : membersStatus === 'error' ? (
+                <p className="text-sm text-red-400">
+                  {typeof membersError === 'string' && membersError.length > 0
+                    ? membersError
+                    : 'Failed to load members'}
+                </p>
+              ) : members.length === 0 ? (
                 <p className="text-sm text-gray-400">{t('leagues.noMembers')}</p>
               ) : (
                 <div className="overflow-x-auto">
