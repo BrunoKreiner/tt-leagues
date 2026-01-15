@@ -1,5 +1,5 @@
 const express = require('express');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const { validateId, validatePagination } = require('../middleware/validation');
 const { moderateText, ModerationError } = require('../middleware/contentModeration');
 const database = require('../models/database');
