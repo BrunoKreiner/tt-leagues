@@ -48,7 +48,7 @@ const LandingPage = () => {
 
         const leaderboardResults = await Promise.allSettled(
           leaderboardLeagues.map((league) =>
-            leaguesAPI.getLeaderboard(league.id, { limit: 5 }, { ttlMs: 10000 })
+            leaguesAPI.getLeaderboard(league.id, { limit: 5, include_badges: false }, { ttlMs: 10000 })
           )
         );
         const nextLeaderboards = {};

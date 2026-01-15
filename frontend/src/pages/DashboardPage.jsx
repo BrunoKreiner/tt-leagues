@@ -94,7 +94,7 @@ const DashboardPage = () => {
           // Fetch leaderboards for all user leagues
           const leaderboardResults = await Promise.allSettled(
             leagues.map((league) =>
-              leaguesAPI.getLeaderboard(league.id, { page: 1, limit: 5 }, { ttlMs: 10000 })
+              leaguesAPI.getLeaderboard(league.id, { page: 1, limit: 5, include_badges: false }, { ttlMs: 10000 })
             )
           );
           const leaderboardMap = {};

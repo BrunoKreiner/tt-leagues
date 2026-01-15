@@ -813,6 +813,10 @@ router.get('/:id/leaderboard', optionalAuth, validateId, validatePagination, asy
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
         const offset = (page - 1) * limit;
+        const includeBadgesParam = req.query.include_badges;
+        const includeBadges = includeBadgesParam == null
+            ? true
+            : String(includeBadgesParam).toLowerCase() !== 'false';
         
         // Check if user has access to this league
         const league = await database.get('SELECT is_public FROM leagues WHERE id = ? AND is_active = ?', [leagueId, true]);
@@ -899,35 +903,70 @@ router.get('/:id/leaderboard', optionalAuth, validateId, validatePagination, asy
             'SELECT COUNT(*) as count FROM league_roster WHERE league_id = ?'
         , [leagueId]);
         
-        // Get top 3 badges for each user in leaderboard (filtered by league: show league-specific badges OR badges with no league_id)
-        const leaderboardWithBadges = await Promise.all(leaderboard.map(async (player) => {
-            let topBadges = [];
-            try {
-                const userId = player.user_id;
-                if (userId != null) {
-                    topBadges = await database.all(`
+        let badgesByUser = new Map();
+        if (includeBadges) {
+            const userIds = Array.from(new Set(
+                leaderboard
+                    .map((player) => player.user_id)
+                    .filter((userId) => userId != null)
+            ));
+            if (userIds.length > 0) {
+                const placeholders = userIds.map(() => '?').join(', ');
+                try {
+                    const badgeRows = await database.all(`
                         SELECT 
+                            ub.user_id,
                             b.id, b.name, b.description, b.icon, b.badge_type, b.image_url,
                             ub.earned_at
                         FROM user_badges ub
                         JOIN badges b ON ub.badge_id = b.id
-                        WHERE ub.user_id = ?
+                        WHERE ub.user_id IN (${placeholders})
                         AND (ub.league_id = ? OR ub.league_id IS NULL)
-                        ORDER BY ub.earned_at DESC
-                        LIMIT 3
-                    `, [userId, leagueId]);
+                        ORDER BY ub.user_id, ub.earned_at DESC
+                    `, [...userIds, leagueId]);
+                    badgesByUser = new Map();
+                    badgeRows.forEach((row) => {
+                        const key = String(row.user_id);
+                        const current = badgesByUser.get(key) || [];
+                        if (current.length >= 3) {
+                            return;
+                        }
+                        current.push({
+                            id: row.id,
+                            name: row.name,
+                            description: row.description,
+                            icon: row.icon,
+                            badge_type: row.badge_type,
+                            image_url: row.image_url,
+                            earned_at: row.earned_at,
+                        });
+                        badgesByUser.set(key, current);
+                    });
+                } catch (badgeError) {
+                    console.warn('Failed to fetch leaderboard badges:', badgeError.message);
                 }
-            } catch (badgeError) {
-                console.warn(`Failed to fetch badges for leaderboard player (user_id=${player.user_id}):`, badgeError.message);
             }
-            
+        }
+
+        const leaderboardWithBadges = leaderboard.map((player) => {
+            const winRate = player.matches_played > 0
+                ? Math.round((player.matches_won / player.matches_played) * 100)
+                : 0;
+            if (!includeBadges) {
+                return {
+                    ...player,
+                    win_rate: winRate,
+                };
+            }
+            const badgeList = player.user_id != null
+                ? (badgesByUser.get(String(player.user_id)) || [])
+                : [];
             return {
                 ...player,
-                win_rate: player.matches_played > 0 ? 
-                    Math.round((player.matches_won / player.matches_played) * 100) : 0,
-                badges: topBadges
+                win_rate: winRate,
+                badges: badgeList,
             };
-        }));
+        });
         
         if (league.is_public) {
             setPublicCacheHeaders(req, res);
