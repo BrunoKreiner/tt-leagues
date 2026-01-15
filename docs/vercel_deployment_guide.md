@@ -51,6 +51,7 @@ Important: Until the backend is migrated from SQLite to Postgres, you cannot per
    - `JWT_SECRET=your-strong-secret`
    - `FRONTEND_URL=https://your-frontend-project.vercel.app` (comma-separated origins supported; wildcards `*` allowed)
    - `DATABASE_URL=postgres://...` (Neon/Vercel Postgres). If `sslmode` is missing, the app appends `sslmode=require` automatically and enables TLS on the Pool.
+   - Optional: `DB_INIT_SKIP=1` (connect-only; skip schema checks when migrations are run manually)
 5. Deploy. After deploy, your backend will be available at `https://your-backend-project.vercel.app`. API base: `https://your-backend-project.vercel.app/api`.
 
 ## Step 3 — Frontend on Vercel (SPA)

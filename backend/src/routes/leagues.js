@@ -7,6 +7,15 @@ const crypto = require('crypto');
 
 const router = express.Router();
 
+const PUBLIC_CACHE_SECONDS = 60 * 60 * 24;
+const PUBLIC_CACHE_SWR_SECONDS = 60 * 60;
+const shouldCachePublic = (req) => !req.user && !req.headers.authorization;
+const setPublicCacheHeaders = (req, res) => {
+    if (!shouldCachePublic(req)) return;
+    res.set('Cache-Control', `public, s-maxage=${PUBLIC_CACHE_SECONDS}, stale-while-revalidate=${PUBLIC_CACHE_SWR_SECONDS}`);
+    res.set('Vary', 'Origin');
+};
+
 /**
  * Get all leagues (public + user's leagues)
  * GET /api/leagues
@@ -85,6 +94,7 @@ router.get('/', optionalAuth, validatePagination, async (req, res) => {
         
         const totalCount = await database.get(countQuery, countParams);
         
+        setPublicCacheHeaders(req, res);
         res.json({
             leagues,
             pagination: {
@@ -209,6 +219,9 @@ router.get('/:id', optionalAuth, validateId, async (req, res) => {
             );
         }
         
+        if (league.is_public) {
+            setPublicCacheHeaders(req, res);
+        }
         res.json({
             league,
             user_membership: userMembership
@@ -916,6 +929,9 @@ router.get('/:id/leaderboard', optionalAuth, validateId, validatePagination, asy
             };
         }));
         
+        if (league.is_public) {
+            setPublicCacheHeaders(req, res);
+        }
         res.json({
             leaderboard: leaderboardWithBadges,
             pagination: {

@@ -66,9 +66,16 @@ class Database {
     async initialize() {
         try {
             const debugInit = process.env.DB_INIT_DEBUG === '1';
+            const skipInit = process.env.DB_INIT_SKIP === '1';
             // Guard rails: on Vercel, require DATABASE_URL to avoid ephemeral SQLite usage
             if (process.env.VERCEL && !process.env.DATABASE_URL) {
                 throw new Error('DATABASE_URL must be set when running on Vercel. SQLite is not supported in the serverless runtime.');
+            }
+
+            if (skipInit) {
+                await this.connect();
+                console.log('Database initialized with DB_INIT_SKIP=1 (connect-only)');
+                return;
             }
 
             await this.connect();
