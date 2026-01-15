@@ -1,5 +1,5 @@
 const express = require('express');
-const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 const { validateId, validatePagination } = require('../middleware/validation');
 const { moderateText, ModerationError } = require('../middleware/contentModeration');
 const database = require('../models/database');
@@ -150,10 +150,10 @@ router.get('/', authenticateToken, validatePagination, async (req, res) => {
 });
 
 /**
- * Create a new badge (site admin only)
+ * Create a new badge (authenticated; public requires admin)
  * POST /api/badges
  */
-router.post('/', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/', authenticateToken, async (req, res) => {
     try {
         // Diagnostics: helps confirm which backend build is serving requests.
         // Safe to remove later.
@@ -235,10 +235,10 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 /**
- * Update a badge (site admin only)
+ * Update a badge (public = admin, private = owner)
  * PUT /api/badges/:id
  */
-router.put('/:id', authenticateToken, requireAdmin, validateId, async (req, res) => {
+router.put('/:id', authenticateToken, validateId, async (req, res) => {
     try {
         const badgeId = parseInt(req.params.id);
         const { name, description, icon, badge_type, image_url, visibility } = req.body;
@@ -354,10 +354,10 @@ router.put('/:id', authenticateToken, requireAdmin, validateId, async (req, res)
 });
 
 /**
- * Delete a badge (site admin only)
+ * Delete a badge (public = admin, private = owner)
  * DELETE /api/badges/:id
  */
-router.delete('/:id', authenticateToken, requireAdmin, validateId, async (req, res) => {
+router.delete('/:id', authenticateToken, validateId, async (req, res) => {
     try {
         const badgeId = parseInt(req.params.id);
         
