@@ -17,34 +17,60 @@ const LandingPage = () => {
   const [publicLeagues, setPublicLeagues] = useState([]);
   const [leagueLeaderboards, setLeagueLeaderboards] = useState({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [leaderboardStatus, setLeaderboardStatus] = useState({});
 
   useEffect(() => {
     const fetchPublicLeagues = async () => {
       try {
         setLoading(true);
-        const response = await leaguesAPI.getAll({ limit: 4 });
-        const leagues = response.data.leagues?.filter(l => l.is_public) || [];
+        setError(null);
+        const response = await leaguesAPI.getAll({ limit: 4 }, { ttlMs: 15000 });
+        const leagueData = response.data?.leagues;
+        const leagues = Array.isArray(leagueData)
+          ? leagueData.filter((league) => league.is_public)
+          : [];
         setPublicLeagues(leagues);
         
         // Fetch leaderboards for each league
-        const leaderboardPromises = leagues.slice(0, 2).map(async (league) => {
-          try {
-            const res = await leaguesAPI.getLeaderboard(league.id, { limit: 5 });
-            return { leagueId: league.id, data: res.data?.leaderboard || [] };
-          } catch (err) {
-            console.error(`Failed to load leaderboard for league ${league.id}:`, err);
-            return { leagueId: league.id, data: [] };
+        const leaderboardLeagues = leagues.slice(0, 2);
+        if (leaderboardLeagues.length === 0) {
+          setLeagueLeaderboards({});
+          setLeaderboardStatus({});
+          return;
+        }
+
+        const loadingStatus = {};
+        leaderboardLeagues.forEach((league) => {
+          loadingStatus[league.id] = { status: 'loading' };
+        });
+        setLeaderboardStatus((prev) => ({ ...prev, ...loadingStatus }));
+
+        const leaderboardResults = await Promise.allSettled(
+          leaderboardLeagues.map((league) =>
+            leaguesAPI.getLeaderboard(league.id, { limit: 5 }, { ttlMs: 10000 })
+          )
+        );
+        const nextLeaderboards = {};
+        const nextStatus = {};
+        leaderboardResults.forEach((result, index) => {
+          const leagueId = leaderboardLeagues[index]?.id;
+          if (!leagueId) return;
+          if (result.status === 'fulfilled') {
+            const leaderboardData = result.value.data?.leaderboard;
+            nextLeaderboards[leagueId] = Array.isArray(leaderboardData) ? leaderboardData : [];
+            nextStatus[leagueId] = { status: 'loaded' };
+          } else {
+            console.error(`Failed to load leaderboard for league ${leagueId}:`, result.reason);
+            nextStatus[leagueId] = { status: 'error' };
           }
         });
-        
-        const results = await Promise.all(leaderboardPromises);
-        const map = {};
-        results.forEach(({ leagueId, data }) => {
-          map[leagueId] = data;
-        });
-        setLeagueLeaderboards(map);
+        setLeagueLeaderboards((prev) => ({ ...prev, ...nextLeaderboards }));
+        setLeaderboardStatus((prev) => ({ ...prev, ...nextStatus }));
       } catch (error) {
         console.error('Failed to fetch public leagues:', error);
+        const apiMessage = error?.response?.data?.error;
+        setError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : 'Failed to fetch public leagues');
       } finally {
         setLoading(false);
       }
@@ -152,6 +178,8 @@ const LandingPage = () => {
               <div className="flex items-center justify-center py-8">
                 <LoadingSpinner size="sm" />
               </div>
+            ) : error ? (
+              <p className="text-sm text-red-400 text-center py-6">{error}</p>
             ) : publicLeagues.length > 0 ? (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {publicLeagues.slice(0, 2).map((league) => (
@@ -186,7 +214,32 @@ const LandingPage = () => {
                       </div>
                     </CardHeader>
                     <CardContent className="pt-0">
-                      {leagueLeaderboards[league.id]?.length > 0 ? (
+                      {(() => {
+                        const status = leaderboardStatus[league.id]?.status;
+                        const resolvedStatus = typeof status === 'string' ? status : 'loaded';
+                        const leaderboardData = Array.isArray(leagueLeaderboards[league.id])
+                          ? leagueLeaderboards[league.id]
+                          : [];
+
+                        if (resolvedStatus === 'loading') {
+                          return (
+                            <div className="flex items-center justify-center py-3">
+                              <LoadingSpinner size="sm" />
+                            </div>
+                          );
+                        }
+
+                        if (resolvedStatus === 'error') {
+                          return (
+                            <p className="text-sm text-red-400 text-center py-3">{t('leagues.leaderboardError')}</p>
+                          );
+                        }
+
+                        if (leaderboardData.length === 0) {
+                          return <p className="text-sm text-gray-500 text-center py-3">No players yet</p>;
+                        }
+
+                        return (
                         <div className="overflow-x-auto">
                           <table className="w-full text-sm">
                             <thead>
@@ -199,7 +252,7 @@ const LandingPage = () => {
                               </tr>
                             </thead>
                             <tbody>
-                              {leagueLeaderboards[league.id].map((p, idx) => (
+                              {leaderboardData.map((p, idx) => (
                                 <tr key={p.roster_id || idx} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
                                   <td className="px-2 py-3 align-middle">
                                     <div className="w-10 flex items-center justify-center">
@@ -257,9 +310,8 @@ const LandingPage = () => {
                             </tbody>
                           </table>
                         </div>
-                      ) : (
-                        <p className="text-sm text-gray-500 text-center py-3">No players yet</p>
-                      )}
+                        );
+                      })()}
                       <Link 
                         to={`/league/${league.id}`}
                         className="block text-center text-sm text-blue-400 hover:text-blue-300 mt-3 py-2 border-t border-gray-800/50"

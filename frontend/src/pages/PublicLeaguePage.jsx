@@ -19,17 +19,25 @@ const PublicLeaguePage = () => {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [leaderboardStatus, setLeaderboardStatus] = useState('idle');
+  const [leaderboardError, setLeaderboardError] = useState(null);
+  const [matchesStatus, setMatchesStatus] = useState('idle');
+  const [matchesError, setMatchesError] = useState(null);
 
   useEffect(() => {
     const fetchLeagueData = async () => {
       try {
         setLoading(true);
         setError(null);
+        setLeaderboardError(null);
+        setMatchesError(null);
+        setLeaderboardStatus('loading');
+        setMatchesStatus('loading');
         
         const [leagueRes, leaderboardRes, matchesRes] = await Promise.allSettled([
-          leaguesAPI.getById(id),
-          leaguesAPI.getLeaderboard(id, { limit: 20 }),
-          leaguesAPI.getMatches(id, { limit: 10 }),
+          leaguesAPI.getById(id, { ttlMs: 15000 }),
+          leaguesAPI.getLeaderboard(id, { limit: 20 }, { ttlMs: 10000 }),
+          leaguesAPI.getMatches(id, { limit: 10 }, { ttlMs: 10000 }),
         ]);
 
         if (leagueRes.status === 'rejected') {
@@ -37,13 +45,31 @@ const PublicLeaguePage = () => {
         }
 
         setLeague(leagueRes.value.data.league);
-        setLeaderboard(leaderboardRes.status === 'fulfilled' ? (leaderboardRes.value.data.leaderboard || []) : []);
+        if (leaderboardRes.status === 'fulfilled') {
+          const leaderboardData = leaderboardRes.value.data?.leaderboard;
+          setLeaderboard(Array.isArray(leaderboardData) ? leaderboardData : []);
+          setLeaderboardStatus('loaded');
+        } else {
+          setLeaderboardStatus('error');
+          const apiMessage = leaderboardRes.reason?.response?.data?.error;
+          setLeaderboardError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : 'Failed to load leaderboard');
+        }
 
         // Matches may be restricted for unauthenticated users; treat that as non-fatal.
         if (matchesRes.status === 'fulfilled') {
-          setMatches(matchesRes.value.data.matches || []);
+          const matchData = matchesRes.value.data?.matches;
+          setMatches(Array.isArray(matchData) ? matchData : []);
+          setMatchesStatus('loaded');
         } else {
-          setMatches([]);
+          const status = matchesRes.reason?.response?.status;
+          if (status === 403) {
+            setMatchesStatus('restricted');
+            setMatchesError('Matches are only visible to league members');
+          } else {
+            setMatchesStatus('error');
+            const apiMessage = matchesRes.reason?.response?.data?.error;
+            setMatchesError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : 'Failed to load matches');
+          }
         }
       } catch (err) {
         console.error('Failed to load league:', err);
@@ -169,7 +195,17 @@ const PublicLeaguePage = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
-                {leaderboard.length > 0 ? (
+                {leaderboardStatus === 'loading' ? (
+                  <div className="flex items-center justify-center py-6">
+                    <LoadingSpinner size="sm" />
+                  </div>
+                ) : leaderboardStatus === 'error' ? (
+                  <p className="text-sm text-red-400 text-center py-6">
+                    {typeof leaderboardError === 'string' && leaderboardError.length > 0
+                      ? leaderboardError
+                      : t('leagues.leaderboardError')}
+                  </p>
+                ) : leaderboard.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
@@ -259,7 +295,17 @@ const PublicLeaguePage = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
-                {matches.length > 0 ? (
+                {matchesStatus === 'loading' ? (
+                  <div className="flex items-center justify-center py-6">
+                    <LoadingSpinner size="sm" />
+                  </div>
+                ) : matchesStatus === 'error' || matchesStatus === 'restricted' ? (
+                  <p className="text-sm text-gray-500 text-center py-6">
+                    {typeof matchesError === 'string' && matchesError.length > 0
+                      ? matchesError
+                      : 'Matches are not available yet'}
+                  </p>
+                ) : matches.length > 0 ? (
                   <div className="space-y-2">
                     {matches.map((match) => (
                       <div key={match.id} className="py-3 border-b border-gray-800/50 last:border-0">
