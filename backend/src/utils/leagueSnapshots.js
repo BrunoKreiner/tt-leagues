@@ -34,16 +34,20 @@ async function getCachedLeagueSnapshot(leagueId) {
 
 async function saveLeagueSnapshot(leagueId, payload) {
     const snapshotPayload = JSON.stringify(payload);
-    await database.run(
-        `INSERT INTO league_snapshots (league_id, payload, updated_at, dirty, version)
+    const sql = `INSERT INTO league_snapshots (league_id, payload, updated_at, dirty, version)
          VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?)
          ON CONFLICT(league_id) DO UPDATE SET
             payload = excluded.payload,
             updated_at = CURRENT_TIMESTAMP,
             dirty = excluded.dirty,
-            version = excluded.version`,
-        [leagueId, snapshotPayload, false, SNAPSHOT_VERSION]
-    );
+            version = excluded.version`;
+    const params = [leagueId, snapshotPayload, false, SNAPSHOT_VERSION];
+    if (database.isPg) {
+        const { text, values } = database._toPg(sql, params);
+        await database.pool.query(text, values);
+        return;
+    }
+    await database.run(sql, params);
 }
 
 async function markLeagueSnapshotDirty(leagueId) {
