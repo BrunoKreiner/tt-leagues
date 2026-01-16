@@ -1612,6 +1612,9 @@ router.get('/:id/elo-timeline', optionalAuth, validateId, async (req, res) => {
             return entry;
         });
 
+        if (league.is_public) {
+            setPublicCacheHeaders(req, res);
+        }
         res.json({ items });
     } catch (error) {
         console.error('Get league ELO timeline error:', error);

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,12 +9,14 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { leaguesAPI } from '../services/api';
 import MedalIcon from '@/components/MedalIcon';
 import EloSparkline from '@/components/EloSparkline';
+import LeagueEloTimeline from '@/components/LeagueEloTimeline';
 import { format } from 'date-fns';
 import { BadgeList } from '@/components/BadgeDisplay';
 import SiteFooter from '@/components/layout/SiteFooter';
 
 const PublicLeaguePage = () => {
   const { id } = useParams();
+  const { t } = useTranslation();
   const [league, setLeague] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
   const [matches, setMatches] = useState([]);
@@ -283,6 +286,14 @@ const PublicLeaguePage = () => {
                 )}
               </CardContent>
             </Card>
+            <div className="mt-6">
+              <LeagueEloTimeline
+                leagueId={id}
+                players={leaderboard}
+                playersStatus={leaderboardStatus}
+                playersError={leaderboardError}
+              />
+            </div>
           </div>
 
           {/* Recent Matches */}
