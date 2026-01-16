@@ -114,7 +114,6 @@ const LandingPage = () => {
     'Manage your own leagues',
     'Track your performance among friends',
     'Complex ELO system',
-    'Manage league members and logged matches',
     'Match history with detailed stats',
     'Leaderboards',
     'Define and award custom badges',
