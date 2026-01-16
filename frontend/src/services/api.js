@@ -219,5 +219,10 @@ export const ticketsAPI = {
   updateStatus: (id, status) => api.patch(`/tickets/${id}`, { status }),
 };
 
+// Admin API
+export const adminAPI = {
+  runRosterParticipationMigration: () => api.post('/admin/migrations/roster-participation'),
+};
+
 export default api;
 

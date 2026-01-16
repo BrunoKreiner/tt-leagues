@@ -104,6 +104,7 @@ const DashboardPage = () => {
   }, []);
 
   useEffect(() => {
+    if (loading) return;
     const node = leaderboardSectionRef.current;
     if (!node) return;
 
@@ -122,7 +123,7 @@ const DashboardPage = () => {
     return () => {
       observer.disconnect();
     };
-  }, []);
+  }, [loading]);
 
   useEffect(() => {
     if (!shouldLoadLeaderboards) return;
