@@ -118,9 +118,9 @@ const EloSparkline = ({ userId, rosterId, leagueId, width = 60, height = 20, poi
     );
   }
 
-  const latestElo = data[data.length - 1]?.elo_after;
-  const previousElo = data[data.length - 2]?.elo_after;
-  const trend = latestElo > previousElo ? 'up' : latestElo < previousElo ? 'down' : 'flat';
+  const startingElo = data[0].elo_after;
+  const latestElo = data[data.length - 1].elo_after;
+  const trend = latestElo > startingElo ? 'up' : latestElo < startingElo ? 'down' : 'flat';
 
   return (
     <div className="flex items-center gap-1">
