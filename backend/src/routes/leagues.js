@@ -149,8 +149,10 @@ const buildLeagueSnapshot = async (leagueId, leagueRow) => {
  */
 router.get('/', optionalAuth, validatePagination, async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 20;
+        const pageValue = parseInt(req.query.page);
+        const limitValue = parseInt(req.query.limit);
+        const page = Number.isFinite(pageValue) && pageValue > 0 ? pageValue : 1;
+        const limit = Number.isFinite(limitValue) && limitValue > 0 ? limitValue : 20;
         const offset = (page - 1) * limit;
         
         let query = `
@@ -341,6 +343,20 @@ router.get('/:id/snapshot', optionalAuth, validateId, async (req, res) => {
             );
         }
 
+        let joinRequest = null;
+        if (req.user && !userMembership) {
+            joinRequest = await database.get(
+                `
+                SELECT id, status, created_at
+                FROM league_join_requests
+                WHERE league_id = ? AND user_id = ? AND status = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+                `,
+                [leagueId, req.user.id, 'pending']
+            );
+        }
+
         const cached = await getCachedLeagueSnapshot(leagueId);
         if (cached) {
             if (leagueRow.is_public) {
@@ -349,7 +365,8 @@ router.get('/:id/snapshot', optionalAuth, validateId, async (req, res) => {
             return res.json({
                 ...cached.payload,
                 snapshot_updated_at: cached.updated_at,
-                user_membership: userMembership
+                user_membership: userMembership,
+                join_request: joinRequest
             });
         }
 
@@ -364,7 +381,8 @@ router.get('/:id/snapshot', optionalAuth, validateId, async (req, res) => {
         res.json({
             ...snapshot,
             snapshot_updated_at: new Date().toISOString(),
-            user_membership: userMembership
+            user_membership: userMembership,
+            join_request: joinRequest
         });
     } catch (error) {
         console.error('Get league snapshot error:', error);
@@ -919,6 +937,288 @@ router.post('/:id/invite', authenticateToken, requireLeagueAdmin, validateId, as
 });
 
 /**
+ * Request to join league
+ * POST /api/leagues/:id/join-requests
+ */
+router.post('/:id/join-requests', authenticateToken, validateId, async (req, res) => {
+    try {
+        const leagueId = parseInt(req.params.id);
+
+        const league = await database.get(
+            'SELECT id, name, is_public, is_active FROM leagues WHERE id = ? AND is_active = ?',
+            [leagueId, true]
+        );
+
+        if (!league) {
+            return res.status(404).json({ error: 'League not found' });
+        }
+
+        const membership = await database.get(
+            'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
+            [leagueId, req.user.id]
+        );
+
+        if (membership) {
+            return res.status(409).json({ error: 'You are already a member of this league' });
+        }
+
+        const pendingInvite = await database.get(
+            'SELECT id FROM league_invites WHERE league_id = ? AND invited_user_id = ? AND status = ?',
+            [leagueId, req.user.id, 'pending']
+        );
+
+        if (pendingInvite) {
+            return res.status(409).json({ error: 'You already have a pending invite to this league' });
+        }
+
+        const existingRequest = await database.get(
+            'SELECT id FROM league_join_requests WHERE league_id = ? AND user_id = ? AND status = ?',
+            [leagueId, req.user.id, 'pending']
+        );
+
+        if (existingRequest) {
+            return res.status(409).json({ error: 'You already have a pending join request for this league' });
+        }
+
+        await database.run(
+            'INSERT INTO league_join_requests (league_id, user_id) VALUES (?, ?)',
+            [leagueId, req.user.id]
+        );
+
+        const adminRows = await database.all(
+            'SELECT user_id FROM league_roster WHERE league_id = ? AND is_admin = ? AND user_id IS NOT NULL',
+            [leagueId, true]
+        );
+
+        const adminIds = Array.from(new Set(adminRows.map((row) => row.user_id)));
+        if (adminIds.length > 0) {
+            try {
+                const title = 'Join request';
+                const message = `${req.user.username} requested to join "${league.name}"`;
+                for (const adminId of adminIds) {
+                    await database.run(
+                        'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
+                        [adminId, 'league_join_request', title, message, leagueId]
+                    );
+                }
+            } catch (notifError) {
+                console.warn('Failed to notify admins about join request (non-blocking):', {
+                    leagueId,
+                    userId: req.user.id,
+                    error: notifError.message
+                });
+            }
+        }
+
+        res.json({ message: 'Join request sent' });
+    } catch (error) {
+        console.error('Request join error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * List join requests (league admins only)
+ * GET /api/leagues/:id/join-requests
+ */
+router.get('/:id/join-requests', authenticateToken, requireLeagueAdmin, validateId, validatePagination, async (req, res) => {
+    try {
+        const leagueId = parseInt(req.params.id);
+        const pageValue = parseInt(req.query.page);
+        const limitValue = parseInt(req.query.limit);
+        const page = Number.isFinite(pageValue) && pageValue > 0 ? pageValue : 1;
+        const limit = Number.isFinite(limitValue) && limitValue > 0 ? limitValue : 20;
+        const offset = (page - 1) * limit;
+        const statusFilter = 'pending';
+
+        const requests = await database.all(`
+            SELECT 
+                jr.id, jr.user_id, jr.status, jr.created_at,
+                u.username, u.first_name, u.last_name
+            FROM league_join_requests jr
+            JOIN users u ON jr.user_id = u.id
+            WHERE jr.league_id = ? AND jr.status = ?
+            ORDER BY jr.created_at DESC
+            LIMIT ? OFFSET ?
+        `, [leagueId, statusFilter, limit, offset]);
+
+        const totalCount = await database.get(
+            'SELECT COUNT(*) as count FROM league_join_requests WHERE league_id = ? AND status = ?',
+            [leagueId, statusFilter]
+        );
+
+        res.json({
+            requests,
+            pagination: {
+                page,
+                limit,
+                total: totalCount.count,
+                pages: Math.ceil(totalCount.count / limit)
+            }
+        });
+    } catch (error) {
+        console.error('Get join requests error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Approve join request (league admins only)
+ * POST /api/leagues/:id/join-requests/:requestId/approve
+ */
+router.post('/:id/join-requests/:requestId/approve', authenticateToken, requireLeagueAdmin, validateId, async (req, res) => {
+    try {
+        const leagueId = parseInt(req.params.id);
+        const requestId = parseInt(req.params.requestId);
+
+        if (!Number.isFinite(requestId)) {
+            return res.status(400).json({ error: 'Invalid request ID' });
+        }
+
+        const joinRequest = await database.get(
+            'SELECT id, user_id, status FROM league_join_requests WHERE id = ? AND league_id = ?',
+            [requestId, leagueId]
+        );
+
+        if (!joinRequest) {
+            return res.status(404).json({ error: 'Join request not found' });
+        }
+
+        if (joinRequest.status !== 'pending') {
+            return res.status(409).json({ error: 'Join request has already been handled' });
+        }
+
+        const membership = await database.get(
+            'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
+            [leagueId, joinRequest.user_id]
+        );
+
+        if (membership) {
+            return res.status(409).json({ error: 'User is already a member of this league' });
+        }
+
+        const lastMatch = await database.get(`
+            SELECT 
+                CASE 
+                    WHEN m.player1_id = ? THEN m.player1_elo_after
+                    WHEN m.player2_id = ? THEN m.player2_elo_after
+                    ELSE NULL
+                END as last_elo
+            FROM matches m
+            WHERE m.league_id = ? 
+            AND (m.player1_id = ? OR m.player2_id = ?)
+            AND m.is_accepted = ?
+            ORDER BY m.played_at DESC
+            LIMIT 1
+        `, [joinRequest.user_id, joinRequest.user_id, leagueId, joinRequest.user_id, joinRequest.user_id, true]);
+
+        let initialElo = 1200;
+        if (lastMatch && lastMatch.last_elo) {
+            initialElo = lastMatch.last_elo;
+        }
+
+        const userRow = await database.get('SELECT username FROM users WHERE id = ?', [joinRequest.user_id]);
+        const displayName = userRow.username;
+
+        await database.run(
+            'INSERT INTO league_roster (league_id, user_id, display_name, current_elo) VALUES (?, ?, ?, ?)',
+            [leagueId, joinRequest.user_id, displayName, initialElo]
+        );
+
+        await database.run(
+            'UPDATE league_join_requests SET status = ?, responded_at = CURRENT_TIMESTAMP, responded_by = ? WHERE id = ?',
+            ['approved', req.user.id, requestId]
+        );
+
+        const league = await database.get('SELECT name FROM leagues WHERE id = ?', [leagueId]);
+        if (!league) {
+            return res.status(404).json({ error: 'League not found' });
+        }
+        const leagueName = league.name;
+        await markLeagueSnapshotDirty(leagueId);
+
+        try {
+            const title = 'Join request approved';
+            const message = `Your request to join "${leagueName}" was approved`;
+            await database.run(
+                'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
+                [joinRequest.user_id, 'league_join_approved', title, message, leagueId]
+            );
+        } catch (notifError) {
+            console.warn('Failed to notify user about join approval (non-blocking):', {
+                leagueId,
+                userId: joinRequest.user_id,
+                error: notifError.message
+            });
+        }
+
+        res.json({ message: 'Join request approved' });
+    } catch (error) {
+        console.error('Approve join request error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Decline join request (league admins only)
+ * POST /api/leagues/:id/join-requests/:requestId/decline
+ */
+router.post('/:id/join-requests/:requestId/decline', authenticateToken, requireLeagueAdmin, validateId, async (req, res) => {
+    try {
+        const leagueId = parseInt(req.params.id);
+        const requestId = parseInt(req.params.requestId);
+
+        if (!Number.isFinite(requestId)) {
+            return res.status(400).json({ error: 'Invalid request ID' });
+        }
+
+        const joinRequest = await database.get(
+            'SELECT id, user_id, status FROM league_join_requests WHERE id = ? AND league_id = ?',
+            [requestId, leagueId]
+        );
+
+        if (!joinRequest) {
+            return res.status(404).json({ error: 'Join request not found' });
+        }
+
+        if (joinRequest.status !== 'pending') {
+            return res.status(409).json({ error: 'Join request has already been handled' });
+        }
+
+        await database.run(
+            'UPDATE league_join_requests SET status = ?, responded_at = CURRENT_TIMESTAMP, responded_by = ? WHERE id = ?',
+            ['declined', req.user.id, requestId]
+        );
+
+        const league = await database.get('SELECT name FROM leagues WHERE id = ?', [leagueId]);
+        if (!league) {
+            return res.status(404).json({ error: 'League not found' });
+        }
+        const leagueName = league.name;
+
+        try {
+            const title = 'Join request declined';
+            const message = `Your request to join "${leagueName}" was declined`;
+            await database.run(
+                'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
+                [joinRequest.user_id, 'league_join_declined', title, message, leagueId]
+            );
+        } catch (notifError) {
+            console.warn('Failed to notify user about join decline (non-blocking):', {
+                leagueId,
+                userId: joinRequest.user_id,
+                error: notifError.message
+            });
+        }
+
+        res.json({ message: 'Join request declined' });
+    } catch (error) {
+        console.error('Decline join request error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
  * Join league (with invite code)
  * POST /api/leagues/:id/join
  */
@@ -1196,6 +1496,128 @@ router.get('/:id/leaderboard', optionalAuth, validateId, validatePagination, asy
         });
     } catch (error) {
         console.error('Get leaderboard error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Get league ELO timeline for multiple roster entries
+ * GET /api/leagues/:id/elo-timeline?roster_ids=1,2&limit=50
+ */
+router.get('/:id/elo-timeline', optionalAuth, validateId, async (req, res) => {
+    try {
+        const leagueId = parseInt(req.params.id);
+        const rosterIdsParam = req.query.roster_ids;
+
+        if (!rosterIdsParam || typeof rosterIdsParam !== 'string') {
+            return res.status(400).json({ error: 'roster_ids parameter is required' });
+        }
+
+        const rosterIds = rosterIdsParam
+            .split(',')
+            .map((value) => parseInt(value))
+            .filter((value) => Number.isFinite(value));
+
+        if (rosterIds.length === 0) {
+            return res.status(400).json({ error: 'No valid roster IDs provided' });
+        }
+
+        const limitValue = parseInt(req.query.limit);
+        let limit = 50;
+        if (Number.isFinite(limitValue) && limitValue > 0) {
+            limit = limitValue > 200 ? 200 : limitValue;
+        }
+
+        const league = await database.get('SELECT is_public FROM leagues WHERE id = ? AND is_active = ?', [leagueId, true]);
+        if (!league) {
+            return res.status(404).json({ error: 'League not found' });
+        }
+
+        if (!league.is_public) {
+            if (!req.user) {
+                return res.status(403).json({ error: 'Access denied to private league' });
+            }
+
+            const membership = await database.get(
+                'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
+                [leagueId, req.user.id]
+            );
+
+            if (!membership && !req.user.is_admin) {
+                return res.status(403).json({ error: 'Access denied to private league' });
+            }
+        }
+
+        const placeholders = rosterIds.map(() => '?').join(', ');
+        const rosterRows = await database.all(`
+            SELECT 
+                lr.id as roster_id,
+                lr.user_id,
+                lr.display_name,
+                u.username
+            FROM league_roster lr
+            LEFT JOIN users u ON lr.user_id = u.id
+            WHERE lr.league_id = ? AND lr.id IN (${placeholders})
+        `, [leagueId, ...rosterIds]);
+
+        if (rosterRows.length === 0) {
+            return res.json({ items: [] });
+        }
+
+        const rosterMap = new Map();
+        rosterRows.forEach((row) => {
+            rosterMap.set(row.roster_id, {
+                roster_id: row.roster_id,
+                user_id: row.user_id,
+                display_name: row.display_name,
+                username: row.username,
+                history: []
+            });
+        });
+
+        const rosterIdList = rosterRows.map((row) => row.roster_id);
+        const historyPlaceholders = rosterIdList.map(() => '?').join(', ');
+        const historyRows = await database.all(`
+            SELECT 
+                eh.roster_id,
+                eh.user_id,
+                eh.elo_before,
+                eh.elo_after,
+                eh.recorded_at,
+                m.played_at
+            FROM elo_history eh
+            LEFT JOIN matches m ON eh.match_id = m.id
+            WHERE eh.league_id = ? AND eh.roster_id IN (${historyPlaceholders})
+            ORDER BY COALESCE(m.played_at, eh.recorded_at) ASC
+        `, [leagueId, ...rosterIdList]);
+
+        historyRows.forEach((row) => {
+            const entry = rosterMap.get(row.roster_id);
+            if (!entry) return;
+            let recordedAt = row.recorded_at;
+            if (row.played_at) {
+                recordedAt = row.played_at;
+            }
+            entry.history.push({
+                recorded_at: recordedAt,
+                elo_before: row.elo_before,
+                elo_after: row.elo_after
+            });
+        });
+
+        const items = Array.from(rosterMap.values()).map((entry) => {
+            if (entry.history.length > limit) {
+                entry.history = entry.history.slice(entry.history.length - limit);
+            }
+            return entry;
+        });
+
+        if (league.is_public) {
+            setPublicCacheHeaders(req, res);
+        }
+        res.json({ items });
+    } catch (error) {
+        console.error('Get league ELO timeline error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

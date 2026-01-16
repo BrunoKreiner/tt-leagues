@@ -186,6 +186,17 @@ CREATE TABLE IF NOT EXISTS league_invites (
     responded_at TIMESTAMP
 );
 
+-- League join requests table
+CREATE TABLE IF NOT EXISTS league_join_requests (
+    id SERIAL PRIMARY KEY,
+    league_id INTEGER NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT NOW(),
+    responded_at TIMESTAMP,
+    responded_by INTEGER REFERENCES users(id)
+);
+
 -- Indexes for performance
 -- Basic indexes
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
@@ -231,6 +242,13 @@ CREATE INDEX IF NOT EXISTS idx_league_invites_league_id ON league_invites(league
 CREATE INDEX IF NOT EXISTS idx_league_invites_invited_user_id ON league_invites(invited_user_id);
 CREATE INDEX IF NOT EXISTS idx_league_invites_status ON league_invites(status);
 CREATE INDEX IF NOT EXISTS idx_league_invites_league_user_status ON league_invites(league_id, invited_user_id, status);
+
+-- League join requests table
+CREATE INDEX IF NOT EXISTS idx_league_join_requests_league_id ON league_join_requests(league_id);
+CREATE INDEX IF NOT EXISTS idx_league_join_requests_user_id ON league_join_requests(user_id);
+CREATE INDEX IF NOT EXISTS idx_league_join_requests_status ON league_join_requests(status);
+CREATE INDEX IF NOT EXISTS idx_league_join_requests_league_status ON league_join_requests(league_id, status);
+CREATE INDEX IF NOT EXISTS idx_league_join_requests_league_user_status ON league_join_requests(league_id, user_id, status);
 
 -- User badges table
 CREATE INDEX IF NOT EXISTS idx_user_badges_user_id ON user_badges(user_id);
