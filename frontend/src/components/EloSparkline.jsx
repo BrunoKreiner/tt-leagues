@@ -40,7 +40,7 @@ const EloSparkline = ({ userId, rosterId, leagueId, width = 60, height = 20, poi
         // The API returns one row per match with `elo_before` + `elo_after`.
         // Build a true time-series so that even a single match produces 2 points.
         const first = historyData[0];
-        const series = [{ elo_after: first.elo_before }, ...historyData];
+        const series = [{ elo_after: first.elo_before, recorded_at: first.recorded_at }, ...historyData];
         setData(series);
       } catch (err) {
         if (cancelled) return;
@@ -118,9 +118,25 @@ const EloSparkline = ({ userId, rosterId, leagueId, width = 60, height = 20, poi
     );
   }
 
-  const startingElo = data[0].elo_after;
   const latestElo = data[data.length - 1].elo_after;
-  const trend = latestElo > startingElo ? 'up' : latestElo < startingElo ? 'down' : 'flat';
+  const oneMonthAgo = new Date();
+  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+  const targetTime = oneMonthAgo.getTime();
+  let closestPoint = data[0];
+  let closestDiff = Math.abs(new Date(closestPoint.recorded_at).getTime() - targetTime);
+
+  for (let i = 1; i < data.length; i += 1) {
+    const point = data[i];
+    const pointTime = new Date(point.recorded_at).getTime();
+    const diff = Math.abs(pointTime - targetTime);
+    if (diff < closestDiff) {
+      closestPoint = point;
+      closestDiff = diff;
+    }
+  }
+
+  const comparisonElo = closestPoint.elo_after;
+  const trend = latestElo > comparisonElo ? 'up' : latestElo < comparisonElo ? 'down' : 'flat';
 
   return (
     <div className="flex items-center gap-1">
