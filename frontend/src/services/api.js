@@ -157,6 +157,7 @@ export const leaguesAPI = {
   getAll: (params, options) => cachedGet('/leagues', { params }, options),
   create: (leagueData) => api.post('/leagues', leagueData),
   getById: (id, options) => cachedGet(`/leagues/${id}`, {}, options),
+  getSnapshot: (id, options) => cachedGet(`/leagues/${id}/snapshot`, {}, options),
   update: (id, leagueData) => api.put(`/leagues/${id}`, leagueData),
   delete: (id) => api.delete(`/leagues/${id}`),
   getMembers: (id, options) => cachedGet(`/leagues/${id}/members`, {}, options),
@@ -222,6 +223,7 @@ export const ticketsAPI = {
 // Admin API
 export const adminAPI = {
   runRosterParticipationMigration: () => api.post('/admin/migrations/roster-participation'),
+  runLeagueSnapshotsMigration: () => api.post('/admin/migrations/league-snapshots'),
 };
 
 export default api;

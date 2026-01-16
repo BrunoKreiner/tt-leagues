@@ -130,6 +130,10 @@ class Database {
             if (debugInit) console.log('DB init: ensuring tickets schema');
             await this.ensureTicketsSchema();
 
+            // Ensure league snapshot schema exists
+            if (debugInit) console.log('DB init: ensuring league snapshots schema');
+            await this.ensureLeagueSnapshotsTable();
+
             // Create/update admin user from env
             if (debugInit) console.log('DB init: ensuring admin user');
             await this.createAdminUser();
@@ -493,6 +497,34 @@ class Database {
 
         await this.run('CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status)');
         await this.run('CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets(created_at)');
+    }
+
+    async ensureLeagueSnapshotsTable() {
+        if (this.isPg) {
+            await this.run(`
+                CREATE TABLE IF NOT EXISTS league_snapshots (
+                    league_id INTEGER PRIMARY KEY REFERENCES leagues(id) ON DELETE CASCADE,
+                    payload JSONB NOT NULL,
+                    updated_at TIMESTAMP DEFAULT NOW(),
+                    dirty BOOLEAN DEFAULT TRUE,
+                    version INTEGER DEFAULT 1
+                )
+            `);
+            await this.run('CREATE INDEX IF NOT EXISTS idx_league_snapshots_dirty ON league_snapshots(dirty)');
+            return;
+        }
+
+        await this.run(`
+            CREATE TABLE IF NOT EXISTS league_snapshots (
+                league_id INTEGER PRIMARY KEY,
+                payload TEXT NOT NULL,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                dirty BOOLEAN DEFAULT TRUE,
+                version INTEGER DEFAULT 1,
+                FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE
+            )
+        `);
+        await this.run('CREATE INDEX IF NOT EXISTS idx_league_snapshots_dirty ON league_snapshots(dirty)');
     }
 
     async ensureColumnExists(tableName, columnName, columnType) {

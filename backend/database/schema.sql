@@ -151,6 +151,16 @@ CREATE TABLE IF NOT EXISTS tickets (
     closed_at DATETIME
 );
 
+-- League snapshots (cached league overview payloads)
+CREATE TABLE IF NOT EXISTS league_snapshots (
+    league_id INTEGER PRIMARY KEY,
+    payload TEXT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    dirty BOOLEAN DEFAULT TRUE,
+    version INTEGER DEFAULT 1,
+    FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE
+);
+
 -- Badges table
 CREATE TABLE IF NOT EXISTS badges (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -253,6 +263,9 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user_read_created ON notifications(
 -- Tickets table
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
 CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets(created_at);
+
+-- League snapshots table indexes
+CREATE INDEX IF NOT EXISTS idx_league_snapshots_dirty ON league_snapshots(dirty);
 
 -- ELO history table
 CREATE INDEX IF NOT EXISTS idx_elo_history_match_id ON elo_history(match_id);
