@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '@/components/ui/form';
-import { leaguesAPI, matchesAPI, badgesAPI, ticketsAPI } from '@/services/api';
+import { leaguesAPI, matchesAPI, badgesAPI, ticketsAPI, adminAPI } from '@/services/api';
 import { toast } from 'sonner';
 import { Shield, PlusCircle, Award, Edit, Trash2, Gift } from 'lucide-react';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -117,6 +117,20 @@ const AdminPage = () => {
   const [ticketTotal, setTicketTotal] = useState(0);
   const [ticketStatusFilter, setTicketStatusFilter] = useState('open');
   const [updatingTicketId, setUpdatingTicketId] = useState(null);
+  const [migrationRunning, setMigrationRunning] = useState(false);
+
+  const runRosterParticipationMigration = async () => {
+    try {
+      setMigrationRunning(true);
+      const res = await adminAPI.runRosterParticipationMigration();
+      toast.success(res.data?.message || 'Migration applied');
+    } catch (error) {
+      const msg = error.response?.data?.error || 'Failed to apply migration';
+      toast.error(msg);
+    } finally {
+      setMigrationRunning(false);
+    }
+  };
 
   const [awardLeagueMembers, setAwardLeagueMembers] = useState([]);
   const [loadingAwardLeagueMembers, setLoadingAwardLeagueMembers] = useState(false);
@@ -555,6 +569,29 @@ const AdminPage = () => {
         <h1 className="text-3xl font-bold tracking-tight">{t('admin.panelTitle')}</h1>
         <p className="text-muted-foreground">{t('admin.panelSubtitle')}</p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Shield className="h-5 w-5 mr-2" />
+            Maintenance
+          </CardTitle>
+          <CardDescription>
+            Apply database maintenance tasks when schema changes are skipped at runtime.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-gray-400">
+              Adds the `is_participating` roster column for leaderboard opt-out.
+            </div>
+            <Button onClick={runRosterParticipationMigration} disabled={migrationRunning}>
+              {migrationRunning && <LoadingSpinner className="mr-2 h-4 w-4" />}
+              {migrationRunning ? 'Running...' : 'Run roster migration'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
