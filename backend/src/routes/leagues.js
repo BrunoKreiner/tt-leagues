@@ -838,32 +838,6 @@ router.get('/:id/leaderboard', optionalAuth, validateId, validatePagination, asy
             return res.status(403).json({ error: 'Access denied to private league' });
         }
 
-        // Normalize empty display names (existing bad data).
-        await database.run(
-            `
-            UPDATE league_roster
-            SET display_name = (
-                SELECT u.username
-                FROM users u
-                WHERE u.id = league_roster.user_id
-            )
-            WHERE league_id = ?
-              AND user_id IS NOT NULL
-              AND (display_name IS NULL OR TRIM(display_name) = '')
-            `,
-            [leagueId]
-        );
-        await database.run(
-            `
-            UPDATE league_roster
-            SET display_name = 'Placeholder'
-            WHERE league_id = ?
-              AND user_id IS NULL
-              AND (display_name IS NULL OR TRIM(display_name) = '')
-            `,
-            [leagueId]
-        );
-        
         const leaderboard = await database.all(`
             SELECT 
                 lr.id as roster_id,
