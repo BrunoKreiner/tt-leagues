@@ -119,15 +119,21 @@ const AdminPage = () => {
   const [updatingTicketId, setUpdatingTicketId] = useState(null);
   const [migrationRunning, setMigrationRunning] = useState(false);
   const [snapshotMigrationRunning, setSnapshotMigrationRunning] = useState(false);
+  const [joinRequestMigrationRunning, setJoinRequestMigrationRunning] = useState(false);
 
   const runRosterParticipationMigration = async () => {
     try {
       setMigrationRunning(true);
       const res = await adminAPI.runRosterParticipationMigration();
-      toast.success(res.data?.message || 'Migration applied');
+      const message = res.data?.message;
+      if (typeof message === 'string' && message.length > 0) {
+        toast.success(message);
+      }
     } catch (error) {
-      const msg = error.response?.data?.error || 'Failed to apply migration';
-      toast.error(msg);
+      const msg = error.response?.data?.error;
+      if (typeof msg === 'string' && msg.length > 0) {
+        toast.error(msg);
+      }
     } finally {
       setMigrationRunning(false);
     }
@@ -137,12 +143,35 @@ const AdminPage = () => {
     try {
       setSnapshotMigrationRunning(true);
       const res = await adminAPI.runLeagueSnapshotsMigration();
-      toast.success(res.data?.message || 'Migration applied');
+      const message = res.data?.message;
+      if (typeof message === 'string' && message.length > 0) {
+        toast.success(message);
+      }
     } catch (error) {
-      const msg = error.response?.data?.error || 'Failed to apply migration';
-      toast.error(msg);
+      const msg = error.response?.data?.error;
+      if (typeof msg === 'string' && msg.length > 0) {
+        toast.error(msg);
+      }
     } finally {
       setSnapshotMigrationRunning(false);
+    }
+  };
+
+  const runJoinRequestsMigration = async () => {
+    try {
+      setJoinRequestMigrationRunning(true);
+      const res = await adminAPI.runJoinRequestsMigration();
+      const message = res.data?.message;
+      if (typeof message === 'string' && message.length > 0) {
+        toast.success(message);
+      }
+    } catch (error) {
+      const msg = error.response?.data?.error;
+      if (typeof msg === 'string' && msg.length > 0) {
+        toast.error(msg);
+      }
+    } finally {
+      setJoinRequestMigrationRunning(false);
     }
   };
 
@@ -612,6 +641,15 @@ const AdminPage = () => {
               <Button onClick={runLeagueSnapshotsMigration} disabled={snapshotMigrationRunning}>
                 {snapshotMigrationRunning && <LoadingSpinner className="mr-2 h-4 w-4" />}
                 {snapshotMigrationRunning ? 'Running...' : 'Run snapshot migration'}
+              </Button>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm text-gray-400">
+                Creates the join request table used for league access workflows.
+              </div>
+              <Button onClick={runJoinRequestsMigration} disabled={joinRequestMigrationRunning}>
+                {joinRequestMigrationRunning && <LoadingSpinner className="mr-2 h-4 w-4" />}
+                {joinRequestMigrationRunning ? 'Running...' : 'Run join request migration'}
               </Button>
             </div>
           </div>

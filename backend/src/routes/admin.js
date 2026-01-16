@@ -32,4 +32,18 @@ router.post('/migrations/league-snapshots', authenticateToken, requireAdmin, asy
     }
 });
 
+/**
+ * Run join request migration (site admin only)
+ * POST /api/admin/migrations/join-requests
+ */
+router.post('/migrations/join-requests', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        await database.ensureJoinRequestsTable();
+        res.json({ message: 'Join requests migration applied' });
+    } catch (error) {
+        console.error('Join requests migration error:', error);
+        res.status(500).json({ error: 'Failed to apply join requests migration' });
+    }
+});
+
 module.exports = router;
