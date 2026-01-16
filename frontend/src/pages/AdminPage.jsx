@@ -197,6 +197,10 @@ const AdminPage = () => {
     return translated;
   };
 
+  const awardBadgeName = selectedBadgeForAward && typeof selectedBadgeForAward.name === 'string'
+    ? selectedBadgeForAward.name
+    : '';
+
   const form = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -1588,7 +1592,7 @@ const AdminPage = () => {
       <Dialog open={awardDialogOpen} onOpenChange={setAwardDialogOpen}>
         <DialogContent className="bg-gray-900 border-2 border-gray-700">
           <DialogHeader>
-            <DialogTitle>{t('admin.badgeAwardTitle', { name: selectedBadgeForAward?.name || '' })}</DialogTitle>
+            <DialogTitle>{t('admin.badgeAwardTitle', { name: awardBadgeName })}</DialogTitle>
             <DialogDescription>
               {t('admin.badgeAwardDesc')}
             </DialogDescription>
