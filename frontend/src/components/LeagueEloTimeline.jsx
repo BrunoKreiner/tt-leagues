@@ -19,7 +19,7 @@ const COLOR_PALETTE = [
   '#f472b6',
 ];
 
-const LeagueEloTimeline = ({ leagueId, players, playersStatus, playersError }) => {
+const LeagueEloTimeline = ({ leagueId, players, playersStatus, playersError, eloRange }) => {
   const { t } = useTranslation();
   const [selectedRosterIds, setSelectedRosterIds] = useState([]);
   const [series, setSeries] = useState([]);
@@ -126,6 +126,24 @@ const LeagueEloTimeline = ({ leagueId, players, playersStatus, playersError }) =
     return Array.from(dataMap.values()).sort((a, b) => a.timestamp - b.timestamp);
   }, [selectedSeries]);
 
+  const yDomain = useMemo(() => {
+    if (!eloRange) {
+      return null;
+    }
+
+    const minRaw = eloRange.min_elo;
+    const maxRaw = eloRange.max_elo;
+    const parsedMin = typeof minRaw === 'number' ? minRaw : Number.parseFloat(minRaw);
+    const parsedMax = typeof maxRaw === 'number' ? maxRaw : Number.parseFloat(maxRaw);
+
+    if (!Number.isFinite(parsedMin) || !Number.isFinite(parsedMax)) {
+      return null;
+    }
+
+    const padding = 100;
+    return [parsedMin - padding, parsedMax + padding];
+  }, [eloRange]);
+
   const toggleRoster = (rosterId) => {
     setSelectedRosterIds((prev) => {
       const exists = prev.includes(rosterId);
@@ -212,6 +230,8 @@ const LeagueEloTimeline = ({ leagueId, players, playersStatus, playersError }) =
           <p className="text-sm text-red-400">{error}</p>
         ) : chartData.length === 0 ? (
           <p className="text-sm text-gray-400">{t('leagues.eloTimelineEmpty')}</p>
+        ) : yDomain === null ? (
+          <p className="text-sm text-red-400">{t('leagues.eloTimelineError')}</p>
         ) : (
           <ChartContainer className="h-40 w-full aspect-[4/1]" config={chartConfig}>
             <LineChart data={chartData} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
@@ -230,6 +250,7 @@ const LeagueEloTimeline = ({ leagueId, players, playersStatus, playersError }) =
                 axisLine={false}
                 width={36}
                 tickFormatter={(value) => value.toString()}
+                domain={yDomain === null ? undefined : yDomain}
               />
               <ChartTooltip
                 cursor={{ strokeDasharray: '4 4' }}

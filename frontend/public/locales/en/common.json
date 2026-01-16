@@ -141,6 +141,7 @@
     "leaveLeague": "Leave League",
     "editLeague": "Edit League",
     "joinThisLeague": "Join This League",
+    "joinDescription": "Join with an invite code or request access.",
     "requestJoin": "Request to join",
     "requestJoinHelp": "No invite? Request access from a league admin.",
     "requestPending": "Request pending",

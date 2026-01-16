@@ -26,6 +26,7 @@ const PublicLeaguePage = () => {
   const [leaderboardError, setLeaderboardError] = useState(null);
   const [matchesStatus, setMatchesStatus] = useState('idle');
   const [matchesError, setMatchesError] = useState(null);
+  const [eloRange, setEloRange] = useState(null);
 
   useEffect(() => {
     const fetchLeagueData = async () => {
@@ -37,10 +38,11 @@ const PublicLeaguePage = () => {
         setLeaderboardStatus('loading');
         setMatchesStatus('loading');
         
-        const [leagueRes, leaderboardRes, matchesRes] = await Promise.allSettled([
+        const [leagueRes, leaderboardRes, matchesRes, eloRangeRes] = await Promise.allSettled([
           leaguesAPI.getById(id, { ttlMs: 15000 }),
           leaguesAPI.getLeaderboard(id, { limit: 20 }, { ttlMs: 10000 }),
           leaguesAPI.getMatches(id, { limit: 10 }, { ttlMs: 10000 }),
+          leaguesAPI.getEloRange(id, { ttlMs: 10000 }),
         ]);
 
         if (leagueRes.status === 'rejected') {
@@ -73,6 +75,12 @@ const PublicLeaguePage = () => {
             const apiMessage = matchesRes.reason?.response?.data?.error;
             setMatchesError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : 'Failed to load matches');
           }
+        }
+
+        if (eloRangeRes.status === 'fulfilled') {
+          setEloRange(eloRangeRes.value.data);
+        } else {
+          setEloRange(null);
         }
       } catch (err) {
         console.error('Failed to load league:', err);
@@ -292,6 +300,7 @@ const PublicLeaguePage = () => {
                 players={leaderboard}
                 playersStatus={leaderboardStatus}
                 playersError={leaderboardError}
+                eloRange={eloRange}
               />
             </div>
           </div>

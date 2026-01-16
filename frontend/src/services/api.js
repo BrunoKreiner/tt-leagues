@@ -171,6 +171,7 @@ export const leaguesAPI = {
   getLeaderboard: (id, params, options) => cachedGet(`/leagues/${id}/leaderboard`, { params }, options),
   getMatches: (id, params, options) => cachedGet(`/leagues/${id}/matches`, { params }, options),
   getEloTimeline: (id, params, options) => cachedGet(`/leagues/${id}/elo-timeline`, { params }, options),
+  getEloRange: (id, options) => cachedGet(`/leagues/${id}/elo-range`, {}, options),
   // Admin tools
   listInvites: (id, params, options) => cachedGet(`/leagues/${id}/invites`, { params }, options),
   revokeInvite: (id, inviteId) => api.delete(`/leagues/${id}/invites/${inviteId}`),
