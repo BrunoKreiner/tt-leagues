@@ -1308,26 +1308,37 @@ const LeagueDetailPage = () => {
                 </div>
               ) : null}
 
-              <div className="space-y-2">
-                <div className="flex items-center gap-2"><Users className="h-4 w-4 text-blue-400" /> {t('leagues.membersLabel')}: {league.member_count}</div>
-                <div className="flex items-center gap-2"><ListChecks className="h-4 w-4 text-green-400" /> {t('leagues.matchesLabel')}: {league.match_count}</div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="flex items-center justify-between rounded border border-gray-800 bg-gray-900/40 px-3 py-2">
+                  <span className="flex items-center gap-2 text-xs text-gray-400">
+                    <Users className="h-3.5 w-3.5 text-blue-400" />
+                    {t('leagues.membersLabel')}
+                  </span>
+                  <span className="text-sm font-semibold text-gray-100">{league.member_count}</span>
+                </div>
+                <div className="flex items-center justify-between rounded border border-gray-800 bg-gray-900/40 px-3 py-2">
+                  <span className="flex items-center gap-2 text-xs text-gray-400">
+                    <ListChecks className="h-3.5 w-3.5 text-green-400" />
+                    {t('leagues.matchesLabel')}
+                  </span>
+                  <span className="text-sm font-semibold text-gray-100">{league.match_count}</span>
+                </div>
                 {userMembership && (
-                  <div className="flex items-center gap-2"><Trophy className="h-4 w-4 text-yellow-400" /> {t('leagues.yourElo', { elo: userMembership.current_elo })}</div>
+                  <div className="flex items-center gap-2 rounded border border-gray-800 bg-gray-900/40 px-3 py-2 sm:col-span-2">
+                    <Trophy className="h-3.5 w-3.5 text-yellow-400" />
+                    <span className="text-xs text-gray-300">
+                      {t('leagues.yourElo', { elo: userMembership.current_elo })}
+                    </span>
+                  </div>
                 )}
               </div>
 
-              <div className={`grid gap-3 ${canManageLeague ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                {canManageLeague ? (
-                  <div className="bg-gray-800 p-3 rounded border border-gray-700">
-                    <div className="text-gray-400 text-xs">{t('leagues.pendingInvites')}</div>
-                    <div className="text-xl font-bold text-blue-400">{invites.length}</div>
-                  </div>
-                ) : null}
-                <div className="bg-gray-800 p-3 rounded border border-gray-700">
-                  <div className="text-gray-400 text-xs">{t('leagues.membersLabel')}</div>
-                  <div className="text-xl font-bold text-green-400">{league.member_count}</div>
+              {canManageLeague ? (
+                <div className="flex items-center justify-between rounded border border-gray-800 bg-gray-900/40 px-3 py-2">
+                  <span className="text-xs text-gray-400">{t('leagues.pendingInvites')}</span>
+                  <span className="text-sm font-semibold text-blue-400">{invites.length}</span>
                 </div>
-              </div>
+              ) : null}
             </CardContent>
           </Card>
 

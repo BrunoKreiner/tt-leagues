@@ -176,14 +176,14 @@ const LeaguesPage = () => {
                 <div className="sm:w-64">
                   <Select value={mySort} onValueChange={setMySort}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Sort" />
+                      <SelectValue placeholder={t('sort.label')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="created_desc">Most recent created</SelectItem>
-                      <SelectItem value="last_match_desc">Most recent match updates</SelectItem>
-                      <SelectItem value="members_desc">Most members</SelectItem>
-                      <SelectItem value="members_asc">Least members</SelectItem>
-                      <SelectItem value="matches_desc">Most matches</SelectItem>
+                      <SelectItem value="created_desc">{t('sort.createdDesc')}</SelectItem>
+                      <SelectItem value="last_match_desc">{t('sort.matchUpdatedDesc')}</SelectItem>
+                      <SelectItem value="members_desc">{t('sort.membersDesc')}</SelectItem>
+                      <SelectItem value="members_asc">{t('sort.membersAsc')}</SelectItem>
+                      <SelectItem value="matches_desc">{t('sort.matchesDesc')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -247,14 +247,14 @@ const LeaguesPage = () => {
                 <div className="sm:w-64">
                   <Select value={publicSort} onValueChange={setPublicSort}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Sort" />
+                      <SelectValue placeholder={t('sort.label')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="created_desc">Most recent created</SelectItem>
-                      <SelectItem value="last_match_desc">Most recent match updates</SelectItem>
-                      <SelectItem value="members_desc">Most members</SelectItem>
-                      <SelectItem value="members_asc">Least members</SelectItem>
-                      <SelectItem value="matches_desc">Most matches</SelectItem>
+                      <SelectItem value="created_desc">{t('sort.createdDesc')}</SelectItem>
+                      <SelectItem value="last_match_desc">{t('sort.matchUpdatedDesc')}</SelectItem>
+                      <SelectItem value="members_desc">{t('sort.membersDesc')}</SelectItem>
+                      <SelectItem value="members_asc">{t('sort.membersAsc')}</SelectItem>
+                      <SelectItem value="matches_desc">{t('sort.matchesDesc')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

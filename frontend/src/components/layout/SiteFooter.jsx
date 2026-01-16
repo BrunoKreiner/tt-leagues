@@ -19,10 +19,10 @@ export default function SiteFooter() {
         </div>
         <div className="flex items-center gap-4">
           <Link to="/contact" className="text-gray-400 hover:text-gray-200 underline underline-offset-4">
-            Contact
+            {t('footer.contact')}
           </Link>
           <Link to="/support" className="text-gray-400 hover:text-gray-200 underline underline-offset-4">
-            Support
+            {t('footer.support')}
           </Link>
         </div>
       </div>

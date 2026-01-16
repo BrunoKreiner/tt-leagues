@@ -187,6 +187,20 @@ const AdminPage = () => {
   const [assignUserByRosterId, setAssignUserByRosterId] = useState({});
   const [assigningRosterId, setAssigningRosterId] = useState(null);
 
+  const badgeTypeLabel = (type) => {
+    if (!type) return '-';
+    const key = `admin.badgeType.${type}`;
+    const translated = t(key);
+    if (translated === key) {
+      return type.replace('_', ' ');
+    }
+    return translated;
+  };
+
+  const awardBadgeName = selectedBadgeForAward && typeof selectedBadgeForAward.name === 'string'
+    ? selectedBadgeForAward.name
+    : '';
+
   const form = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -747,21 +761,21 @@ const AdminPage = () => {
         <CardHeader>
           <CardTitle className="flex items-center">
             <Shield className="h-5 w-5 mr-2" />
-            Roster management (placeholders)
+            {t('admin.rosterTitle')}
           </CardTitle>
           <CardDescription>
-            Add placeholder members to a league (no account yet), then assign them to real users later.
+            {t('admin.rosterDesc')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {adminLeagues.length === 0 && (
             <div className="rounded-md border border-yellow-700/40 bg-yellow-900/10 p-3 text-sm text-yellow-200">
-              You’re not a league admin yet — create a league first to manage rosters.
+              {t('admin.rosterEmptyAdmin')}
             </div>
           )}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <div className="text-sm font-medium mb-1">League</div>
+              <div className="text-sm font-medium mb-1">{t('admin.rosterLeagueLabel')}</div>
               <Select
                 value={rosterLeagueId || undefined}
                 onValueChange={(value) => {
@@ -772,7 +786,7 @@ const AdminPage = () => {
                 disabled={adminLeagues.length === 0}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a league" />
+                  <SelectValue placeholder={t('admin.rosterLeaguePlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {adminLeagues.map((league) => (
@@ -785,12 +799,12 @@ const AdminPage = () => {
             </div>
 
             <div>
-              <div className="text-sm font-medium mb-1">Add placeholder member</div>
+              <div className="text-sm font-medium mb-1">{t('admin.rosterAddPlaceholderLabel')}</div>
               <div className="flex gap-2">
                 <Input
                   value={placeholderDisplayName}
                   onChange={(e) => setPlaceholderDisplayName(e.target.value)}
-                  placeholder="e.g. Alex (unassigned)"
+                  placeholder={t('admin.rosterPlaceholderExample')}
                   disabled={adminLeagues.length === 0 || !rosterLeagueId || creatingPlaceholder}
                 />
                 <Button
@@ -798,7 +812,7 @@ const AdminPage = () => {
                   onClick={handleCreatePlaceholder}
                   disabled={adminLeagues.length === 0 || !rosterLeagueId || creatingPlaceholder}
                 >
-                  {creatingPlaceholder ? 'Adding...' : 'Add'}
+                  {creatingPlaceholder ? t('admin.rosterAddingAction') : t('admin.rosterAddAction')}
                 </Button>
               </div>
             </div>
@@ -806,7 +820,7 @@ const AdminPage = () => {
 
           <div className="flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
-              {rosterLeagueId ? `Members: ${rosterMembers.length}` : 'Select a league to manage its roster.'}
+              {rosterLeagueId ? t('admin.rosterMembersLabel', { count: rosterMembers.length }) : t('admin.rosterSelectHint')}
             </div>
             <Button
               type="button"
@@ -814,23 +828,23 @@ const AdminPage = () => {
               onClick={() => fetchRosterMembers(rosterLeagueId)}
               disabled={!rosterLeagueId || loadingRosterMembers}
             >
-              {loadingRosterMembers ? 'Refreshing...' : 'Refresh'}
+              {loadingRosterMembers ? t('admin.rosterRefreshing') : t('admin.rosterRefresh')}
             </Button>
           </div>
 
           {loadingRosterMembers ? (
             <div className="py-6"><LoadingSpinner /></div>
           ) : !rosterLeagueId ? null : rosterMembers.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No roster members found for this league.</div>
+            <div className="text-sm text-muted-foreground">{t('admin.rosterNoMembers')}</div>
           ) : (
             <div className="overflow-x-auto rounded-md border">
               <table className="min-w-full text-sm">
                 <thead className="bg-muted/40 text-muted-foreground">
                   <tr>
-                    <th className="text-left font-medium px-3 py-2">Display name</th>
-                    <th className="text-left font-medium px-3 py-2">Assigned user</th>
-                    <th className="text-left font-medium px-3 py-2">ELO</th>
-                    <th className="text-left font-medium px-3 py-2">Assign</th>
+                    <th className="text-left font-medium px-3 py-2">{t('admin.rosterDisplayName')}</th>
+                    <th className="text-left font-medium px-3 py-2">{t('admin.rosterAssignedUser')}</th>
+                    <th className="text-left font-medium px-3 py-2">{t('admin.rosterElo')}</th>
+                    <th className="text-left font-medium px-3 py-2">{t('admin.rosterAssign')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -840,7 +854,7 @@ const AdminPage = () => {
                       <tr key={m.roster_id} className="border-t">
                         <td className="px-3 py-2">
                           <div className="font-medium">{m.display_name}</div>
-                          <div className="text-xs text-muted-foreground">Roster ID: {m.roster_id}</div>
+                          <div className="text-xs text-muted-foreground">{t('admin.rosterIdLabel', { id: m.roster_id })}</div>
                         </td>
                         <td className="px-3 py-2">
                           {isAssigned ? (
@@ -852,10 +866,10 @@ const AdminPage = () => {
                                 {m.username}
                               </Link>
                             ) : (
-                              <span className="text-muted-foreground">Assigned (no username)</span>
+                              <span className="text-muted-foreground">{t('admin.rosterAssignedNoUsername')}</span>
                             )
                           ) : (
-                            <span className="text-muted-foreground">Unassigned</span>
+                            <span className="text-muted-foreground">{t('admin.rosterUnassigned')}</span>
                           )}
                         </td>
                         <td className="px-3 py-2">{m.current_elo}</td>
@@ -873,7 +887,7 @@ const AdminPage = () => {
                                     [m.roster_id]: nextUserId,
                                   }));
                                 }}
-                                placeholder="Select user to assign..."
+                                placeholder={t('admin.rosterSelectUser')}
                                 excludeUserIds={rosterAssignedUserIds}
                                 disabled={assigningRosterId === m.roster_id}
                               />
@@ -882,7 +896,7 @@ const AdminPage = () => {
                                 onClick={() => handleAssignRoster(m.roster_id)}
                                 disabled={assigningRosterId === m.roster_id}
                               >
-                                {assigningRosterId === m.roster_id ? 'Assigning...' : 'Assign'}
+                                {assigningRosterId === m.roster_id ? t('admin.rosterAssigningAction') : t('admin.rosterAssignAction')}
                               </Button>
                             </div>
                           )}
@@ -945,8 +959,8 @@ const AdminPage = () => {
 
           <div className="mt-4">
             <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
-              <span>{t('common.totalN', { count: total })}</span>
-              <span>{t('common.pageOf', { page, pages })}</span>
+              <span>{t('common.totalN', { n: total })}</span>
+              <span>{t('common.pageOf', { current: page, total: pages })}</span>
             </div>
             <Pagination>
               <PaginationContent>
@@ -977,9 +991,9 @@ const AdminPage = () => {
             <div>
           <CardTitle className="flex items-center">
                 <Award className="h-5 w-5 mr-2" />
-                Badge Management
+                {t('admin.badgeManagementTitle')}
           </CardTitle>
-              <CardDescription>Create, edit, and award badges to users</CardDescription>
+              <CardDescription>{t('admin.badgeManagementDesc')}</CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-64">
@@ -991,25 +1005,25 @@ const AdminPage = () => {
                   }}
                 >
                   <UiSelectTrigger>
-                    <UiSelectValue placeholder="Sort" />
+                    <UiSelectValue placeholder={t('sort.label')} />
                   </UiSelectTrigger>
                   <UiSelectContent>
-                    <UiSelectItem value="created_desc">Most recent created</UiSelectItem>
-                    <UiSelectItem value="last_awarded_desc">Most recent awards</UiSelectItem>
-                    <UiSelectItem value="awarded_desc">Most awarded</UiSelectItem>
-                    <UiSelectItem value="awarded_asc">Least awarded</UiSelectItem>
+                    <UiSelectItem value="created_desc">{t('sort.createdDesc')}</UiSelectItem>
+                    <UiSelectItem value="last_awarded_desc">{t('sort.lastAwardedDesc')}</UiSelectItem>
+                    <UiSelectItem value="awarded_desc">{t('sort.awardedDesc')}</UiSelectItem>
+                    <UiSelectItem value="awarded_asc">{t('sort.awardedAsc')}</UiSelectItem>
                   </UiSelectContent>
                 </UiSelect>
               </div>
             <Dialog open={badgeFormOpen} onOpenChange={setBadgeFormOpen}>
               <DialogTrigger asChild>
-                <Button onClick={openCreateBadge}><PlusCircle className="h-4 w-4 mr-2" />Create Badge</Button>
+                <Button onClick={openCreateBadge}><PlusCircle className="h-4 w-4 mr-2" />{t('admin.badgeCreateAction')}</Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl bg-gray-900 border-2 border-gray-700">
                 <DialogHeader>
-                  <DialogTitle>{editingBadge ? 'Edit Badge' : 'Create Badge'}</DialogTitle>
+                  <DialogTitle>{editingBadge ? t('admin.badgeEditTitle') : t('admin.badgeCreateTitle')}</DialogTitle>
                   <DialogDescription>
-                    {editingBadge ? 'Update badge details' : 'Create a new badge to award to users'}
+                    {editingBadge ? t('admin.badgeEditDesc') : t('admin.badgeCreateDesc')}
                   </DialogDescription>
                 </DialogHeader>
                 <Form {...badgeForm}>
@@ -1019,9 +1033,9 @@ const AdminPage = () => {
                       control={badgeForm.control}
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Name</FormLabel>
+                          <FormLabel>{t('admin.name')}</FormLabel>
                           <FormControl>
-                            <Input placeholder="Badge name" {...field} />
+                            <Input placeholder={t('admin.badgeNamePlaceholder')} {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1032,9 +1046,9 @@ const AdminPage = () => {
                       control={badgeForm.control}
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Description</FormLabel>
+                          <FormLabel>{t('admin.description')}</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="Badge description" rows={3} {...field} />
+                            <Textarea placeholder={t('admin.badgeDescriptionPlaceholder')} rows={3} {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1046,11 +1060,11 @@ const AdminPage = () => {
                         control={badgeForm.control}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Icon</FormLabel>
+                            <FormLabel>{t('admin.badgeIconLabel')}</FormLabel>
                             <Select value={field.value} onValueChange={field.onChange}>
                               <FormControl>
                                 <SelectTrigger>
-                                  <SelectValue placeholder="Select icon" />
+                                  <SelectValue placeholder={t('admin.badgeIconPlaceholder')} />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
@@ -1068,16 +1082,16 @@ const AdminPage = () => {
                         control={badgeForm.control}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Badge Type</FormLabel>
+                            <FormLabel>{t('admin.badgeTypeLabel')}</FormLabel>
                             <Select value={field.value} onValueChange={field.onChange}>
                               <FormControl>
                                 <SelectTrigger>
-                                  <SelectValue placeholder="Select type" />
+                                  <SelectValue placeholder={t('admin.badgeTypePlaceholder')} />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
                                 {badgeTypes.map((type) => (
-                                  <SelectItem key={type} value={type}>{type.replace('_', ' ')}</SelectItem>
+                                  <SelectItem key={type} value={type}>{badgeTypeLabel(type)}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
@@ -1092,7 +1106,7 @@ const AdminPage = () => {
                         control={badgeForm.control}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Visibility</FormLabel>
+                            <FormLabel>{t('admin.badgeVisibilityLabel')}</FormLabel>
                             <Select
                               value={field.value || 'public'}
                               onValueChange={field.onChange}
@@ -1100,16 +1114,16 @@ const AdminPage = () => {
                             >
                               <FormControl>
                                 <SelectTrigger>
-                                  <SelectValue placeholder="Select visibility" />
+                                  <SelectValue placeholder={t('admin.badgeVisibilityPlaceholder')} />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="public">Public (global)</SelectItem>
-                                <SelectItem value="private">Private (only me)</SelectItem>
+                                <SelectItem value="public">{t('admin.badgeVisibilityPublic')}</SelectItem>
+                                <SelectItem value="private">{t('admin.badgeVisibilityPrivate')}</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormDescription>
-                              Public badges show up in everyone&apos;s badge list. Private badges are only visible to you.
+                              {t('admin.badgeVisibilityHint')}
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
@@ -1121,7 +1135,7 @@ const AdminPage = () => {
                       control={badgeForm.control}
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Badge Image (optional)</FormLabel>
+                          <FormLabel>{t('admin.badgeImageLabel')}</FormLabel>
                           <FormControl>
                             <div className="space-y-2">
                               {!uploadedImageSrc && !field.value && (
@@ -1171,7 +1185,7 @@ const AdminPage = () => {
                                         setUploadedImageSrc(field.value);
                                       }}
                                     >
-                                      Edit Image
+                                      {t('admin.badgeEditImage')}
                                     </Button>
                                     <Button
                                       type="button"
@@ -1182,7 +1196,7 @@ const AdminPage = () => {
                                         field.onChange('');
                                       }}
                                     >
-                                      Remove
+                                      {t('admin.badgeRemoveImage')}
                                     </Button>
                                   </div>
                                   <input
@@ -1203,7 +1217,7 @@ const AdminPage = () => {
                                 </div>
                               )}
                               <FormDescription>
-                                Upload an image for this badge. It will be cropped to 128x128 (1:1 ratio) and stored as base64.
+                                {t('admin.badgeImageHint')}
                               </FormDescription>
                             </div>
                           </FormControl>
@@ -1213,20 +1227,20 @@ const AdminPage = () => {
                     />
                     {(editingBadge && (user?.is_admin || (editingBadge?.visibility === 'private' && editingBadge?.created_by === user?.id))) && (
                       <div className="space-y-2">
-                        <FormLabel>Users with this badge ({badgeUsers.length})</FormLabel>
+                        <FormLabel>{t('admin.badgeUsersTitle', { count: badgeUsers.length })}</FormLabel>
                         {loadingBadgeUsers ? (
-                          <div className="text-sm text-muted-foreground py-2">Loading...</div>
+                          <div className="text-sm text-muted-foreground py-2">{t('admin.badgeUsersLoading')}</div>
                         ) : badgeUsers.length === 0 ? (
-                          <div className="text-sm text-muted-foreground py-2">No users have this badge yet.</div>
+                          <div className="text-sm text-muted-foreground py-2">{t('admin.badgeUsersEmpty')}</div>
                         ) : (
                           <div className="border border-gray-700 rounded-lg max-h-60 overflow-y-auto">
                             <table className="w-full text-sm">
                               <thead className="sticky top-0 z-10 bg-muted/40 text-muted-foreground">
                                 <tr>
-                                  <th className="text-left font-medium px-3 py-2">User</th>
-                                  <th className="text-left font-medium px-3 py-2">League</th>
-                                  <th className="text-left font-medium px-3 py-2">Earned</th>
-                                  <th className="text-right font-medium px-3 py-2">Actions</th>
+                                  <th className="text-left font-medium px-3 py-2">{t('admin.badgeUserHeader')}</th>
+                                  <th className="text-left font-medium px-3 py-2">{t('admin.badgeLeagueHeader')}</th>
+                                  <th className="text-left font-medium px-3 py-2">{t('admin.badgeEarnedHeader')}</th>
+                                  <th className="text-right font-medium px-3 py-2">{t('admin.badgeActionsHeader')}</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -1235,7 +1249,7 @@ const AdminPage = () => {
                                     <td className="px-3 py-2">
                                       <Link to={`/app/profile/${user.username}`} className="text-blue-400 hover:text-blue-300 underline hover:no-underline">{user.username}</Link>
                                     </td>
-                                    <td className="px-3 py-2 text-muted-foreground">{user.league_name || 'Global'}</td>
+                                    <td className="px-3 py-2 text-muted-foreground">{user.league_name || t('admin.badgeGlobalLabel')}</td>
                                     <td className="px-3 py-2 text-muted-foreground">
                                       {user.earned_at ? format(new Date(user.earned_at), 'MMM d, yyyy') : '-'}
                                     </td>
@@ -1246,7 +1260,7 @@ const AdminPage = () => {
                                         className="bg-red-600 hover:bg-red-700 text-white"
                                         onClick={() => handleRevokeBadge(user.id, editingBadge.id, user.username)}
                                       >
-                                        Revoke
+                                        {t('admin.badgeRevokeAction')}
                                       </Button>
                                     </td>
                                   </tr>
@@ -1258,9 +1272,9 @@ const AdminPage = () => {
                       </div>
                     )}
                     <DialogFooter>
-                      <Button type="button" variant="outline" onClick={() => setBadgeFormOpen(false)}>Cancel</Button>
+                      <Button type="button" variant="outline" onClick={() => setBadgeFormOpen(false)}>{t('admin.badgeCancel')}</Button>
                       <Button type="submit" disabled={submitting}>
-                        {submitting ? 'Saving...' : editingBadge ? 'Update Badge' : 'Create Badge'}
+                        {submitting ? t('admin.badgeSaving') : editingBadge ? t('admin.badgeUpdateAction') : t('admin.badgeCreateAction')}
                       </Button>
                     </DialogFooter>
                   </form>
@@ -1274,21 +1288,21 @@ const AdminPage = () => {
           {loadingBadges ? (
             <div className="py-8"><LoadingSpinner /></div>
           ) : badges.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No badges created yet. Create your first badge!</div>
+            <div className="text-sm text-muted-foreground">{t('admin.badgeManagementEmpty')}</div>
           ) : (
             <>
               <div className="overflow-x-auto rounded-md border">
                 <table className="min-w-full text-sm">
-                  <thead className="bg-muted/40 text-muted-foreground">
+                  <thead className="bg-gray-900/70 text-gray-200">
                     <tr>
-                      <th className="text-left font-medium px-3 py-2">Image</th>
-                      <th className="text-left font-medium px-3 py-2">Name</th>
-                      <th className="text-left font-medium px-3 py-2">Scope</th>
-                      <th className="text-left font-medium px-3 py-2">Icon</th>
-                      <th className="text-left font-medium px-3 py-2">Type</th>
-                      <th className="text-left font-medium px-3 py-2">Times Awarded</th>
-                      <th className="text-left font-medium px-3 py-2">Created</th>
-                      <th className="text-right font-medium px-3 py-2">Actions</th>
+                      <th className="text-left font-medium px-3 py-2">{t('admin.badgeImageColumn')}</th>
+                      <th className="text-left font-medium px-3 py-2">{t('admin.badgeNameColumn')}</th>
+                      <th className="text-left font-medium px-3 py-2">{t('admin.badgeScopeColumn')}</th>
+                      <th className="text-left font-medium px-3 py-2">{t('admin.badgeIconColumn')}</th>
+                      <th className="text-left font-medium px-3 py-2">{t('admin.badgeTypeColumn')}</th>
+                      <th className="text-left font-medium px-3 py-2">{t('admin.badgeTimesAwardedColumn')}</th>
+                      <th className="text-left font-medium px-3 py-2">{t('admin.badgeCreatedColumn')}</th>
+                      <th className="text-right font-medium px-3 py-2">{t('admin.badgeActionsColumn')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1307,7 +1321,7 @@ const AdminPage = () => {
                                 }}
                               />
                               <div className="hidden text-xs text-muted-foreground items-center justify-center w-full h-full">
-                                No image
+                                {t('admin.badgeNoImage')}
                               </div>
                             </div>
                           ) : (
@@ -1324,11 +1338,11 @@ const AdminPage = () => {
                         </td>
                         <td className="px-3 py-3">
                           <span className={badge.visibility === 'public' ? 'text-green-400' : 'text-blue-400'}>
-                            {badge.visibility === 'public' ? 'Public' : 'Private'}
+                            {badge.visibility === 'public' ? t('admin.badgeScopePublic') : t('admin.badgeScopePrivate')}
                           </span>
                         </td>
                         <td className="px-3 py-3">{badge.icon}</td>
-                        <td className="px-3 py-3">{badge.badge_type?.replace('_', ' ') || '-'}</td>
+                        <td className="px-3 py-3">{badgeTypeLabel(badge.badge_type)}</td>
                         <td className="px-3 py-3">{badge.times_awarded || 0}</td>
                         <td className="px-3 py-3 text-muted-foreground">
                           {badge.created_at ? format(new Date(badge.created_at), 'MMM d, yyyy') : '-'}
@@ -1344,10 +1358,10 @@ const AdminPage = () => {
                               return (
                                 <>
                                   <Button size="sm" variant="outline" onClick={() => openEditBadge(badge)} disabled={!canManageBadge}>
-                                    <Edit className="h-3 w-3 mr-1" />Edit
+                                    <Edit className="h-3 w-3 mr-1" />{t('admin.badgeEditAction')}
                                   </Button>
                                   <Button size="sm" variant="outline" onClick={() => openAwardDialog(badge)} disabled={!canAwardBadge}>
-                                    <Gift className="h-3 w-3 mr-1" />Award
+                                    <Gift className="h-3 w-3 mr-1" />{t('admin.badgeAwardActionShort')}
                                   </Button>
                                   <AlertDialog>
                                     <AlertDialogTrigger asChild>
@@ -1357,24 +1371,24 @@ const AdminPage = () => {
                                         className="bg-red-600 hover:bg-red-700 text-white"
                                         disabled={!canManageBadge}
                                       >
-                                        <Trash2 className="h-3 w-3 mr-1" />Delete
+                                        <Trash2 className="h-3 w-3 mr-1" />{t('admin.badgeDeleteAction')}
                                       </Button>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent className="bg-gray-900 border-2 border-gray-700">
                                       <AlertDialogHeader>
-                                        <AlertDialogTitle>Delete Badge</AlertDialogTitle>
+                                        <AlertDialogTitle>{t('admin.badgeDeleteTitle')}</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                          Are you sure you want to delete "{badge.name}"?
-                                          {badge.times_awarded > 0 && ` This badge has been awarded to ${badge.times_awarded} user(s) and cannot be deleted.`}
+                                          {t('admin.badgeDeletePrompt', { name: badge.name })}
+                                          {badge.times_awarded > 0 && ` ${t('admin.badgeDeleteBlocked', { count: badge.times_awarded })}`}
                                         </AlertDialogDescription>
                                       </AlertDialogHeader>
                                       <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogCancel>{t('admin.badgeCancel')}</AlertDialogCancel>
                                         <AlertDialogAction
                                           onClick={() => handleDeleteBadge(badge.id)}
                                           disabled={badge.times_awarded > 0}
                                         >
-                                          Delete
+                                          {t('admin.badgeDeleteAction')}
                                         </AlertDialogAction>
                                       </AlertDialogFooter>
                                     </AlertDialogContent>
@@ -1578,19 +1592,19 @@ const AdminPage = () => {
       <Dialog open={awardDialogOpen} onOpenChange={setAwardDialogOpen}>
         <DialogContent className="bg-gray-900 border-2 border-gray-700">
           <DialogHeader>
-            <DialogTitle>Award Badge: {selectedBadgeForAward?.name}</DialogTitle>
+            <DialogTitle>{t('admin.badgeAwardTitle', { name: awardBadgeName })}</DialogTitle>
             <DialogDescription>
-              Award this badge to a user in a league you admin.
+              {t('admin.badgeAwardDesc')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             {adminLeagues.length === 0 && (
               <div className="rounded-md border border-yellow-700/40 bg-yellow-900/10 p-3 text-sm text-yellow-200">
-                You’re not a league admin yet — create a league first to award badges.
+                {t('admin.badgeNoAdminWarning')}
               </div>
             )}
             <div>
-              <label className="text-sm font-medium">League</label>
+              <label className="text-sm font-medium">{t('admin.badgeLeagueLabel')}</label>
               <Select 
                 value={awardLeagueId || undefined} 
                 onValueChange={(value) => {
@@ -1604,14 +1618,14 @@ const AdminPage = () => {
                 <SelectTrigger className="w-full mt-1">
                   <SelectValue placeholder={
                     adminLeagues.length === 0
-                      ? 'You are not an admin in any league'
-                      : 'Select league'
+                      ? t('admin.badgeNoLeagues')
+                      : t('admin.badgeSelectLeaguePlaceholder')
                   } />
                 </SelectTrigger>
                 <SelectContent>
                   {adminLeagues.length === 0 ? (
                     <SelectItem disabled value="0">
-                      No leagues available
+                      {t('admin.badgeNoLeagues')}
                     </SelectItem>
                   ) : (
                     adminLeagues.map((league) => (
@@ -1624,7 +1638,7 @@ const AdminPage = () => {
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium">User</label>
+              <label className="text-sm font-medium">{t('admin.badgeUserLabel')}</label>
               <Select
                 value={awardUserId || undefined}
                 onValueChange={(value) => setAwardUserId(value || '')}
@@ -1633,12 +1647,12 @@ const AdminPage = () => {
                 <SelectTrigger className="w-full mt-1">
                   <SelectValue placeholder={
                     !awardLeagueId
-                      ? 'Select a league first'
+                      ? t('admin.badgeSelectLeagueFirst')
                       : loadingAwardLeagueMembers
-                      ? 'Loading league members...'
+                      ? t('admin.badgeLoadingMembers')
                       : awardLeagueMembers.length === 0
-                      ? 'No eligible users in this league'
-                      : 'Select user'
+                      ? t('admin.badgeNoEligibleUsers')
+                      : t('admin.badgeSelectUserPlaceholder')
                   } />
                 </SelectTrigger>
                 <SelectContent>
@@ -1651,19 +1665,19 @@ const AdminPage = () => {
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium">Season (optional)</label>
+              <label className="text-sm font-medium">{t('admin.badgeSeasonLabel')}</label>
               <Input
                 value={awardSeason}
                 onChange={(e) => setAwardSeason(e.target.value)}
-                placeholder="e.g., 2025"
+                placeholder={t('admin.badgeSeasonPlaceholder')}
                 className="mt-1"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setAwardDialogOpen(false)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => setAwardDialogOpen(false)}>{t('admin.badgeCancel')}</Button>
             <Button onClick={handleAwardBadge} disabled={awarding || !awardLeagueId || !awardUserId}>
-              {awarding ? 'Awarding...' : 'Award Badge'}
+              {awarding ? t('admin.badgeAwarding') : t('admin.badgeAwardAction')}
             </Button>
           </DialogFooter>
         </DialogContent>
