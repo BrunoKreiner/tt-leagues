@@ -127,43 +127,22 @@ const LeagueEloTimeline = ({ leagueId, players, playersStatus, playersError, elo
   }, [selectedSeries]);
 
   const yDomain = useMemo(() => {
-    let minValue;
-    let maxValue;
-
-    if (eloRange) {
-      const minRaw = eloRange.min_elo;
-      const maxRaw = eloRange.max_elo;
-      const parsedMin = typeof minRaw === 'number' ? minRaw : Number.parseFloat(minRaw);
-      const parsedMax = typeof maxRaw === 'number' ? maxRaw : Number.parseFloat(maxRaw);
-      if (Number.isFinite(parsedMin) && Number.isFinite(parsedMax)) {
-        minValue = parsedMin;
-        maxValue = parsedMax;
-      }
+    if (!eloRange) {
+      return null;
     }
 
-    if (minValue === undefined || maxValue === undefined) {
-      const values = [];
-      selectedSeries.forEach((entry) => {
-        if (!Array.isArray(entry.history)) return;
-        entry.history.forEach((point) => {
-          if (typeof point.elo_after === 'number') {
-            values.push(point.elo_after);
-          }
-        });
-      });
-      if (values.length > 0) {
-        minValue = Math.min(...values);
-        maxValue = Math.max(...values);
-      }
-    }
+    const minRaw = eloRange.min_elo;
+    const maxRaw = eloRange.max_elo;
+    const parsedMin = typeof minRaw === 'number' ? minRaw : Number.parseFloat(minRaw);
+    const parsedMax = typeof maxRaw === 'number' ? maxRaw : Number.parseFloat(maxRaw);
 
-    if (!Number.isFinite(minValue) || !Number.isFinite(maxValue)) {
+    if (!Number.isFinite(parsedMin) || !Number.isFinite(parsedMax)) {
       return null;
     }
 
     const padding = 100;
-    return [minValue - padding, maxValue + padding];
-  }, [eloRange, selectedSeries]);
+    return [parsedMin - padding, parsedMax + padding];
+  }, [eloRange]);
 
   const toggleRoster = (rosterId) => {
     setSelectedRosterIds((prev) => {
@@ -251,6 +230,8 @@ const LeagueEloTimeline = ({ leagueId, players, playersStatus, playersError, elo
           <p className="text-sm text-red-400">{error}</p>
         ) : chartData.length === 0 ? (
           <p className="text-sm text-gray-400">{t('leagues.eloTimelineEmpty')}</p>
+        ) : yDomain === null ? (
+          <p className="text-sm text-red-400">{t('leagues.eloTimelineError')}</p>
         ) : (
           <ChartContainer className="h-40 w-full aspect-[4/1]" config={chartConfig}>
             <LineChart data={chartData} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>

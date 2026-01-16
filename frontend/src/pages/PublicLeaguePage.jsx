@@ -27,8 +27,6 @@ const PublicLeaguePage = () => {
   const [matchesStatus, setMatchesStatus] = useState('idle');
   const [matchesError, setMatchesError] = useState(null);
   const [eloRange, setEloRange] = useState(null);
-  const [eloRangeStatus, setEloRangeStatus] = useState('idle');
-  const [eloRangeError, setEloRangeError] = useState(null);
 
   useEffect(() => {
     const fetchLeagueData = async () => {
@@ -39,8 +37,6 @@ const PublicLeaguePage = () => {
         setMatchesError(null);
         setLeaderboardStatus('loading');
         setMatchesStatus('loading');
-        setEloRangeStatus('loading');
-        setEloRangeError(null);
         
         const [leagueRes, leaderboardRes, matchesRes, eloRangeRes] = await Promise.allSettled([
           leaguesAPI.getById(id, { ttlMs: 15000 }),
@@ -83,15 +79,8 @@ const PublicLeaguePage = () => {
 
         if (eloRangeRes.status === 'fulfilled') {
           setEloRange(eloRangeRes.value.data);
-          setEloRangeStatus('loaded');
         } else {
-          setEloRangeStatus('error');
-          const apiMessage = eloRangeRes.reason?.response?.data?.error;
-          if (typeof apiMessage === 'string' && apiMessage.length > 0) {
-            setEloRangeError(apiMessage);
-          } else {
-            setEloRangeError(t('leagues.eloTimelineError'));
-          }
+          setEloRange(null);
         }
       } catch (err) {
         console.error('Failed to load league:', err);

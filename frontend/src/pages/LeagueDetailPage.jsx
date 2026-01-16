@@ -72,7 +72,6 @@ const LeagueDetailPage = () => {
   const [matchesError, setMatchesError] = useState(null);
   const [eloRange, setEloRange] = useState(null);
   const [eloRangeStatus, setEloRangeStatus] = useState('idle');
-  const [eloRangeError, setEloRangeError] = useState(null);
   const { isAuthenticated, isAdmin, user } = useAuth();
   const [inviteCode, setInviteCode] = useState('');
   const [joinLoading, setJoinLoading] = useState(false);
@@ -162,7 +161,6 @@ const LeagueDetailPage = () => {
         setRosterOptionsError(null);
         setRosterOptions([]);
         setEloRangeStatus('idle');
-        setEloRangeError(null);
         setEloRange(null);
 
         const leagueRes = await leaguesAPI.getSnapshot(id, { ttlMs: 10000 });
@@ -400,7 +398,6 @@ const LeagueDetailPage = () => {
   const fetchEloRange = async (options) => {
     try {
       setEloRangeStatus('loading');
-      setEloRangeError(null);
       const res = await leaguesAPI.getEloRange(id, options);
       const rangeData = res.data;
       if (rangeData) {
@@ -413,10 +410,11 @@ const LeagueDetailPage = () => {
       console.error('Failed to load ELO range', e);
       const apiMessage = e?.response?.data?.error;
       if (typeof apiMessage === 'string' && apiMessage.length > 0) {
-        setEloRangeError(apiMessage);
+        toast.error(apiMessage);
       } else {
-        setEloRangeError(t('leagues.eloTimelineError'));
+        toast.error(t('leagues.eloTimelineError'));
       }
+      setEloRange(null);
       setEloRangeStatus('error');
     }
   };
