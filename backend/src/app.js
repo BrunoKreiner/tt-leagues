@@ -21,6 +21,10 @@ const { moderationErrorHandler } = require('./middleware/contentModeration');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const shouldTrustProxy = process.env.TRUST_PROXY === '1' || process.env.VERCEL;
+if (shouldTrustProxy) {
+    app.set('trust proxy', 1);
+}
 // When running on Vercel, initialize the DB on cold start and await before handling requests
 let dbReady = null;
 if (process.env.VERCEL) {
