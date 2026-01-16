@@ -433,7 +433,7 @@ router.get('/:id/members', authenticateToken, validateId, async (req, res) => {
                     OR (lr.user_id IS NULL AND (m.player1_roster_id = lr.id OR m.player2_roster_id = lr.id))
                 )
             WHERE lr.league_id = ?
-            GROUP BY lr.id, lr.user_id, u.username, u.first_name, u.last_name, lr.display_name, lr.current_elo, lr.is_admin, lr.joined_at
+            GROUP BY lr.id, lr.user_id, u.username, u.first_name, u.last_name, lr.display_name, lr.current_elo, lr.is_admin, lr.is_participating, lr.joined_at
             ORDER BY lr.current_elo DESC
         `, [true, leagueId]);
         
