@@ -230,6 +230,7 @@ export const ticketsAPI = {
 export const adminAPI = {
   runRosterParticipationMigration: () => api.post('/admin/migrations/roster-participation'),
   runLeagueSnapshotsMigration: () => api.post('/admin/migrations/league-snapshots'),
+  runJoinRequestsMigration: () => api.post('/admin/migrations/join-requests'),
 };
 
 export default api;
