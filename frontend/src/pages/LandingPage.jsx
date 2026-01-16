@@ -80,14 +80,14 @@ const LandingPage = () => {
   }, []);
 
   const features = [
-    'Create or join leagues',
-    'Track your ELO rating and performance',
+    'Manage your own leagues',
+    'Track your performance among friends',
+    'Complex ELO system',
     'Manage league members and logged matches',
     'Match history with detailed stats',
-    'See who\'s on top of leaderboards',
+    'Leaderboards',
     'Define and award custom badges',
     'Show off your profile',
-    'Full league management',
   ];
 
   const comingSoon = ['Tournament systems', 'Different sport configurations', 'Chat system'];
@@ -105,9 +105,6 @@ const LandingPage = () => {
               </span>
             </Link>
             <div className="flex items-center gap-3">
-              <span className="hidden sm:inline-flex items-center text-[11px] font-semibold tracking-wide uppercase text-emerald-200/70 bg-emerald-500/5 border border-emerald-500/15 px-2 py-1 rounded-md">
-                Free
-              </span>
               <Button variant="ghost" size="sm" asChild className="text-gray-400 hover:text-white">
                 <Link to="/login">Log in</Link>
               </Button>
