@@ -18,4 +18,18 @@ router.post('/migrations/roster-participation', authenticateToken, requireAdmin,
     }
 });
 
+/**
+ * Run league snapshot migration (site admin only)
+ * POST /api/admin/migrations/league-snapshots
+ */
+router.post('/migrations/league-snapshots', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        await database.ensureLeagueSnapshotsTable();
+        res.json({ message: 'League snapshots migration applied' });
+    } catch (error) {
+        console.error('League snapshots migration error:', error);
+        res.status(500).json({ error: 'Failed to apply league snapshots migration' });
+    }
+});
+
 module.exports = router;

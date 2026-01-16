@@ -143,12 +143,27 @@ const LeagueDetailPage = () => {
         setMembersStatus('idle');
         setMembersError(null);
 
-        const leagueRes = await leaguesAPI.getById(id, { ttlMs: 10000 });
+        const leagueRes = await leaguesAPI.getSnapshot(id, { ttlMs: 10000 });
         if (cancelled) return;
 
         const leagueData = leagueRes.data;
         setLeague(leagueData.league);
         setUserMembership(leagueData.user_membership);
+        const snapshotLeaderboard = Array.isArray(leagueData.leaderboard) ? leagueData.leaderboard : [];
+        setLeaderboard(snapshotLeaderboard);
+        const paginationData = leagueData.leaderboard_pagination;
+        if (
+          paginationData &&
+          typeof paginationData.page === 'number' &&
+          typeof paginationData.pages === 'number' &&
+          typeof paginationData.total === 'number' &&
+          typeof paginationData.limit === 'number'
+        ) {
+          setLeaderboardPagination(paginationData);
+        } else {
+          setLeaderboardPagination({ page: 1, pages: 1, total: 0, limit: 20 });
+        }
+        setLeaderboardStatus('loaded');
       } catch (err) {
         if (cancelled) return;
         setError(err.response?.data?.error || t('leagues.loadError'));
@@ -223,13 +238,29 @@ const LeagueDetailPage = () => {
 
   const refreshLeagueData = async () => {
     try {
-      const leagueRes = await leaguesAPI.getById(id, { ttlMs: 10000 });
-      setLeague(leagueRes.data.league);
-      setUserMembership(leagueRes.data.user_membership);
+      const leagueRes = await leaguesAPI.getSnapshot(id, { ttlMs: 0 });
+      const leagueData = leagueRes.data;
+      setLeague(leagueData.league);
+      setUserMembership(leagueData.user_membership);
       // Update eloMode state to match the refreshed league data
-      const newEloMode = leagueRes.data.league.elo_update_mode || 'immediate';
+      const newEloMode = leagueData.league.elo_update_mode || 'immediate';
       setEloMode(newEloMode);
-      const canManage = isAuthenticated && (isAdmin || leagueRes.data.user_membership?.is_admin);
+      const canManage = isAuthenticated && (isAdmin || leagueData.user_membership?.is_admin);
+      const snapshotLeaderboard = Array.isArray(leagueData.leaderboard) ? leagueData.leaderboard : [];
+      setLeaderboard(snapshotLeaderboard);
+      const paginationData = leagueData.leaderboard_pagination;
+      if (
+        paginationData &&
+        typeof paginationData.page === 'number' &&
+        typeof paginationData.pages === 'number' &&
+        typeof paginationData.total === 'number' &&
+        typeof paginationData.limit === 'number'
+      ) {
+        setLeaderboardPagination(paginationData);
+      } else {
+        setLeaderboardPagination({ page: 1, pages: 1, total: 0, limit: 20 });
+      }
+      setLeaderboardStatus('loaded');
       if (canManage) {
         await fetchMembers();
       }

@@ -118,6 +118,7 @@ const AdminPage = () => {
   const [ticketStatusFilter, setTicketStatusFilter] = useState('open');
   const [updatingTicketId, setUpdatingTicketId] = useState(null);
   const [migrationRunning, setMigrationRunning] = useState(false);
+  const [snapshotMigrationRunning, setSnapshotMigrationRunning] = useState(false);
 
   const runRosterParticipationMigration = async () => {
     try {
@@ -129,6 +130,19 @@ const AdminPage = () => {
       toast.error(msg);
     } finally {
       setMigrationRunning(false);
+    }
+  };
+
+  const runLeagueSnapshotsMigration = async () => {
+    try {
+      setSnapshotMigrationRunning(true);
+      const res = await adminAPI.runLeagueSnapshotsMigration();
+      toast.success(res.data?.message || 'Migration applied');
+    } catch (error) {
+      const msg = error.response?.data?.error || 'Failed to apply migration';
+      toast.error(msg);
+    } finally {
+      setSnapshotMigrationRunning(false);
     }
   };
 
@@ -581,14 +595,25 @@ const AdminPage = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm text-gray-400">
-              Adds the `is_participating` roster column for leaderboard opt-out.
+          <div className="space-y-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm text-gray-400">
+                Adds the `is_participating` roster column for leaderboard opt-out.
+              </div>
+              <Button onClick={runRosterParticipationMigration} disabled={migrationRunning}>
+                {migrationRunning && <LoadingSpinner className="mr-2 h-4 w-4" />}
+                {migrationRunning ? 'Running...' : 'Run roster migration'}
+              </Button>
             </div>
-            <Button onClick={runRosterParticipationMigration} disabled={migrationRunning}>
-              {migrationRunning && <LoadingSpinner className="mr-2 h-4 w-4" />}
-              {migrationRunning ? 'Running...' : 'Run roster migration'}
-            </Button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm text-gray-400">
+                Creates the league snapshot cache table for fast league loads.
+              </div>
+              <Button onClick={runLeagueSnapshotsMigration} disabled={snapshotMigrationRunning}>
+                {snapshotMigrationRunning && <LoadingSpinner className="mr-2 h-4 w-4" />}
+                {snapshotMigrationRunning ? 'Running...' : 'Run snapshot migration'}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -3,6 +3,7 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const { validateId, validatePagination } = require('../middleware/validation');
 const { moderateText, ModerationError } = require('../middleware/contentModeration');
 const database = require('../models/database');
+const { markLeagueSnapshotDirty } = require('../utils/leagueSnapshots');
 
 const router = express.Router();
 
@@ -615,7 +616,7 @@ router.post('/users/:id/badges', authenticateToken, validateId, async (req, res)
                 error: notifError.message
             });
         }
-        
+        await markLeagueSnapshotDirty(leagueIdInt);
         res.status(201).json({
             message: `Badge "${badge.name}" awarded successfully to ${user.username}`,
             awarded_badge: awardedBadge

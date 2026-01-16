@@ -3,6 +3,7 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const { validateMatchCreation, validateId, validatePagination } = require('../middleware/validation');
 const { calculateNewElos, validateMatchResult } = require('../utils/eloCalculator');
 const database = require('../models/database');
+const { markLeagueSnapshotDirty } = require('../utils/leagueSnapshots');
 
 const router = express.Router();
 
@@ -807,6 +808,7 @@ router.post('/:id/accept', authenticateToken, validateId, async (req, res) => {
                 return { player1EloChange, player2EloChange };
             });
 
+            await markLeagueSnapshotDirty(match.league_id);
             res.json({
                 message: 'Match accepted successfully',
                 elo_changes: {
@@ -849,6 +851,7 @@ router.post('/:id/accept', authenticateToken, validateId, async (req, res) => {
                 );
             }
 
+            await markLeagueSnapshotDirty(match.league_id);
             res.json({ message: 'Match accepted. ELO update deferred to consolidation.' });
         }
     } catch (error) {
@@ -899,7 +902,13 @@ router.post('/leagues/:leagueId/consolidate', authenticateToken, async (req, res
         // Fetch all accepted matches that haven't had ELO applied yet
         console.log(`Fetching matches for league ${leagueId}...`);
         const matches = await database.all(
-            'SELECT id, player1_roster_id, player2_roster_id FROM matches WHERE league_id = ? AND is_accepted = ? AND (elo_applied = ? OR elo_applied IS NULL) ORDER BY accepted_at ASC',
+            `SELECT 
+                id, player1_roster_id, player2_roster_id,
+                player1_points_total, player2_points_total,
+                player1_sets_won, player2_sets_won
+            FROM matches
+            WHERE league_id = ? AND is_accepted = ? AND (elo_applied = ? OR elo_applied IS NULL)
+            ORDER BY accepted_at ASC`,
             [leagueId, true, false]
         );
 
@@ -913,78 +922,122 @@ router.post('/leagues/:leagueId/consolidate', authenticateToken, async (req, res
             return res.status(400).json({ error: 'No matches to consolidate' });
         }
 
-        let appliedCount = 0;
-        for (const m of matches) {
-            console.log(`Processing match ${m.id}...`);
-            try {
-                await database.withTransaction(async (tx) => {
-                    console.log(`Getting ELO data for match ${m.id}...`);
-                    // Get current ELOs as of now
-                    const p1 = await tx.get('SELECT user_id, current_elo FROM league_roster WHERE league_id = ? AND id = ?', [leagueId, m.player1_roster_id]);
-                    const p2 = await tx.get('SELECT user_id, current_elo FROM league_roster WHERE league_id = ? AND id = ?', [leagueId, m.player2_roster_id]);
+        const rosterIds = Array.from(new Set(
+            matches.flatMap((m) => [m.player1_roster_id, m.player2_roster_id])
+        ));
+        const rosterPlaceholders = rosterIds.map(() => '?').join(', ');
+        const rosterRows = await database.all(
+            `SELECT id, user_id, current_elo FROM league_roster WHERE league_id = ? AND id IN (${rosterPlaceholders})`,
+            [leagueId, ...rosterIds]
+        );
 
-                    console.log(`Match ${m.id} ELO data: p1=${p1?.current_elo}, p2=${p2?.current_elo}`);
+        const baseEloByRosterId = new Map();
+        const userIdByRosterId = new Map();
+        rosterRows.forEach((row) => {
+            baseEloByRosterId.set(row.id, row.current_elo);
+            userIdByRosterId.set(row.id, row.user_id);
+        });
 
-                    if (!p1 || !p2) {
-                        throw new Error(`Missing ELO data for match ${m.id}: p1=${!!p1}, p2=${!!p2}`);
-                    }
-
-                    // Get match details needed to compute
-                    console.log(`Getting match details for match ${m.id}...`);
-                    const details = await tx.get('SELECT player1_points_total, player2_points_total, player1_sets_won, player2_sets_won FROM matches WHERE id = ?', [m.id]);
-
-                    if (!details) {
-                        throw new Error(`Missing match details for match ${m.id}`);
-                    }
-
-                    console.log(`Match ${m.id} details:`, details);
-
-                    const didP1Win = details.player1_sets_won > details.player2_sets_won;
-                    console.log(`Match ${m.id} winner: player1=${didP1Win}, sets: ${details.player1_sets_won}-${details.player2_sets_won}`);
-
-                    const eloResult = calculateNewElos(
-                        p1.current_elo,
-                        p2.current_elo,
-                        details.player1_points_total || 0,
-                        details.player2_points_total || 0,
-                        didP1Win,
-                        details.player1_sets_won,
-                        details.player2_sets_won
-                    );
-
-                    console.log(`Match ${m.id} ELO result:`, eloResult);
-
-                    // Update match with before/after at application time and mark applied
-                    console.log(`Updating match ${m.id} with ELO data...`);
-                    const winnerRosterId = didP1Win ? m.player1_roster_id : m.player2_roster_id;
-                    await tx.run(
-                        'UPDATE matches SET player1_elo_before = ?, player2_elo_before = ?, player1_elo_after = ?, player2_elo_after = ?, winner_roster_id = ?, elo_applied = ?, elo_applied_at = CURRENT_TIMESTAMP WHERE id = ?',
-                        [p1.current_elo, p2.current_elo, eloResult.newRating1, eloResult.newRating2, winnerRosterId, true, m.id]
-                    );
-
-                    // Update league member elos
-                    console.log(`Updating league member ELOs for match ${m.id}...`);
-                    await tx.run('UPDATE league_roster SET current_elo = ? WHERE league_id = ? AND id = ?', [eloResult.newRating1, leagueId, m.player1_roster_id]);
-                    await tx.run('UPDATE league_roster SET current_elo = ? WHERE league_id = ? AND id = ?', [eloResult.newRating2, leagueId, m.player2_roster_id]);
-
-                    // Insert history
-                    console.log(`Inserting ELO history for match ${m.id}...`);
-                    await tx.run('INSERT INTO elo_history (user_id, league_id, roster_id, match_id, elo_before, elo_after, elo_change, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)', [p1.user_id || null, leagueId, m.player1_roster_id, m.id, p1.current_elo, eloResult.newRating1, eloResult.newRating1 - p1.current_elo]);
-                    await tx.run('INSERT INTO elo_history (user_id, league_id, roster_id, match_id, elo_before, elo_after, elo_change, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)', [p2.user_id || null, leagueId, m.player2_roster_id, m.id, p2.current_elo, eloResult.newRating2, eloResult.newRating2 - p2.current_elo]);
-                    
-                    console.log(`Transaction completed successfully for match ${m.id}`);
-                });
-                appliedCount += 1;
-                console.log(`Successfully consolidated match ${m.id}`);
-            } catch (error) {
-                console.error(`Failed to consolidate match ${m.id}:`, error);
-                console.error('Error details:', error.message, error.stack);
-                throw error; // Re-throw to stop the entire consolidation
-            }
+        if (baseEloByRosterId.size !== rosterIds.length) {
+            throw new Error('Missing roster entries for consolidation');
         }
 
-        console.log(`Consolidation completed successfully. Applied to ${appliedCount} matches.`);
-        res.json({ message: 'Consolidation complete', applied: appliedCount });
+        const deltaByRosterId = new Map();
+        rosterIds.forEach((id) => deltaByRosterId.set(id, 0));
+
+        const matchUpdates = matches.map((m) => {
+            const p1Base = baseEloByRosterId.get(m.player1_roster_id);
+            const p2Base = baseEloByRosterId.get(m.player2_roster_id);
+
+            if (p1Base == null || p2Base == null) {
+                throw new Error(`Missing base ELOs for match ${m.id}`);
+            }
+
+            const didP1Win = m.player1_sets_won > m.player2_sets_won;
+            const eloResult = calculateNewElos(
+                p1Base,
+                p2Base,
+                m.player1_points_total || 0,
+                m.player2_points_total || 0,
+                didP1Win,
+                m.player1_sets_won,
+                m.player2_sets_won
+            );
+
+            const p1Delta = eloResult.newRating1 - p1Base;
+            const p2Delta = eloResult.newRating2 - p2Base;
+
+            deltaByRosterId.set(m.player1_roster_id, deltaByRosterId.get(m.player1_roster_id) + p1Delta);
+            deltaByRosterId.set(m.player2_roster_id, deltaByRosterId.get(m.player2_roster_id) + p2Delta);
+
+            return {
+                matchId: m.id,
+                player1RosterId: m.player1_roster_id,
+                player2RosterId: m.player2_roster_id,
+                player1EloBefore: p1Base,
+                player2EloBefore: p2Base,
+                player1EloAfter: p1Base + p1Delta,
+                player2EloAfter: p2Base + p2Delta,
+                winnerRosterId: didP1Win ? m.player1_roster_id : m.player2_roster_id,
+                player1Delta: p1Delta,
+                player2Delta: p2Delta,
+            };
+        });
+
+        await database.withTransaction(async (tx) => {
+            for (const update of matchUpdates) {
+                await tx.run(
+                    'UPDATE matches SET player1_elo_before = ?, player2_elo_before = ?, player1_elo_after = ?, player2_elo_after = ?, winner_roster_id = ?, elo_applied = ?, elo_applied_at = CURRENT_TIMESTAMP WHERE id = ?',
+                    [
+                        update.player1EloBefore,
+                        update.player2EloBefore,
+                        update.player1EloAfter,
+                        update.player2EloAfter,
+                        update.winnerRosterId,
+                        true,
+                        update.matchId
+                    ]
+                );
+
+                await tx.run(
+                    'INSERT INTO elo_history (user_id, league_id, roster_id, match_id, elo_before, elo_after, elo_change, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+                    [
+                        userIdByRosterId.get(update.player1RosterId) || null,
+                        leagueId,
+                        update.player1RosterId,
+                        update.matchId,
+                        update.player1EloBefore,
+                        update.player1EloAfter,
+                        update.player1Delta
+                    ]
+                );
+                await tx.run(
+                    'INSERT INTO elo_history (user_id, league_id, roster_id, match_id, elo_before, elo_after, elo_change, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+                    [
+                        userIdByRosterId.get(update.player2RosterId) || null,
+                        leagueId,
+                        update.player2RosterId,
+                        update.matchId,
+                        update.player2EloBefore,
+                        update.player2EloAfter,
+                        update.player2Delta
+                    ]
+                );
+            }
+
+            for (const [rosterId, delta] of deltaByRosterId.entries()) {
+                const base = baseEloByRosterId.get(rosterId);
+                if (base == null) continue;
+                await tx.run(
+                    'UPDATE league_roster SET current_elo = ? WHERE league_id = ? AND id = ?',
+                    [base + delta, leagueId, rosterId]
+                );
+            }
+        });
+
+        await markLeagueSnapshotDirty(leagueId);
+        console.log(`Consolidation completed successfully. Applied to ${matches.length} matches.`);
+        res.json({ message: 'Consolidation complete', applied: matches.length });
     } catch (error) {
         console.error('Consolidate ELO error:', error);
         console.error('Error stack:', error.stack);

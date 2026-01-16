@@ -4,16 +4,143 @@ const { validateLeagueCreation, validateId, validatePagination } = require('../m
 const { moderateText, ModerationError } = require('../middleware/contentModeration');
 const database = require('../models/database');
 const crypto = require('crypto');
+const { SNAPSHOT_VERSION, getCachedLeagueSnapshot, saveLeagueSnapshot, markLeagueSnapshotDirty } = require('../utils/leagueSnapshots');
 
 const router = express.Router();
 
 const PUBLIC_CACHE_SECONDS = 60 * 60 * 24;
 const PUBLIC_CACHE_SWR_SECONDS = 60 * 60;
+const SNAPSHOT_LEADERBOARD_LIMIT = 20;
 const shouldCachePublic = (req) => !req.user && !req.headers.authorization;
 const setPublicCacheHeaders = (req, res) => {
     if (!shouldCachePublic(req)) return;
     res.set('Cache-Control', `public, s-maxage=${PUBLIC_CACHE_SECONDS}, stale-while-revalidate=${PUBLIC_CACHE_SWR_SECONDS}`);
     res.set('Vary', 'Origin');
+};
+
+const buildLeagueSnapshot = async (leagueId, leagueRow) => {
+    const league = leagueRow || await database.get(`
+        SELECT 
+            l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at,
+            u.username as created_by_username,
+            COUNT(DISTINCT lr.id) as member_count,
+            COUNT(DISTINCT m.id) as match_count
+        FROM leagues l
+        JOIN users u ON l.created_by = u.id
+        LEFT JOIN league_roster lr ON l.id = lr.league_id
+        LEFT JOIN matches m ON l.id = m.league_id AND m.is_accepted = ?
+        WHERE l.id = ? AND l.is_active = ?
+        GROUP BY l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at, u.username
+    `, [true, leagueId, true]);
+
+    if (!league) {
+        return null;
+    }
+
+    const leaderboard = await database.all(`
+        SELECT 
+            lr.id as roster_id,
+            lr.user_id,
+            u.username,
+            u.first_name,
+            u.last_name,
+            u.avatar_url,
+            lr.display_name,
+            lr.current_elo,
+            lr.joined_at,
+            COUNT(CASE 
+                WHEN lr.user_id IS NOT NULL AND (m.player1_id = lr.user_id OR m.player2_id = lr.user_id) THEN m.id
+                WHEN lr.user_id IS NULL AND (m.player1_roster_id = lr.id OR m.player2_roster_id = lr.id) THEN m.id
+            END) as matches_played,
+            COUNT(CASE 
+                WHEN lr.user_id IS NOT NULL AND m.winner_id = lr.user_id THEN m.id
+                WHEN lr.user_id IS NULL AND m.winner_roster_id = lr.id THEN m.id
+            END) as matches_won,
+            ROW_NUMBER() OVER (ORDER BY lr.current_elo DESC) as rank
+        FROM league_roster lr
+        LEFT JOIN users u ON lr.user_id = u.id
+        LEFT JOIN matches m ON m.league_id = lr.league_id 
+            AND m.is_accepted = ?
+            AND (
+                (lr.user_id IS NOT NULL AND (m.player1_id = lr.user_id OR m.player2_id = lr.user_id))
+                OR (lr.user_id IS NULL AND (m.player1_roster_id = lr.id OR m.player2_roster_id = lr.id))
+            )
+        WHERE lr.league_id = ? AND lr.is_participating = ?
+        GROUP BY lr.id, lr.user_id, u.username, u.first_name, u.last_name, u.avatar_url, lr.display_name, lr.current_elo, lr.joined_at
+        ORDER BY lr.current_elo DESC
+        LIMIT ? OFFSET ?
+    `, [true, leagueId, true, SNAPSHOT_LEADERBOARD_LIMIT, 0]);
+
+    const totalRow = await database.get(
+        'SELECT COUNT(*) as count FROM league_roster WHERE league_id = ? AND is_participating = ?',
+        [leagueId, true]
+    );
+
+    const userIds = Array.from(new Set(
+        leaderboard
+            .map((player) => player.user_id)
+            .filter((userId) => userId != null)
+    ));
+    let badgesByUser = new Map();
+    if (userIds.length > 0) {
+        const placeholders = userIds.map(() => '?').join(', ');
+        const badgeRows = await database.all(`
+            SELECT 
+                ub.user_id,
+                b.id, b.name, b.description, b.icon, b.badge_type, b.image_url,
+                ub.earned_at
+            FROM user_badges ub
+            JOIN badges b ON ub.badge_id = b.id
+            WHERE ub.user_id IN (${placeholders})
+            AND (ub.league_id = ? OR ub.league_id IS NULL)
+            ORDER BY ub.user_id, ub.earned_at DESC
+        `, [...userIds, leagueId]);
+        badgesByUser = new Map();
+        badgeRows.forEach((row) => {
+            const key = String(row.user_id);
+            const current = badgesByUser.get(key) || [];
+            if (current.length >= 3) {
+                return;
+            }
+            current.push({
+                id: row.id,
+                name: row.name,
+                description: row.description,
+                icon: row.icon,
+                badge_type: row.badge_type,
+                image_url: row.image_url,
+                earned_at: row.earned_at,
+            });
+            badgesByUser.set(key, current);
+        });
+    }
+
+    const leaderboardWithBadges = leaderboard.map((player) => {
+        const winRate = player.matches_played > 0
+            ? Math.round((player.matches_won / player.matches_played) * 100)
+            : 0;
+        const badgeList = player.user_id != null
+            ? (badgesByUser.get(String(player.user_id)) || [])
+            : [];
+        return {
+            ...player,
+            win_rate: winRate,
+            badges: badgeList,
+        };
+    });
+
+    return {
+        version: SNAPSHOT_VERSION,
+        generated_at: new Date().toISOString(),
+        league,
+        leaderboard: leaderboardWithBadges,
+        leaderboard_pagination: {
+            page: 1,
+            limit: SNAPSHOT_LEADERBOARD_LIMIT,
+            total: totalRow?.count || 0,
+            pages: Math.ceil((totalRow?.count || 0) / SNAPSHOT_LEADERBOARD_LIMIT)
+        }
+    };
 };
 
 /**
@@ -154,7 +281,7 @@ router.post('/', authenticateToken, validateLeagueCreation, async (req, res) => 
             JOIN users u ON l.created_by = u.id
             WHERE l.id = ?
         `, [result.id]);
-        
+        await markLeagueSnapshotDirty(result.id);
         res.status(201).json({
             message: 'League created successfully',
             league
@@ -164,6 +291,83 @@ router.post('/', authenticateToken, validateLeagueCreation, async (req, res) => 
             return res.status(error.status || 400).json({ error: error.message, code: error.code });
         }
         console.error('Create league error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Get cached league snapshot (public + member access)
+ * GET /api/leagues/:id/snapshot
+ */
+router.get('/:id/snapshot', optionalAuth, validateId, async (req, res) => {
+    try {
+        const leagueId = parseInt(req.params.id);
+
+        const leagueRow = await database.get(`
+            SELECT 
+                l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at,
+                u.username as created_by_username,
+                COUNT(DISTINCT lr.id) as member_count,
+                COUNT(DISTINCT m.id) as match_count
+            FROM leagues l
+            JOIN users u ON l.created_by = u.id
+            LEFT JOIN league_roster lr ON l.id = lr.league_id
+            LEFT JOIN matches m ON l.id = m.league_id AND m.is_accepted = ?
+            WHERE l.id = ? AND l.is_active = ?
+            GROUP BY l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at, u.username
+        `, [true, leagueId, true]);
+
+        if (!leagueRow) {
+            return res.status(404).json({ error: 'League not found' });
+        }
+
+        if (!leagueRow.is_public && req.user) {
+            const membership = await database.get(
+                'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
+                [leagueId, req.user.id]
+            );
+            if (!membership && !req.user.is_admin) {
+                return res.status(403).json({ error: 'Access denied to private league' });
+            }
+        } else if (!leagueRow.is_public && !req.user) {
+            return res.status(403).json({ error: 'Access denied to private league' });
+        }
+
+        let userMembership = null;
+        if (req.user) {
+            userMembership = await database.get(
+                'SELECT id as roster_id, current_elo, is_admin, joined_at, display_name FROM league_roster WHERE league_id = ? AND user_id = ?',
+                [leagueId, req.user.id]
+            );
+        }
+
+        const cached = await getCachedLeagueSnapshot(leagueId);
+        if (cached) {
+            if (leagueRow.is_public) {
+                setPublicCacheHeaders(req, res);
+            }
+            return res.json({
+                ...cached.payload,
+                snapshot_updated_at: cached.updated_at,
+                user_membership: userMembership
+            });
+        }
+
+        const snapshot = await buildLeagueSnapshot(leagueId, leagueRow);
+        if (!snapshot) {
+            return res.status(404).json({ error: 'League not found' });
+        }
+        await saveLeagueSnapshot(leagueId, snapshot);
+        if (leagueRow.is_public) {
+            setPublicCacheHeaders(req, res);
+        }
+        res.json({
+            ...snapshot,
+            snapshot_updated_at: new Date().toISOString(),
+            user_membership: userMembership
+        });
+    } catch (error) {
+        console.error('Get league snapshot error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -312,7 +516,7 @@ router.put('/:id', authenticateToken, requireLeagueAdmin, validateId, async (req
             JOIN users u ON l.created_by = u.id
             WHERE l.id = ?
         `, [leagueId]);
-        
+        await markLeagueSnapshotDirty(leagueId);
         res.json({
             message: 'League updated successfully',
             league: updatedLeague
@@ -477,7 +681,7 @@ router.post('/:id/participation', authenticateToken, requireLeagueAdmin, validat
             'UPDATE league_roster SET is_participating = ? WHERE league_id = ? AND user_id = ?',
             [is_participating, leagueId, req.user.id]
         );
-
+        await markLeagueSnapshotDirty(leagueId);
         res.json({ message: 'Participation updated', is_participating });
     } catch (error) {
         console.error('Update participation error:', error);
@@ -512,7 +716,7 @@ router.post('/:id/roster', authenticateToken, requireLeagueAdmin, validateId, as
             'SELECT id as roster_id, league_id, user_id, display_name, current_elo, is_admin, joined_at FROM league_roster WHERE id = ?',
             [result.id]
         );
-
+        await markLeagueSnapshotDirty(leagueId);
         res.status(201).json({ message: 'Roster placeholder created', roster: rosterEntry });
     } catch (error) {
         if (error instanceof ModerationError) {
@@ -589,7 +793,7 @@ router.post('/:id/roster/:rosterId/assign', authenticateToken, requireLeagueAdmi
             'SELECT id as roster_id, league_id, user_id, display_name, current_elo, is_admin, joined_at FROM league_roster WHERE id = ?',
             [rosterId]
         );
-
+        await markLeagueSnapshotDirty(leagueId);
         res.json({ message: 'Roster entry assigned', roster: updated });
     } catch (error) {
         console.error('Assign roster entry error:', error);
@@ -795,7 +999,7 @@ router.post('/:id/join', authenticateToken, validateId, async (req, res) => {
             'SELECT current_elo FROM league_roster WHERE league_id = ? AND user_id = ?',
             [leagueId, req.user.id]
         );
-        
+        await markLeagueSnapshotDirty(leagueId);
         res.json({
             message: `Successfully joined league "${league.name}"`,
             current_elo: rosterEntry ? rosterEntry.current_elo : initialElo
@@ -831,7 +1035,7 @@ router.delete('/:id/leave', authenticateToken, validateId, async (req, res) => {
         );
         
         const league = await database.get('SELECT name FROM leagues WHERE id = ?', [leagueId]);
-        
+        await markLeagueSnapshotDirty(leagueId);
         res.json({ message: `Successfully left league "${league.name}"` });
     } catch (error) {
         console.error('Leave league error:', error);
@@ -1321,6 +1525,7 @@ router.post('/:id/members/:userId/promote', authenticateToken, requireLeagueAdmi
             [true, leagueId, userId]
         );
 
+        await markLeagueSnapshotDirty(leagueId);
         res.json({ message: 'Member promoted to admin' });
     } catch (error) {
         console.error('Promote member error:', error);
@@ -1362,6 +1567,7 @@ router.post('/:id/members/:userId/demote', authenticateToken, requireLeagueAdmin
             [false, leagueId, userId]
         );
 
+        await markLeagueSnapshotDirty(leagueId);
         res.json({ message: 'Admin demoted to member' });
     } catch (error) {
         console.error('Demote member error:', error);
