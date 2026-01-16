@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useTranslation } from 'react-i18next';
 
@@ -30,6 +31,7 @@ const MAX_SETS_BY_TYPE = {
 
 const schema = z.object({
   league_id: z.coerce.number().int().positive({ message: 'Select a league' }),
+  player1_roster_id: z.coerce.number().int().positive().optional(),
   player2_roster_id: z.coerce.number().int().positive({ message: 'Select an opponent' }),
   game_type: z.enum(['best_of_1', 'best_of_3', 'best_of_5', 'best_of_7']),
   player1_sets_won: z.coerce.number().int().min(0).max(4),
@@ -42,7 +44,13 @@ const schema = z.object({
   message: 'Sets won must not be equal (there must be a winner)',
 });
 
-export default function RecordMatchForm({ initialLeagueId, hideLeagueSelector = false, onSuccess, leagueName }) {
+export default function RecordMatchForm({
+  initialLeagueId,
+  hideLeagueSelector = false,
+  onSuccess,
+  leagueName,
+  allowAdminMatchForOthers = false,
+}) {
   const { t } = useTranslation();
   const { user } = useAuth();
 
@@ -51,6 +59,7 @@ export default function RecordMatchForm({ initialLeagueId, hideLeagueSelector = 
   const [loadingLeagues, setLoadingLeagues] = useState(true);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [adminMode, setAdminMode] = useState(false);
 
   const [eloPreview, setEloPreview] = useState(null);
   const [gameTypeValue, setGameTypeValue] = useState('best_of_3');
@@ -61,10 +70,22 @@ export default function RecordMatchForm({ initialLeagueId, hideLeagueSelector = 
     try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch { return null; }
   }, [user]);
 
+  const selfRoster = useMemo(
+    () => members.find((member) => member.user_id === me?.id),
+    [members, me?.id]
+  );
+
+  const player1Options = useMemo(() => members, [members]);
+  const player2Options = useMemo(() => {
+    if (adminMode) return members;
+    return members.filter((member) => member.user_id !== me?.id);
+  }, [adminMode, members, me?.id]);
+
   const form = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
       league_id: initialLeagueId || undefined,
+      player1_roster_id: undefined,
       player2_roster_id: undefined,
       game_type: 'best_of_3',
       player1_sets_won: 2,
@@ -86,10 +107,7 @@ export default function RecordMatchForm({ initialLeagueId, hideLeagueSelector = 
           setLoadingMembers(true);
           const { data } = await leaguesAPI.getMembers(initialLeagueId);
           const arr = (data.members || data) || [];
-          console.log('Loaded members:', arr.length, 'Current user ID:', me.id);
-          const filtered = arr.filter((m) => m.user_id !== me.id);
-          console.log('Filtered members (excluding self):', filtered.length);
-          setMembers(filtered);
+          setMembers(arr);
         } catch (e) {
           console.error('Failed to load members', e);
           toast.error(t('recordMatch.failedToLoadLeagueMembers'));
@@ -108,6 +126,16 @@ export default function RecordMatchForm({ initialLeagueId, hideLeagueSelector = 
     }
     setGameTypeValue(form.getValues('game_type') || 'best_of_3');
   }, [form]);
+
+  useEffect(() => {
+    if (!adminMode) {
+      form.setValue('player1_roster_id', undefined);
+      const currentOpponent = form.getValues('player2_roster_id');
+      if (currentOpponent && selfRoster?.roster_id && currentOpponent === selfRoster.roster_id) {
+        form.setValue('player2_roster_id', undefined);
+      }
+    }
+  }, [adminMode, form, selfRoster?.roster_id]);
 
   // Local state: per-set points for each played set (auto totals)
   const [setScores, setSetScores] = useState([{ p1: 0, p2: 0 }, { p1: 0, p2: 0 }, { p1: 0, p2: 0 }]);
@@ -221,9 +249,11 @@ export default function RecordMatchForm({ initialLeagueId, hideLeagueSelector = 
           setLoadingMembers(true);
           const { data } = await leaguesAPI.getMembers(leagueId);
           const arr = (data.members || data) || [];
-          const filtered = arr.filter((m) => m.user_id !== me?.id);
-          setMembers(filtered);
-          if (filtered.findIndex((m) => m.roster_id === values.player2_roster_id) === -1) {
+          setMembers(arr);
+          const allowedOpponents = adminMode
+            ? arr
+            : arr.filter((m) => m.user_id !== me?.id);
+          if (allowedOpponents.findIndex((m) => m.roster_id === values.player2_roster_id) === -1) {
             form.setValue('player2_roster_id', undefined);
           }
         } catch (e) {
@@ -242,8 +272,20 @@ export default function RecordMatchForm({ initialLeagueId, hideLeagueSelector = 
     const subscription = form.watch((values) => {
       if (previewTimer.current) clearTimeout(previewTimer.current);
       previewTimer.current = setTimeout(async () => {
-        const { league_id, player2_roster_id, player1_sets_won, player2_sets_won, player1_points_total, player2_points_total } = values;
+        const {
+          league_id,
+          player1_roster_id,
+          player2_roster_id,
+          player1_sets_won,
+          player2_sets_won,
+          player1_points_total,
+          player2_points_total,
+        } = values;
         if (!league_id || !player2_roster_id || player1_sets_won == null || player2_sets_won == null) {
+          setEloPreview(null);
+          return;
+        }
+        if (adminMode && !player1_roster_id) {
           setEloPreview(null);
           return;
         }
@@ -256,6 +298,9 @@ export default function RecordMatchForm({ initialLeagueId, hideLeagueSelector = 
             player1_points_total: Number.isFinite(+player1_points_total) ? +player1_points_total : 0,
             player2_points_total: Number.isFinite(+player2_points_total) ? +player2_points_total : 0,
           };
+          if (adminMode) {
+            payload.player1_roster_id = player1_roster_id;
+          }
           const { data } = await matchesAPI.previewElo(payload);
           setEloPreview(data);
         } catch {
@@ -264,11 +309,24 @@ export default function RecordMatchForm({ initialLeagueId, hideLeagueSelector = 
       }, 300);
     });
     return () => subscription.unsubscribe();
-  }, [form]);
+  }, [adminMode, form]);
 
   const onSubmit = async (values) => {
     try {
       setSubmitting(true);
+      if (adminMode) {
+        if (!values.player1_roster_id || !values.player2_roster_id) {
+          form.setError('player1_roster_id', { type: 'manual', message: 'Select Player 1' });
+          form.setError('player2_roster_id', { type: 'manual', message: 'Select Player 2' });
+          setSubmitting(false);
+          return;
+        }
+        if (values.player1_roster_id === values.player2_roster_id) {
+          form.setError('player2_roster_id', { type: 'manual', message: 'Players must be different' });
+          setSubmitting(false);
+          return;
+        }
+      }
       const payload = {
         league_id: values.league_id,
         player2_roster_id: values.player2_roster_id,
@@ -279,6 +337,9 @@ export default function RecordMatchForm({ initialLeagueId, hideLeagueSelector = 
         game_type: values.game_type,
         ...(values.played_at ? { played_at: values.played_at } : {}),
       };
+      if (adminMode) {
+        payload.player1_roster_id = values.player1_roster_id;
+      }
       const nonEmptySets = setScores
         .filter((s) => Number(s.p1) > 0 || Number(s.p2) > 0)
         .map((s) => ({ player1_score: Number(s.p1) || 0, player2_score: Number(s.p2) || 0 }));
@@ -341,6 +402,64 @@ export default function RecordMatchForm({ initialLeagueId, hideLeagueSelector = 
           </div>
         )}
 
+        {allowAdminMatchForOthers && (
+          <div className="flex items-center justify-between rounded-md border border-gray-700 bg-gray-900/40 px-3 py-2">
+            <div>
+              <div className="text-sm text-gray-200">Record match for others</div>
+              <div className="text-xs text-gray-500">Select both players in the league</div>
+            </div>
+            <Switch checked={adminMode} onCheckedChange={setAdminMode} />
+          </div>
+        )}
+
+        {adminMode && (
+          <FormField
+            name="player1_roster_id"
+            control={form.control}
+            render={({ field }) => {
+              const leagueId = form.getValues('league_id');
+              return (
+                <FormItem>
+                  <FormLabel>Player 1</FormLabel>
+                  <FormControl>
+                    <Select
+                      value={field.value?.toString()}
+                      onValueChange={(v) => field.onChange(Number(v))}
+                      disabled={!leagueId || loadingMembers}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue
+                          placeholder={
+                            !leagueId
+                              ? t('recordMatch.selectLeagueFirst')
+                              : (loadingMembers
+                                ? t('common.loading')
+                                : (player1Options.length === 0 ? t('recordMatch.noMembers') : 'Select Player 1'))
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {loadingMembers ? (
+                          <SelectItem disabled value="0">{t('common.loading')}</SelectItem>
+                        ) : player1Options.length === 0 ? (
+                          <SelectItem disabled value="0">{t('recordMatch.noMembers')}</SelectItem>
+                        ) : (
+                          player1Options.map((m) => (
+                            <SelectItem key={m.roster_id} value={String(m.roster_id)}>
+                              {m.display_name} {typeof m.current_elo === 'number' ? `(ELO ${m.current_elo})` : ''}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
+          />
+        )}
+
         {/* Opponent selector */}
         <FormField
           name="player2_roster_id"
@@ -349,21 +468,31 @@ export default function RecordMatchForm({ initialLeagueId, hideLeagueSelector = 
             const leagueId = form.getValues('league_id');
             return (
               <FormItem>
-                <FormLabel>{t('recordMatch.opponentLabel')}</FormLabel>
+                <FormLabel>{adminMode ? 'Player 2' : t('recordMatch.opponentLabel')}</FormLabel>
                 <FormControl>
                   <Select value={field.value?.toString()}
                           onValueChange={(v) => field.onChange(Number(v))}
                           disabled={!leagueId || loadingMembers}>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder={!leagueId ? t('recordMatch.selectLeagueFirst') : (loadingMembers ? t('common.loading') : (members.length === 0 ? t('recordMatch.noMembers') : t('recordMatch.selectOpponent')))} />
+                      <SelectValue
+                        placeholder={
+                          !leagueId
+                            ? t('recordMatch.selectLeagueFirst')
+                            : (loadingMembers
+                              ? t('common.loading')
+                              : (player2Options.length === 0
+                                ? t('recordMatch.noMembers')
+                                : (adminMode ? 'Select Player 2' : t('recordMatch.selectOpponent'))))
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {loadingMembers ? (
                         <SelectItem disabled value="0">{t('common.loading')}</SelectItem>
-                      ) : members.length === 0 ? (
+                      ) : player2Options.length === 0 ? (
                         <SelectItem disabled value="0">{t('recordMatch.noMembers')}</SelectItem>
                       ) : (
-                        members.map((m) => (
+                        player2Options.map((m) => (
                           <SelectItem key={m.roster_id} value={String(m.roster_id)}>
                             {m.display_name} {typeof m.current_elo === 'number' ? `(ELO ${m.current_elo})` : ''}
                           </SelectItem>
@@ -372,7 +501,9 @@ export default function RecordMatchForm({ initialLeagueId, hideLeagueSelector = 
                     </SelectContent>
                   </Select>
                 </FormControl>
-                <FormDescription>{t('recordMatch.player1Note')}</FormDescription>
+                {!adminMode && (
+                  <FormDescription>{t('recordMatch.player1Note')}</FormDescription>
+                )}
                 <FormMessage />
               </FormItem>
             );

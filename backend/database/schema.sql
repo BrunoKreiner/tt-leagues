@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS league_roster (
     display_name VARCHAR(200) NOT NULL,
     current_elo INTEGER DEFAULT 1200,
     is_admin BOOLEAN DEFAULT FALSE,
+    is_participating BOOLEAN DEFAULT TRUE,
     joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,

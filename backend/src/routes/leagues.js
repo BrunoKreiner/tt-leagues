@@ -414,6 +414,7 @@ router.get('/:id/members', authenticateToken, validateId, async (req, res) => {
                 lr.display_name,
                 lr.current_elo,
                 lr.is_admin as is_league_admin,
+                lr.is_participating,
                 lr.joined_at,
                 COUNT(CASE 
                     WHEN lr.user_id IS NOT NULL AND (m.player1_id = lr.user_id OR m.player2_id = lr.user_id) THEN m.id
@@ -445,6 +446,41 @@ router.get('/:id/members', authenticateToken, validateId, async (req, res) => {
         });
     } catch (error) {
         console.error('Get league members error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Update participation for current admin (hide/show from leaderboard)
+ * POST /api/leagues/:id/participation
+ * Body: { is_participating: boolean }
+ */
+router.post('/:id/participation', authenticateToken, requireLeagueAdmin, validateId, async (req, res) => {
+    try {
+        const leagueId = parseInt(req.params.id);
+        const { is_participating } = req.body || {};
+
+        if (typeof is_participating !== 'boolean') {
+            return res.status(400).json({ error: 'is_participating must be a boolean' });
+        }
+
+        const roster = await database.get(
+            'SELECT id, user_id FROM league_roster WHERE league_id = ? AND user_id = ?',
+            [leagueId, req.user.id]
+        );
+
+        if (!roster) {
+            return res.status(404).json({ error: 'Roster membership not found' });
+        }
+
+        await database.run(
+            'UPDATE league_roster SET is_participating = ? WHERE league_id = ? AND user_id = ?',
+            [is_participating, leagueId, req.user.id]
+        );
+
+        res.json({ message: 'Participation updated', is_participating });
+    } catch (error) {
+        console.error('Update participation error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -866,16 +902,16 @@ router.get('/:id/leaderboard', optionalAuth, validateId, validatePagination, asy
                     (lr.user_id IS NOT NULL AND (m.player1_id = lr.user_id OR m.player2_id = lr.user_id))
                     OR (lr.user_id IS NULL AND (m.player1_roster_id = lr.id OR m.player2_roster_id = lr.id))
                 )
-            WHERE lr.league_id = ?
+            WHERE lr.league_id = ? AND lr.is_participating = ?
             GROUP BY lr.id, lr.user_id, u.username, u.first_name, u.last_name, u.avatar_url, lr.display_name, lr.current_elo, lr.joined_at
             ORDER BY lr.current_elo DESC
             LIMIT ? OFFSET ?
-        `, [true, leagueId, limit, offset]);
+        `, [true, leagueId, true, limit, offset]);
 
         // Total members for pagination
         const totalRow = await database.get(
-            'SELECT COUNT(*) as count FROM league_roster WHERE league_id = ?'
-        , [leagueId]);
+            'SELECT COUNT(*) as count FROM league_roster WHERE league_id = ? AND is_participating = ?'
+        , [leagueId, true]);
         
         let badgesByUser = new Map();
         if (includeBadges) {

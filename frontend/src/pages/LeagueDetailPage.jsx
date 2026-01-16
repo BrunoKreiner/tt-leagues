@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { leaguesAPI, matchesAPI, badgesAPI } from '@/services/api';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -58,13 +58,15 @@ const LeagueDetailPage = () => {
   const [leaderboardPagination, setLeaderboardPagination] = useState({ page: 1, pages: 1, total: 0, limit: 20 });
   const [leaderboardStatus, setLeaderboardStatus] = useState('idle');
   const [leaderboardError, setLeaderboardError] = useState(null);
+  const [shouldLoadLeaderboard, setShouldLoadLeaderboard] = useState(false);
+  const leaderboardSectionRef = useRef(null);
   const [members, setMembers] = useState([]);
   const [membersStatus, setMembersStatus] = useState('idle');
   const [membersError, setMembersError] = useState(null);
   const [matches, setMatches] = useState([]);
   const [matchesStatus, setMatchesStatus] = useState('idle');
   const [matchesError, setMatchesError] = useState(null);
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { isAuthenticated, isAdmin, user } = useAuth();
   const [inviteCode, setInviteCode] = useState('');
   const [joinLoading, setJoinLoading] = useState(false);
   const [inviteUserId, setInviteUserId] = useState(null);
@@ -88,6 +90,7 @@ const LeagueDetailPage = () => {
   const [awardMemberId, setAwardMemberId] = useState('');
   const [awardSeason, setAwardSeason] = useState('');
   const [awardingBadge, setAwardingBadge] = useState(false);
+  const [participationLoading, setParticipationLoading] = useState(false);
 
   // Roster management (placeholders)
   const [placeholderDisplayName, setPlaceholderDisplayName] = useState('');
@@ -133,94 +136,29 @@ const LeagueDetailPage = () => {
       try {
         setLoading(true);
         setError(null);
-        setLeaderboardStatus('loading');
+        setLeaderboardStatus('idle');
         setLeaderboardError(null);
-        setMatchesStatus('loading');
+        setMatchesStatus('idle');
         setMatchesError(null);
-        if (isAuthenticated) {
-          setMembersStatus('loading');
-        } else {
-          setMembersStatus('loaded');
-        }
+        setMembersStatus('idle');
         setMembersError(null);
 
-        const leagueP = leaguesAPI.getById(id, { ttlMs: 10000 });
-        const leaderboardP = leaguesAPI.getLeaderboard(id, { page: 1, limit: 20 }, { ttlMs: 10000 });
-        const matchesP = leaguesAPI.getMatches(id, { page: 1, limit: 10 }, { ttlMs: 10000 });
-        const membersP = isAuthenticated
-          ? leaguesAPI.getMembers(id, { ttlMs: 10000 })
-          : Promise.resolve({ data: { members: [] } });
-
-        const [leagueRes, leaderboardRes, membersRes, matchesRes] = await Promise.allSettled([
-          leagueP,
-          leaderboardP,
-          membersP,
-          matchesP,
-        ]);
-
+        const leagueRes = await leaguesAPI.getById(id, { ttlMs: 10000 });
         if (cancelled) return;
 
-        if (leagueRes.status === 'rejected') {
-          const err = leagueRes.reason;
-          setError(err?.response?.data?.error || t('leagues.loadError'));
-          return;
-        }
-
-        const leagueData = leagueRes.value.data;
+        const leagueData = leagueRes.data;
         setLeague(leagueData.league);
         setUserMembership(leagueData.user_membership);
-
-        if (leaderboardRes.status === 'fulfilled') {
-          const leaderboardData = leaderboardRes.value.data?.leaderboard;
-          setLeaderboard(Array.isArray(leaderboardData) ? leaderboardData : []);
-          const paginationData = leaderboardRes.value.data?.pagination;
-          if (
-            paginationData &&
-            typeof paginationData.page === 'number' &&
-            typeof paginationData.pages === 'number' &&
-            typeof paginationData.total === 'number' &&
-            typeof paginationData.limit === 'number'
-          ) {
-            setLeaderboardPagination(paginationData);
-          } else {
-            setLeaderboardPagination({ page: 1, pages: 1, total: 0, limit: 20 });
-          }
-          setLeaderboardStatus('loaded');
-        } else {
-          const apiMessage = leaderboardRes.reason?.response?.data?.error;
-          setLeaderboardError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : t('leagues.leaderboardError'));
-          setLeaderboardStatus('error');
-        }
-
-        if (membersRes.status === 'fulfilled') {
-          const memberData = membersRes.value.data?.members;
-          setMembers(Array.isArray(memberData) ? memberData : []);
-          setMembersStatus('loaded');
-        } else {
-          const apiMessage = membersRes.reason?.response?.data?.error;
-          setMembersError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : 'Failed to load members');
-          setMembersStatus('error');
-        }
-
-        if (matchesRes.status === 'fulfilled') {
-          const matchData = matchesRes.value.data?.matches;
-          setMatches(Array.isArray(matchData) ? matchData : []);
-          setMatchesStatus('loaded');
-        } else {
-          const apiMessage = matchesRes.reason?.response?.data?.error;
-          setMatchesError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : 'Failed to load matches');
-          setMatchesStatus('error');
-        }
       } catch (err) {
         if (cancelled) return;
-                 setError(err.response?.data?.error || t('leagues.loadError'));
+        setError(err.response?.data?.error || t('leagues.loadError'));
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
     load();
     return () => { cancelled = true; };
-  }, [id, isAuthenticated]);
+  }, [id, t]);
 
   // When league loads, populate the edit form defaults
   useEffect(() => {
@@ -236,6 +174,45 @@ const LeagueDetailPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [league]);
 
+  useEffect(() => {
+    const node = leaderboardSectionRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldLoadLeaderboard(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!shouldLoadLeaderboard || !id) return;
+    if (leaderboardStatus !== 'idle') return;
+    fetchLeaderboard(1);
+  }, [shouldLoadLeaderboard, id, leaderboardStatus]);
+
+  useEffect(() => {
+    if (!league || !id) return;
+    if (matchesStatus !== 'idle') return;
+    fetchMatches();
+  }, [league, id, matchesStatus]);
+
+  useEffect(() => {
+    if (!canManageLeague || !id) return;
+    if (membersStatus !== 'idle') return;
+    fetchMembers();
+  }, [canManageLeague, id, membersStatus]);
+
   const _eloDiff = (after, before) => {
     if (after == null || before == null) return null;
     const diff = after - before;
@@ -245,29 +222,24 @@ const LeagueDetailPage = () => {
 
   const refreshLeagueData = async () => {
     try {
-      if (isAuthenticated) {
-        setMembersStatus('loading');
-      } else {
-        setMembersStatus('loaded');
-      }
-      setMembersError(null);
-      const [leagueRes, membersRes] = await Promise.all([
-        leaguesAPI.getById(id, { ttlMs: 10000 }),
-        isAuthenticated ? leaguesAPI.getMembers(id, { ttlMs: 10000 }) : Promise.resolve({ data: { members: [] } }),
-      ]);
+      const leagueRes = await leaguesAPI.getById(id, { ttlMs: 10000 });
       setLeague(leagueRes.data.league);
       setUserMembership(leagueRes.data.user_membership);
-      const memberData = membersRes.data?.members;
-      setMembers(Array.isArray(memberData) ? memberData : []);
-      setMembersStatus('loaded');
       // Update eloMode state to match the refreshed league data
       const newEloMode = leagueRes.data.league.elo_update_mode || 'immediate';
       setEloMode(newEloMode);
+      const canManage = isAuthenticated && (isAdmin || leagueRes.data.user_membership?.is_admin);
+      if (canManage) {
+        await fetchMembers();
+      }
     } catch (e) {
       // Keep previous state; surface error softly
       console.error('Refresh league data failed', e);
-      const apiMessage = e?.response?.data?.error;
-      setMembersError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : 'Failed to load members');
+      if (e?.response?.data?.error) {
+        setMembersError(e.response.data.error);
+      } else {
+        setMembersError('Failed to load members');
+      }
       setMembersStatus('error');
     }
   };
@@ -298,6 +270,29 @@ const LeagueDetailPage = () => {
       setLeaderboardError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : t('leagues.leaderboardError'));
       setLeaderboardStatus('error');
       toast.error(t('leagues.leaderboardError'));
+    }
+  };
+
+  const fetchMembers = async () => {
+    try {
+      setMembersStatus('loading');
+      setMembersError(null);
+      const res = await leaguesAPI.getMembers(id, { ttlMs: 10000 });
+      const memberData = res.data?.members;
+      if (Array.isArray(memberData)) {
+        setMembers(memberData);
+      } else {
+        setMembers([]);
+      }
+      setMembersStatus('loaded');
+    } catch (e) {
+      console.error('Failed to load members', e);
+      if (e?.response?.data?.error) {
+        setMembersError(e.response.data.error);
+      } else {
+        setMembersError('Failed to load members');
+      }
+      setMembersStatus('error');
     }
   };
 
@@ -469,6 +464,37 @@ const LeagueDetailPage = () => {
     }
   };
 
+  const handleParticipationToggle = async (nextValue) => {
+    if (!id || !user?.id) return;
+    try {
+      setParticipationLoading(true);
+      const res = await leaguesAPI.setParticipation(id, nextValue);
+      if (res?.data?.message) {
+        toast.success(res.data.message);
+      } else {
+        toast.success('Participation updated');
+      }
+      setMembers((prev) =>
+        prev.map((member) =>
+          member.user_id === user.id
+            ? { ...member, is_participating: nextValue }
+            : member
+        )
+      );
+      if (leaderboardStatus !== 'idle') {
+        await fetchLeaderboard(leaderboardPagination.page);
+      }
+    } catch (err) {
+      if (err?.response?.data?.error) {
+        toast.error(err.response.data.error);
+      } else {
+        toast.error('Failed to update participation');
+      }
+    } finally {
+      setParticipationLoading(false);
+    }
+  };
+
   const _handleRevokeInvite = async (inviteId) => {
     if (!window.confirm(t('leagues.revokeConfirm'))) return;
     try {
@@ -598,7 +624,13 @@ const LeagueDetailPage = () => {
     }
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
   if (error) {
     return (
       <Card>
@@ -658,7 +690,7 @@ const LeagueDetailPage = () => {
       </div>
 
       {/* Recent Matches - Minimal */}
-      {matchesStatus === 'loading' ? (
+      {matchesStatus === 'loading' || matchesStatus === 'idle' ? (
         <div className="flex items-center justify-center py-4">
           <LoadingSpinner size="sm" />
         </div>
@@ -770,14 +802,14 @@ const LeagueDetailPage = () => {
       {/* Main Content Grid */}
       <div className="grid gap-6 lg:grid-cols-3 min-w-0">
         {/* Leaderboard - Takes 2/3 width */}
-        <div className="lg:col-span-2 min-w-0">
+        <div className="lg:col-span-2 min-w-0" ref={leaderboardSectionRef}>
           <Card className="vg-card">
             <CardHeader className="py-4">
               <CardTitle className="cyberpunk-subtitle text-lg">{t('leagues.leaderboard')}</CardTitle>
               <CardDescription className="text-gray-400">{t('leagues.rankedByElo', { count: leaderboardPagination.total })}</CardDescription>
             </CardHeader>
             <CardContent className="pt-0 min-w-0">
-              {leaderboardStatus === 'loading' ? (
+              {leaderboardStatus === 'loading' || leaderboardStatus === 'idle' ? (
                 <div className="flex items-center justify-center py-4">
                   <LoadingSpinner size="sm" />
                 </div>
@@ -1073,6 +1105,7 @@ const LeagueDetailPage = () => {
                   initialLeagueId={parseInt(id)}
                   hideLeagueSelector={true}
                   leagueName={league.name}
+                  allowAdminMatchForOthers={canManageLeague}
                   onSuccess={() => {
                     setShowRecordMatch(false);
                     // Refresh matches and leaderboard
@@ -1096,7 +1129,7 @@ const LeagueDetailPage = () => {
               <CardDescription className="text-gray-400">{t('leagues.manageRoles')}</CardDescription>
             </CardHeader>
             <CardContent>
-              {membersStatus === 'loading' ? (
+              {membersStatus === 'loading' || membersStatus === 'idle' ? (
                 <div className="flex items-center justify-center py-4">
                   <LoadingSpinner size="sm" />
                 </div>
@@ -1133,6 +1166,11 @@ const LeagueDetailPage = () => {
                                   <span className="text-blue-400">{m.display_name}</span>
                                 )}
                               </span>
+                              {!m.is_participating && (
+                                <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+                                  <Badge variant="outline">Not participating</Badge>
+                                </span>
+                              )}
                               {m.username && (
                                 <span className="text-xs text-gray-500">@{m.username}</span>
                               )}
@@ -1150,14 +1188,30 @@ const LeagueDetailPage = () => {
                             {!m.user_id ? (
                               <span className="text-xs text-gray-500">—</span>
                             ) : m.is_league_admin ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDemote(m.user_id, m.display_name)}
-                                disabled={!!roleChanging[m.user_id] || members.filter((x) => x.is_league_admin && x.user_id).length <= 1}
-                              >
-                                {roleChanging[m.user_id] ? t('status.updating') : t('leagues.demote')}
-                              </Button>
+                              <div className="flex flex-col items-end gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleDemote(m.user_id, m.display_name)}
+                                  disabled={!!roleChanging[m.user_id] || members.filter((x) => x.is_league_admin && x.user_id).length <= 1}
+                                >
+                                  {roleChanging[m.user_id] ? t('status.updating') : t('leagues.demote')}
+                                </Button>
+                                {m.user_id === user?.id && (
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => handleParticipationToggle(!m.is_participating)}
+                                    disabled={participationLoading}
+                                  >
+                                    {participationLoading
+                                      ? t('status.updating')
+                                      : m.is_participating
+                                        ? 'Leave leaderboard'
+                                        : 'Join leaderboard'}
+                                  </Button>
+                                )}
+                              </div>
                             ) : (
                               <Button
                                 variant="secondary"

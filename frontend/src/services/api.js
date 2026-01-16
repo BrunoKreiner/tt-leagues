@@ -170,6 +170,7 @@ export const leaguesAPI = {
   revokeInvite: (id, inviteId) => api.delete(`/leagues/${id}/invites/${inviteId}`),
   promoteMember: (id, userId) => api.post(`/leagues/${id}/members/${userId}/promote`),
   demoteMember: (id, userId) => api.post(`/leagues/${id}/members/${userId}/demote`),
+  setParticipation: (id, isParticipating) => api.post(`/leagues/${id}/participation`, { is_participating: isParticipating }),
   // Roster tools (placeholder members)
   createRosterMember: (id, display_name) => api.post(`/leagues/${id}/roster`, { display_name }),
   assignRosterMember: (id, rosterId, user_id) => api.post(`/leagues/${id}/roster/${rosterId}/assign`, { user_id }),
