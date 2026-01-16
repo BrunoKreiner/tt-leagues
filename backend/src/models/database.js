@@ -134,6 +134,10 @@ class Database {
             if (debugInit) console.log('DB init: ensuring league snapshots schema');
             await this.ensureLeagueSnapshotsTable();
 
+            // Ensure league join requests schema exists
+            if (debugInit) console.log('DB init: ensuring join requests schema');
+            await this.ensureJoinRequestsTable();
+
             // Create/update admin user from env
             if (debugInit) console.log('DB init: ensuring admin user');
             await this.createAdminUser();
@@ -525,6 +529,43 @@ class Database {
             )
         `);
         await this.run('CREATE INDEX IF NOT EXISTS idx_league_snapshots_dirty ON league_snapshots(dirty)');
+    }
+
+    async ensureJoinRequestsTable() {
+        if (this.isPg) {
+            await this.run(`
+                CREATE TABLE IF NOT EXISTS league_join_requests (
+                    id SERIAL PRIMARY KEY,
+                    league_id INTEGER NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    responded_at TIMESTAMP,
+                    responded_by INTEGER REFERENCES users(id)
+                )
+            `);
+        } else {
+            await this.run(`
+                CREATE TABLE IF NOT EXISTS league_join_requests (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    league_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    responded_at DATETIME,
+                    responded_by INTEGER,
+                    FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (responded_by) REFERENCES users(id)
+                )
+            `);
+        }
+
+        await this.run('CREATE INDEX IF NOT EXISTS idx_league_join_requests_league_id ON league_join_requests(league_id)');
+        await this.run('CREATE INDEX IF NOT EXISTS idx_league_join_requests_user_id ON league_join_requests(user_id)');
+        await this.run('CREATE INDEX IF NOT EXISTS idx_league_join_requests_status ON league_join_requests(status)');
+        await this.run('CREATE INDEX IF NOT EXISTS idx_league_join_requests_league_status ON league_join_requests(league_id, status)');
+        await this.run('CREATE INDEX IF NOT EXISTS idx_league_join_requests_league_user_status ON league_join_requests(league_id, user_id, status)');
     }
 
     async ensureColumnExists(tableName, columnName, columnType) {

@@ -1501,6 +1501,57 @@ router.get('/:id/leaderboard', optionalAuth, validateId, validatePagination, asy
 });
 
 /**
+ * Get league ELO range
+ * GET /api/leagues/:id/elo-range
+ */
+router.get('/:id/elo-range', optionalAuth, validateId, async (req, res) => {
+    try {
+        const leagueId = parseInt(req.params.id);
+
+        const league = await database.get('SELECT is_public FROM leagues WHERE id = ? AND is_active = ?', [leagueId, true]);
+        if (!league) {
+            return res.status(404).json({ error: 'League not found' });
+        }
+
+        if (!league.is_public) {
+            if (!req.user) {
+                return res.status(403).json({ error: 'Access denied to private league' });
+            }
+
+            const membership = await database.get(
+                'SELECT id FROM league_roster WHERE league_id = ? AND user_id = ?',
+                [leagueId, req.user.id]
+            );
+
+            if (!membership && !req.user.is_admin) {
+                return res.status(403).json({ error: 'Access denied to private league' });
+            }
+        }
+
+        const rangeRow = await database.get(
+            'SELECT MIN(current_elo) as min_elo, MAX(current_elo) as max_elo FROM league_roster WHERE league_id = ?',
+            [leagueId]
+        );
+
+        let minElo = null;
+        let maxElo = null;
+        if (rangeRow) {
+            minElo = rangeRow.min_elo;
+            maxElo = rangeRow.max_elo;
+        }
+
+        if (league.is_public) {
+            setPublicCacheHeaders(req, res);
+        }
+
+        res.json({ min_elo: minElo, max_elo: maxElo });
+    } catch (error) {
+        console.error('Get league ELO range error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
  * Get league ELO timeline for multiple roster entries
  * GET /api/leagues/:id/elo-timeline?roster_ids=1,2&limit=50
  */
