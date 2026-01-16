@@ -19,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '@/components/ui/form';
 import EloSparkline from '@/components/EloSparkline';
+import LeagueEloTimeline from '@/components/LeagueEloTimeline';
 import MedalIcon from '@/components/MedalIcon';
 import { BadgeList } from '@/components/BadgeDisplay';
 import RecordMatchForm from '@/components/RecordMatchForm';
@@ -63,12 +64,17 @@ const LeagueDetailPage = () => {
   const [members, setMembers] = useState([]);
   const [membersStatus, setMembersStatus] = useState('idle');
   const [membersError, setMembersError] = useState(null);
+  const [rosterOptions, setRosterOptions] = useState([]);
+  const [rosterOptionsStatus, setRosterOptionsStatus] = useState('idle');
+  const [rosterOptionsError, setRosterOptionsError] = useState(null);
   const [matches, setMatches] = useState([]);
   const [matchesStatus, setMatchesStatus] = useState('idle');
   const [matchesError, setMatchesError] = useState(null);
   const { isAuthenticated, isAdmin, user } = useAuth();
   const [inviteCode, setInviteCode] = useState('');
   const [joinLoading, setJoinLoading] = useState(false);
+  const [joinRequest, setJoinRequest] = useState(null);
+  const [requestJoinLoading, setRequestJoinLoading] = useState(false);
   const [inviteUserId, setInviteUserId] = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteResult, setInviteResult] = useState(null);
@@ -78,6 +84,10 @@ const LeagueDetailPage = () => {
   const [_invitesLoading, setInvitesLoading] = useState(false);
   const [roleChanging, setRoleChanging] = useState({}); // { [userId]: true }
   const [_revokingInvite, setRevokingInvite] = useState({}); // { [inviteId]: true }
+  const [joinRequests, setJoinRequests] = useState([]);
+  const [joinRequestsStatus, setJoinRequestsStatus] = useState('idle');
+  const [joinRequestsError, setJoinRequestsError] = useState(null);
+  const [joinRequestActionLoading, setJoinRequestActionLoading] = useState({});
   const [eloMode, setEloMode] = useState('immediate');
   const [showRecordMatch, setShowRecordMatch] = useState(false);
 
@@ -142,6 +152,12 @@ const LeagueDetailPage = () => {
         setMatchesError(null);
         setMembersStatus('idle');
         setMembersError(null);
+        setJoinRequestsStatus('idle');
+        setJoinRequestsError(null);
+        setJoinRequests([]);
+        setRosterOptionsStatus('idle');
+        setRosterOptionsError(null);
+        setRosterOptions([]);
 
         const leagueRes = await leaguesAPI.getSnapshot(id, { ttlMs: 10000 });
         if (cancelled) return;
@@ -149,6 +165,11 @@ const LeagueDetailPage = () => {
         const leagueData = leagueRes.data;
         setLeague(leagueData.league);
         setUserMembership(leagueData.user_membership);
+        if (leagueData.join_request) {
+          setJoinRequest(leagueData.join_request);
+        } else {
+          setJoinRequest(null);
+        }
         const snapshotLeaderboard = Array.isArray(leagueData.leaderboard) ? leagueData.leaderboard : [];
         setLeaderboard(snapshotLeaderboard);
         const paginationData = leagueData.leaderboard_pagination;
@@ -229,6 +250,12 @@ const LeagueDetailPage = () => {
     fetchMembers();
   }, [canManageLeague, id, membersStatus]);
 
+  useEffect(() => {
+    if (!id) return;
+    if (rosterOptionsStatus !== 'idle') return;
+    fetchRosterOptions();
+  }, [id, rosterOptionsStatus]);
+
   const _eloDiff = (after, before) => {
     if (after == null || before == null) return null;
     const diff = after - before;
@@ -242,6 +269,11 @@ const LeagueDetailPage = () => {
       const leagueData = leagueRes.data;
       setLeague(leagueData.league);
       setUserMembership(leagueData.user_membership);
+      if (leagueData.join_request) {
+        setJoinRequest(leagueData.join_request);
+      } else {
+        setJoinRequest(null);
+      }
       // Update eloMode state to match the refreshed league data
       const newEloMode = leagueData.league.elo_update_mode || 'immediate';
       setEloMode(newEloMode);
@@ -328,6 +360,30 @@ const LeagueDetailPage = () => {
     }
   };
 
+  const fetchRosterOptions = async () => {
+    try {
+      setRosterOptionsStatus('loading');
+      setRosterOptionsError(null);
+      const res = await leaguesAPI.getMembers(id, { ttlMs: 10000 });
+      const memberData = res.data?.members;
+      if (Array.isArray(memberData)) {
+        setRosterOptions(memberData);
+      } else {
+        setRosterOptions([]);
+      }
+      setRosterOptionsStatus('loaded');
+    } catch (e) {
+      console.error('Failed to load roster options', e);
+      const apiMessage = e?.response?.data?.error;
+      if (typeof apiMessage === 'string' && apiMessage.length > 0) {
+        setRosterOptionsError(apiMessage);
+      } else {
+        setRosterOptionsError(t('leagues.eloTimelineError'));
+      }
+      setRosterOptionsStatus('error');
+    }
+  };
+
   const fetchMatches = async () => {
     try {
       setMatchesStatus('loading');
@@ -358,6 +414,31 @@ const LeagueDetailPage = () => {
     }
   };
 
+  const fetchJoinRequests = async () => {
+    if (!canManageLeague || !id) return;
+    try {
+      setJoinRequestsStatus('loading');
+      setJoinRequestsError(null);
+      const res = await leaguesAPI.getJoinRequests(id, { page: 1, limit: 20 }, { ttlMs: 10000 });
+      const requestData = res.data?.requests;
+      if (Array.isArray(requestData)) {
+        setJoinRequests(requestData);
+      } else {
+        setJoinRequests([]);
+      }
+      setJoinRequestsStatus('loaded');
+    } catch (e) {
+      console.error('Failed to load join requests', e);
+      const apiMessage = e?.response?.data?.error;
+      if (typeof apiMessage === 'string' && apiMessage.length > 0) {
+        setJoinRequestsError(apiMessage);
+      } else {
+        setJoinRequestsError('Failed to load join requests');
+      }
+      setJoinRequestsStatus('error');
+    }
+  };
+
   useEffect(() => {
     // Load pending invites when user is an admin
     if (isAuthenticated && (isAdmin || userMembership?.is_admin)) {
@@ -367,6 +448,13 @@ const LeagueDetailPage = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isAuthenticated, isAdmin, userMembership?.is_admin]);
+
+  useEffect(() => {
+    if (!canManageLeague || !id) return;
+    if (joinRequestsStatus !== 'idle') return;
+    fetchJoinRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManageLeague, id, joinRequestsStatus]);
 
   const fetchBadges = async () => {
     try {
@@ -527,6 +615,51 @@ const LeagueDetailPage = () => {
     }
   };
 
+  const handleApproveJoinRequest = async (requestId) => {
+    if (!id) return;
+    try {
+      setJoinRequestActionLoading((prev) => ({ ...prev, [requestId]: true }));
+      const res = await leaguesAPI.approveJoinRequest(id, requestId);
+      const message = res.data?.message;
+      if (typeof message === 'string' && message.length > 0) {
+        toast.success(message);
+      }
+      await fetchJoinRequests();
+      await refreshLeagueData();
+    } catch (err) {
+      const apiMessage = err?.response?.data?.error;
+      if (typeof apiMessage === 'string' && apiMessage.length > 0) {
+        toast.error(apiMessage);
+      } else {
+        toast.error('Failed to approve join request');
+      }
+    } finally {
+      setJoinRequestActionLoading((prev) => ({ ...prev, [requestId]: false }));
+    }
+  };
+
+  const handleDeclineJoinRequest = async (requestId) => {
+    if (!id) return;
+    try {
+      setJoinRequestActionLoading((prev) => ({ ...prev, [requestId]: true }));
+      const res = await leaguesAPI.declineJoinRequest(id, requestId);
+      const message = res.data?.message;
+      if (typeof message === 'string' && message.length > 0) {
+        toast.success(message);
+      }
+      await fetchJoinRequests();
+    } catch (err) {
+      const apiMessage = err?.response?.data?.error;
+      if (typeof apiMessage === 'string' && apiMessage.length > 0) {
+        toast.error(apiMessage);
+      } else {
+        toast.error('Failed to decline join request');
+      }
+    } finally {
+      setJoinRequestActionLoading((prev) => ({ ...prev, [requestId]: false }));
+    }
+  };
+
   const _handleRevokeInvite = async (inviteId) => {
     if (!window.confirm(t('leagues.revokeConfirm'))) return;
     try {
@@ -620,6 +753,28 @@ const LeagueDetailPage = () => {
     }
   };
 
+  const handleRequestJoin = async () => {
+    if (!id) return;
+    try {
+      setRequestJoinLoading(true);
+      const res = await leaguesAPI.requestJoin(id);
+      const message = res.data?.message;
+      if (typeof message === 'string' && message.length > 0) {
+        toast.success(message);
+      }
+      await refreshLeagueData();
+    } catch (err) {
+      const apiMessage = err?.response?.data?.error;
+      if (typeof apiMessage === 'string' && apiMessage.length > 0) {
+        toast.error(apiMessage);
+      } else {
+        toast.error(t('leagues.requestJoinError'));
+      }
+    } finally {
+      setRequestJoinLoading(false);
+    }
+  };
+
   const handleInvite = async (e) => {
     e.preventDefault();
     if (!inviteUserId) {
@@ -675,6 +830,7 @@ const LeagueDetailPage = () => {
   }
 
   if (!league) return null;
+  const joinRequestPending = joinRequest && joinRequest.status === 'pending';
 
   return (
     <div className="space-y-6">
@@ -1064,6 +1220,14 @@ const LeagueDetailPage = () => {
               )}
             </CardContent>
           </Card>
+          <div className="mt-6">
+            <LeagueEloTimeline
+              leagueId={id}
+              players={rosterOptions}
+              playersStatus={rosterOptionsStatus}
+              playersError={rosterOptionsError}
+            />
+          </div>
         </div>
 
         {/* Sidebar - Takes 1/3 width */}
@@ -1101,6 +1265,22 @@ const LeagueDetailPage = () => {
                     {joinLoading ? t('status.joining') : t('actions.join')}
                   </Button>
                 </form>
+                <div className="mt-3 border-t border-gray-800 pt-3 space-y-2">
+                  <p className="text-xs text-gray-400">{t('leagues.requestJoinHelp')}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRequestJoin}
+                    disabled={requestJoinLoading || joinRequestPending}
+                  >
+                    {joinRequestPending
+                      ? t('leagues.requestPending')
+                      : requestJoinLoading
+                        ? t('status.requesting')
+                        : t('leagues.requestJoin')}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -1402,6 +1582,60 @@ const LeagueDetailPage = () => {
                         Expires: {format(new Date(inviteResult.expires_at), 'PPp')}
                       </div>
                     )}
+                  </div>
+                )}
+              </div>
+
+              {/* Join Requests */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-gray-300">{t('leagues.joinRequests')}</h4>
+                {joinRequestsStatus === 'loading' || joinRequestsStatus === 'idle' ? (
+                  <div className="flex items-center justify-center py-2">
+                    <LoadingSpinner size="sm" />
+                  </div>
+                ) : joinRequestsStatus === 'error' ? (
+                  <p className="text-xs text-red-400">
+                    {typeof joinRequestsError === 'string' && joinRequestsError.length > 0
+                      ? joinRequestsError
+                      : t('leagues.joinRequestsError')}
+                  </p>
+                ) : joinRequests.length === 0 ? (
+                  <p className="text-xs text-gray-500">{t('leagues.noJoinRequests')}</p>
+                ) : (
+                  <div className="space-y-2">
+                    {joinRequests.map((request) => {
+                      const requesterName = `${request.first_name} ${request.last_name}`.trim();
+                      const isBusy = !!joinRequestActionLoading[request.id];
+                      return (
+                        <div key={request.id} className="flex flex-col gap-2 rounded-md border border-gray-800 p-2">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="text-sm text-gray-200">{requesterName}</div>
+                              <div className="text-xs text-gray-500">@{request.username}</div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => handleApproveJoinRequest(request.id)}
+                                disabled={isBusy}
+                              >
+                                {isBusy ? t('status.updating') : t('actions.accept')}
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDeclineJoinRequest(request.id)}
+                                disabled={isBusy}
+                              >
+                                {isBusy ? t('status.updating') : t('actions.reject')}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
