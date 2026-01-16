@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { usersAPI } from '@/services/api';
 import LoadingSpinner from './ui/LoadingSpinner';
 import { format, parseISO } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 
 // Custom label component to display values above points
 const CustomLabel = ({ x, y, value, color }) => {
@@ -22,6 +23,7 @@ const CustomLabel = ({ x, y, value, color }) => {
 };
 
 const TimelineStats = ({ userId }) => {
+  const { t } = useTranslation();
   const [timelineData, setTimelineData] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -56,7 +58,7 @@ const TimelineStats = ({ userId }) => {
   if (timelineData.length === 0) {
     return (
       <div className="text-center py-8 text-gray-400">
-        <p>No timeline data available yet</p>
+        <p>{t('dashboard.timelineEmpty')}</p>
       </div>
     );
   }
@@ -222,11 +224,11 @@ const TimelineStats = ({ userId }) => {
 
   return (
     <div className="grid grid-cols-2 gap-1 w-full">
-      {renderChart('Leagues Over Time', 'leagues_count', chartConfig.leagues.color)}
-      {renderChart('Matches Per Month', 'matches_per_month', chartConfig.matches.color)}
-      {renderChart('Win Rate Over Time', 'win_rate', chartConfig.winRate.color)}
+      {renderChart(t('dashboard.leaguesOverTime'), 'leagues_count', chartConfig.leagues.color)}
+      {renderChart(t('dashboard.matchesPerMonth'), 'matches_per_month', chartConfig.matches.color)}
+      {renderChart(t('dashboard.winRateOverTime'), 'win_rate', chartConfig.winRate.color)}
       {renderChart(
-        'Average ELO Over Time', 
+        t('dashboard.avgEloOverTime'),
         'avg_elo', 
         chartConfig.elo.color,
         formattedData

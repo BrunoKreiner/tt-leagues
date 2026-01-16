@@ -113,13 +113,13 @@ export default function MatchesPage() {
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Sort" />
+              <SelectValue placeholder={t('sort.label')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="created_desc">Most recent created</SelectItem>
-                <SelectItem value="played_desc">Most recent match updates</SelectItem>
-                <SelectItem value="created_asc">Oldest created</SelectItem>
-                <SelectItem value="played_asc">Oldest match updates</SelectItem>
+              <SelectItem value="created_desc">{t('sort.createdDesc')}</SelectItem>
+              <SelectItem value="played_desc">{t('sort.matchUpdatedDesc')}</SelectItem>
+              <SelectItem value="created_asc">{t('sort.createdAsc')}</SelectItem>
+              <SelectItem value="played_asc">{t('sort.matchUpdatedAsc')}</SelectItem>
               </SelectContent>
             </Select>
           </div>

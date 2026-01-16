@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -18,6 +18,15 @@ import {
 
 const PAGE_SIZE = 10;
 
+const extractLeagueName = (message) => {
+  if (typeof message !== 'string') return '';
+  const match = message.match(/"([^"]+)"/);
+  if (match && match[1]) {
+    return match[1];
+  }
+  return '';
+};
+
 export default function NotificationsPage() {
   const { t } = useTranslation();
   const [items, setItems] = useState([]);
@@ -30,6 +39,7 @@ export default function NotificationsPage() {
   const [acceptLoading, setAcceptLoading] = useState({});
   const [deleteLoading, setDeleteLoading] = useState({});
   const [markingAll, setMarkingAll] = useState(false);
+  const swipeRef = useRef({ id: null, startX: 0, startY: 0 });
 
   const fetchData = async (opts = {}) => {
     const nextPage = opts.page ?? page;
@@ -123,6 +133,26 @@ export default function NotificationsPage() {
     }
   };
 
+  const handleTouchStart = (id) => (event) => {
+    const touch = event.touches?.[0];
+    if (!touch) return;
+    swipeRef.current = { id, startX: touch.clientX, startY: touch.clientY };
+  };
+
+  const handleTouchEnd = (id) => (event) => {
+    const touch = event.changedTouches?.[0];
+    if (!touch) return;
+    const { startX, startY, id: startId } = swipeRef.current;
+    if (startId !== id) return;
+    const deltaX = touch.clientX - startX;
+    const deltaY = touch.clientY - startY;
+    if (deltaX < -80 && Math.abs(deltaY) < 40) {
+      if (!deleteLoading[id]) {
+        handleDelete(id);
+      }
+    }
+  };
+
   const canPrev = page > 1;
   const canNext = page < pages;
 
@@ -159,7 +189,12 @@ export default function NotificationsPage() {
       ) : (
         <div className="space-y-3">
           {items.map((n) => (
-            <div key={n.id} className={`p-3 rounded-md border bg-gray-800/50 ${!n.is_read ? 'bg-gray-700/50' : ''}`}>
+            <div
+              key={n.id}
+              className={`p-3 rounded-md border bg-gray-800/50 ${!n.is_read ? 'bg-gray-700/50' : ''}`}
+              onTouchStart={handleTouchStart(n.id)}
+              onTouchEnd={handleTouchEnd(n.id)}
+            >
               <div className="flex items-start gap-3">
                 <div className="mt-0.5 text-muted-foreground">
                   {n.type === 'league_invite' ? (
@@ -171,8 +206,19 @@ export default function NotificationsPage() {
                 <div className="flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <div className={`text-sm ${!n.is_read ? 'font-semibold' : 'font-medium'}`}>{n.title}</div>
-                      <div className="text-sm text-muted-foreground">{n.message}</div>
+                      <div className={`text-sm ${!n.is_read ? 'font-semibold' : 'font-medium'}`}>
+                        {n.type === 'league_invite' ? t('notifications.inviteTitle') : n.title}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {n.type === 'league_invite'
+                          ? (() => {
+                            const leagueName = extractLeagueName(n.message);
+                            return leagueName.length > 0
+                              ? t('notifications.inviteMessage', { league: leagueName })
+                              : t('notifications.inviteMessageUnknown');
+                          })()
+                          : n.message}
+                      </div>
                       {n.created_at && (
                         <div className="text-xs text-muted-foreground mt-1">
                           {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
