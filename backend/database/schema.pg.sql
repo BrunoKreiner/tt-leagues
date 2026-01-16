@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS league_roster (
     display_name VARCHAR(200) NOT NULL,
     current_elo INTEGER DEFAULT 1200,
     is_admin BOOLEAN DEFAULT FALSE,
+    is_participating BOOLEAN DEFAULT TRUE,
     joined_at TIMESTAMP DEFAULT NOW(),
     UNIQUE(league_id, user_id)
 );

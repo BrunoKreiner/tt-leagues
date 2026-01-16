@@ -234,6 +234,7 @@ class Database {
         // - Matches + ELO history referencing roster entries
         // - Migration from legacy league_members + user-based matches
         await this.ensureLeagueRosterTable();
+        await this.ensureRosterParticipationColumn();
         await this.ensureMatchesRosterColumns();
         await this.ensureEloHistoryRosterColumn();
         await this.ensureRosterLegacyNullability();
@@ -401,6 +402,7 @@ class Database {
                     display_name VARCHAR(200) NOT NULL,
                     current_elo INTEGER DEFAULT 1200,
                     is_admin BOOLEAN DEFAULT FALSE,
+                    is_participating BOOLEAN DEFAULT TRUE,
                     joined_at TIMESTAMP DEFAULT NOW(),
                     UNIQUE(league_id, user_id)
                 )
@@ -417,6 +419,7 @@ class Database {
                 display_name VARCHAR(200) NOT NULL,
                 current_elo INTEGER DEFAULT 1200,
                 is_admin BOOLEAN DEFAULT FALSE,
+                is_participating BOOLEAN DEFAULT TRUE,
                 joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
@@ -431,6 +434,16 @@ class Database {
         await this.ensureColumnExists('matches', 'player1_roster_id', this.isPg ? 'INTEGER' : 'INTEGER');
         await this.ensureColumnExists('matches', 'player2_roster_id', this.isPg ? 'INTEGER' : 'INTEGER');
         await this.ensureColumnExists('matches', 'winner_roster_id', this.isPg ? 'INTEGER' : 'INTEGER');
+    }
+
+    async ensureRosterParticipationColumn() {
+        const columnType = this.isPg ? 'BOOLEAN DEFAULT TRUE' : 'BOOLEAN DEFAULT 1';
+        await this.ensureColumnExists('league_roster', 'is_participating', columnType);
+        await this.run(
+            this.isPg
+                ? 'UPDATE league_roster SET is_participating = TRUE WHERE is_participating IS NULL'
+                : 'UPDATE league_roster SET is_participating = 1 WHERE is_participating IS NULL'
+        );
     }
 
     async ensureEloHistoryRosterColumn() {

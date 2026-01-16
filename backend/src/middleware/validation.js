@@ -90,6 +90,10 @@ const validateMatchCreation = [
     body('player2_roster_id')
         .isInt({ min: 1 })
         .withMessage('Valid opponent roster ID is required'),
+    body('player1_roster_id')
+        .optional()
+        .isInt({ min: 1 })
+        .withMessage('Valid player 1 roster ID is required'),
     body('player1_sets_won')
         .isInt({ min: 0, max: 4 })
         .withMessage('Player 1 sets won must be between 0 and 4'),

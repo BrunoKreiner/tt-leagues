@@ -137,6 +137,7 @@ router.post('/', authenticateToken, validateMatchCreation, async (req, res) => {
     try {
         const {
             league_id,
+            player1_roster_id,
             player2_roster_id,
             player1_sets_won,
             player2_sets_won,
@@ -147,14 +148,36 @@ router.post('/', authenticateToken, validateMatchCreation, async (req, res) => {
             played_at
         } = req.body;
 
-        const player1Roster = await getRosterByUser(league_id, req.user.id);
-        if (!player1Roster) {
-            return res.status(403).json({ error: 'You are not a member of this league' });
+        let player1Roster = null;
+        if (player1_roster_id) {
+            let isLeagueAdmin = false;
+            if (!req.user.is_admin) {
+                const adminRow = await database.get(
+                    'SELECT is_admin FROM league_roster WHERE league_id = ? AND user_id = ?',
+                    [league_id, req.user.id]
+                );
+                isLeagueAdmin = !!adminRow?.is_admin;
+            }
+            if (!req.user.is_admin && !isLeagueAdmin) {
+                return res.status(403).json({ error: 'League admin access required to record matches for others' });
+            }
+            player1Roster = await getRosterById(league_id, player1_roster_id);
+            if (!player1Roster) {
+                return res.status(400).json({ error: 'Player 1 is not a roster member of this league' });
+            }
+        } else {
+            player1Roster = await getRosterByUser(league_id, req.user.id);
+            if (!player1Roster) {
+                return res.status(403).json({ error: 'You are not a member of this league' });
+            }
         }
 
         const player2Roster = await getRosterById(league_id, player2_roster_id);
         if (!player2Roster) {
             return res.status(400).json({ error: 'Opponent is not a roster member of this league' });
+        }
+        if (player1Roster.id === player2Roster.id) {
+            return res.status(400).json({ error: 'Players must be different roster members' });
         }
 
         // Validate match result
@@ -166,7 +189,9 @@ router.post('/', authenticateToken, validateMatchCreation, async (req, res) => {
         // Determine winner (roster)
         const didP1Win = player1_sets_won > player2_sets_won;
         const winnerRosterId = didP1Win ? player1Roster.id : player2Roster.id;
-        const winnerUserId = didP1Win ? req.user.id : (player2Roster.user_id || null);
+        const winnerUserId = didP1Win
+            ? (player1Roster.user_id || null)
+            : (player2Roster.user_id || null);
 
         // Current ELO ratings
         const player1Elo = player1Roster.current_elo;
@@ -203,7 +228,7 @@ router.post('/', authenticateToken, validateMatchCreation, async (req, res) => {
             ];
             const values = [
                 league_id,
-                req.user.id,
+                player1Roster.user_id || null,
                 player2Roster.user_id || null,
                 player1Roster.id,
                 player2Roster.id,
@@ -368,6 +393,7 @@ router.post('/preview-elo', authenticateToken, async (req, res) => {
     try {
         const {
             league_id,
+            player1_roster_id,
             player2_roster_id,
             player1_sets_won,
             player2_sets_won,
@@ -376,11 +402,30 @@ router.post('/preview-elo', authenticateToken, async (req, res) => {
         } = req.body;
         
         // Get current ELO ratings
-        const player1Roster = await getRosterByUser(league_id, req.user.id);
+        let player1Roster = null;
+        if (player1_roster_id) {
+            let isLeagueAdmin = false;
+            if (!req.user.is_admin) {
+                const adminRow = await database.get(
+                    'SELECT is_admin FROM league_roster WHERE league_id = ? AND user_id = ?',
+                    [league_id, req.user.id]
+                );
+                isLeagueAdmin = !!adminRow?.is_admin;
+            }
+            if (!req.user.is_admin && !isLeagueAdmin) {
+                return res.status(403).json({ error: 'League admin access required to preview matches for others' });
+            }
+            player1Roster = await getRosterById(league_id, player1_roster_id);
+        } else {
+            player1Roster = await getRosterByUser(league_id, req.user.id);
+        }
         const player2Roster = await getRosterById(league_id, player2_roster_id);
 
         if (!player1Roster || !player2Roster) {
             return res.status(400).json({ error: 'One or both players are not roster members of this league' });
+        }
+        if (player1Roster.id === player2Roster.id) {
+            return res.status(400).json({ error: 'Players must be different roster members' });
         }
         
         const eloResult = calculateNewElos(

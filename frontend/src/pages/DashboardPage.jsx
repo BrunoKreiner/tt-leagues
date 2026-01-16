@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +24,10 @@ const DashboardPage = () => {
   const [leaguesError, setLeaguesError] = useState(null);
   const [leagueLeaderboards, setLeagueLeaderboards] = useState({});
   const [leaderboardStatus, setLeaderboardStatus] = useState({});
+  const [shouldLoadLeaderboards, setShouldLoadLeaderboards] = useState(false);
+  const leaderboardSectionRef = useRef(null);
+
+  const leaderboardLeagues = useMemo(() => userLeagues, [userLeagues]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -78,41 +82,10 @@ const DashboardPage = () => {
             ? leagueData.filter((league) => !!league.is_member)
             : [];
           setUserLeagues(leagues);
-
           if (leagues.length === 0) {
             setLeagueLeaderboards({});
             setLeaderboardStatus({});
-            return;
           }
-
-          const loadingStatus = {};
-          leagues.forEach((league) => {
-            loadingStatus[league.id] = { status: 'loading' };
-          });
-          setLeaderboardStatus((prev) => ({ ...prev, ...loadingStatus }));
-          
-          // Fetch leaderboards for all user leagues
-          const leaderboardResults = await Promise.allSettled(
-            leagues.map((league) =>
-              leaguesAPI.getLeaderboard(league.id, { page: 1, limit: 5, include_badges: false }, { ttlMs: 10000 })
-            )
-          );
-          const leaderboardMap = {};
-          const nextStatus = {};
-          leaderboardResults.forEach((result, index) => {
-            const leagueId = leagues[index]?.id;
-            if (!leagueId) return;
-            if (result.status === 'fulfilled') {
-              const data = result.value.data?.leaderboard;
-              leaderboardMap[leagueId] = Array.isArray(data) ? data : [];
-              nextStatus[leagueId] = { status: 'loaded' };
-            } else {
-              console.error(`Failed to load leaderboard for league ${leagueId}:`, result.reason);
-              nextStatus[leagueId] = { status: 'error' };
-            }
-          });
-          setLeagueLeaderboards((prev) => ({ ...prev, ...leaderboardMap }));
-          setLeaderboardStatus((prev) => ({ ...prev, ...nextStatus }));
         } else {
           const apiMessage = leaguesResponse.reason?.response?.data?.error;
           setLeaguesError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : 'Failed to load leagues');
@@ -129,6 +102,68 @@ const DashboardPage = () => {
 
     fetchDashboardData();
   }, []);
+
+  useEffect(() => {
+    const node = leaderboardSectionRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldLoadLeaderboards(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!shouldLoadLeaderboards) return;
+    if (leaderboardLeagues.length === 0) {
+      setLeagueLeaderboards({});
+      setLeaderboardStatus({});
+      return;
+    }
+
+    const loadLeaderboards = async () => {
+      const loadingStatus = {};
+      leaderboardLeagues.forEach((league) => {
+        loadingStatus[league.id] = { status: 'loading' };
+      });
+      setLeaderboardStatus((prev) => ({ ...prev, ...loadingStatus }));
+
+      const leaderboardResults = await Promise.allSettled(
+        leaderboardLeagues.map((league) =>
+          leaguesAPI.getLeaderboard(league.id, { page: 1, limit: 5, include_badges: false }, { ttlMs: 10000 })
+        )
+      );
+      const leaderboardMap = {};
+      const nextStatus = {};
+      leaderboardResults.forEach((result, index) => {
+        const leagueId = leaderboardLeagues[index]?.id;
+        if (!leagueId) return;
+        if (result.status === 'fulfilled') {
+          const data = result.value.data?.leaderboard;
+          leaderboardMap[leagueId] = Array.isArray(data) ? data : [];
+          nextStatus[leagueId] = { status: 'loaded' };
+        } else {
+          console.error(`Failed to load leaderboard for league ${leagueId}:`, result.reason);
+          nextStatus[leagueId] = { status: 'error' };
+        }
+      });
+      setLeagueLeaderboards((prev) => ({ ...prev, ...leaderboardMap }));
+      setLeaderboardStatus((prev) => ({ ...prev, ...nextStatus }));
+    };
+
+    loadLeaderboards();
+  }, [leaderboardLeagues, shouldLoadLeaderboards]);
 
   if (loading) {
     return (
@@ -177,7 +212,7 @@ const DashboardPage = () => {
       <div className="section-divider"></div>
 
       {/* Section 1: Timeline Statistics */}
-      <div>
+      <div ref={leaderboardSectionRef}>
         <TimelineStats userId={user?.id} />
       </div>
 
@@ -335,12 +370,14 @@ const DashboardPage = () => {
               <CardContent className="pt-0">
                 {(() => {
                   const status = leaderboardStatus[league.id]?.status;
-                  const resolvedStatus = typeof status === 'string' ? status : 'loaded';
+                  const resolvedStatus = typeof status === 'string'
+                    ? status
+                    : (shouldLoadLeaderboards ? 'loading' : 'idle');
                   const leaderboardData = Array.isArray(leagueLeaderboards[league.id])
                     ? leagueLeaderboards[league.id]
                     : [];
 
-                  if (resolvedStatus === 'loading') {
+                  if (resolvedStatus === 'loading' || resolvedStatus === 'idle') {
                     return (
                       <div className="flex items-center justify-center py-3">
                         <LoadingSpinner size="sm" />
