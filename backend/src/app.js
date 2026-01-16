@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const compression = require('compression');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
@@ -53,6 +54,7 @@ const authLimiter = rateLimit({
 
 // Middleware
 app.use(helmet());
+app.use(compression());
 
 // CORS configuration: allow specific origins from FRONTEND_URL (comma-separated)
 // Supports wildcards like https://tt-league-frontend-git-*.vercel.app

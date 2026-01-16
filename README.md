@@ -190,6 +190,9 @@ FRONTEND_URL=http://localhost,http://localhost:5173
 # Use Postgres when DATABASE_URL is set (e.g., on Vercel). Otherwise SQLite is used via DATABASE_PATH.
 # If sslmode is missing from DATABASE_URL, the backend appends `sslmode=require` automatically.
 # DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
+# Optional: skip runtime schema/migration checks (connect-only).
+# Set to 1 on serverless production if you run migrations manually.
+# DB_INIT_SKIP=1
 # SQLite path is resolved relative to the backend working directory.
 # If you run from `backend/`, use:
 DATABASE_PATH=database/league.db

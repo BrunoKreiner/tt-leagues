@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,6 +19,31 @@ const LandingPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [leaderboardStatus, setLeaderboardStatus] = useState({});
+  const [shouldLoadLeaderboards, setShouldLoadLeaderboards] = useState(false);
+  const leaderboardSectionRef = useRef(null);
+
+  const leaderboardLeagues = useMemo(() => publicLeagues.slice(0, 2), [publicLeagues]);
+
+  useEffect(() => {
+    const node = leaderboardSectionRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldLoadLeaderboards(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     const fetchPublicLeagues = async () => {
@@ -32,41 +57,6 @@ const LandingPage = () => {
           : [];
         setPublicLeagues(leagues);
         
-        // Fetch leaderboards for each league
-        const leaderboardLeagues = leagues.slice(0, 2);
-        if (leaderboardLeagues.length === 0) {
-          setLeagueLeaderboards({});
-          setLeaderboardStatus({});
-          return;
-        }
-
-        const loadingStatus = {};
-        leaderboardLeagues.forEach((league) => {
-          loadingStatus[league.id] = { status: 'loading' };
-        });
-        setLeaderboardStatus((prev) => ({ ...prev, ...loadingStatus }));
-
-        const leaderboardResults = await Promise.allSettled(
-          leaderboardLeagues.map((league) =>
-            leaguesAPI.getLeaderboard(league.id, { limit: 5 }, { ttlMs: 10000 })
-          )
-        );
-        const nextLeaderboards = {};
-        const nextStatus = {};
-        leaderboardResults.forEach((result, index) => {
-          const leagueId = leaderboardLeagues[index]?.id;
-          if (!leagueId) return;
-          if (result.status === 'fulfilled') {
-            const leaderboardData = result.value.data?.leaderboard;
-            nextLeaderboards[leagueId] = Array.isArray(leaderboardData) ? leaderboardData : [];
-            nextStatus[leagueId] = { status: 'loaded' };
-          } else {
-            console.error(`Failed to load leaderboard for league ${leagueId}:`, result.reason);
-            nextStatus[leagueId] = { status: 'error' };
-          }
-        });
-        setLeagueLeaderboards((prev) => ({ ...prev, ...nextLeaderboards }));
-        setLeaderboardStatus((prev) => ({ ...prev, ...nextStatus }));
       } catch (error) {
         console.error('Failed to fetch public leagues:', error);
         const apiMessage = error?.response?.data?.error;
@@ -78,6 +68,47 @@ const LandingPage = () => {
 
     fetchPublicLeagues();
   }, []);
+
+  useEffect(() => {
+    if (!shouldLoadLeaderboards) return;
+    if (leaderboardLeagues.length === 0) {
+      setLeagueLeaderboards({});
+      setLeaderboardStatus({});
+      return;
+    }
+
+    const loadLeaderboards = async () => {
+      const loadingStatus = {};
+      leaderboardLeagues.forEach((league) => {
+        loadingStatus[league.id] = { status: 'loading' };
+      });
+      setLeaderboardStatus((prev) => ({ ...prev, ...loadingStatus }));
+
+      const leaderboardResults = await Promise.allSettled(
+        leaderboardLeagues.map((league) =>
+          leaguesAPI.getLeaderboard(league.id, { limit: 5, include_badges: true }, { ttlMs: 10000 })
+        )
+      );
+      const nextLeaderboards = {};
+      const nextStatus = {};
+      leaderboardResults.forEach((result, index) => {
+        const leagueId = leaderboardLeagues[index]?.id;
+        if (!leagueId) return;
+        if (result.status === 'fulfilled') {
+          const leaderboardData = result.value.data?.leaderboard;
+          nextLeaderboards[leagueId] = Array.isArray(leaderboardData) ? leaderboardData : [];
+          nextStatus[leagueId] = { status: 'loaded' };
+        } else {
+          console.error(`Failed to load leaderboard for league ${leagueId}:`, result.reason);
+          nextStatus[leagueId] = { status: 'error' };
+        }
+      });
+      setLeagueLeaderboards((prev) => ({ ...prev, ...nextLeaderboards }));
+      setLeaderboardStatus((prev) => ({ ...prev, ...nextStatus }));
+    };
+
+    loadLeaderboards();
+  }, [leaderboardLeagues, shouldLoadLeaderboards]);
 
   const features = [
     'Manage your own leagues',
@@ -168,7 +199,7 @@ const LandingPage = () => {
           </section>
 
           {/* Public Leagues with Leaderboards */}
-          <section>
+          <section ref={leaderboardSectionRef}>
             <h2 className="cyberpunk-title text-lg text-gray-300 mb-4">Public Leagues</h2>
             
             {loading ? (
@@ -213,12 +244,14 @@ const LandingPage = () => {
                     <CardContent className="pt-0">
                       {(() => {
                         const status = leaderboardStatus[league.id]?.status;
-                        const resolvedStatus = typeof status === 'string' ? status : 'loaded';
+                        const resolvedStatus = typeof status === 'string'
+                          ? status
+                          : (shouldLoadLeaderboards ? 'loading' : 'idle');
                         const leaderboardData = Array.isArray(leagueLeaderboards[league.id])
                           ? leagueLeaderboards[league.id]
                           : [];
 
-                        if (resolvedStatus === 'loading') {
+                        if (resolvedStatus === 'loading' || resolvedStatus === 'idle') {
                           return (
                             <div className="flex items-center justify-center py-3">
                               <LoadingSpinner size="sm" />

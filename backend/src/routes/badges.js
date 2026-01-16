@@ -212,7 +212,7 @@ router.post('/', authenticateToken, async (req, res) => {
         
         // Get the created badge
         const newBadge = await database.get(
-            'SELECT * FROM badges WHERE id = ?',
+            'SELECT id, name, description, icon, badge_type, image_url, visibility, created_by, created_at FROM badges WHERE id = ?',
             [result.id]
         );
         
@@ -336,7 +336,7 @@ router.put('/:id', authenticateToken, validateId, async (req, res) => {
         
         // Get updated badge
         const updatedBadge = await database.get(
-            'SELECT * FROM badges WHERE id = ?',
+            'SELECT id, name, description, icon, badge_type, image_url, visibility, created_by, created_at FROM badges WHERE id = ?',
             [badgeId]
         );
         
