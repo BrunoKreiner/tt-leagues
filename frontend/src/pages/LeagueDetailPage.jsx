@@ -70,6 +70,9 @@ const LeagueDetailPage = () => {
   const [matches, setMatches] = useState([]);
   const [matchesStatus, setMatchesStatus] = useState('idle');
   const [matchesError, setMatchesError] = useState(null);
+  const [eloRange, setEloRange] = useState(null);
+  const [eloRangeStatus, setEloRangeStatus] = useState('idle');
+  const [eloRangeError, setEloRangeError] = useState(null);
   const { isAuthenticated, isAdmin, user } = useAuth();
   const [inviteCode, setInviteCode] = useState('');
   const [joinLoading, setJoinLoading] = useState(false);
@@ -158,6 +161,9 @@ const LeagueDetailPage = () => {
         setRosterOptionsStatus('idle');
         setRosterOptionsError(null);
         setRosterOptions([]);
+        setEloRangeStatus('idle');
+        setEloRangeError(null);
+        setEloRange(null);
 
         const leagueRes = await leaguesAPI.getSnapshot(id, { ttlMs: 10000 });
         if (cancelled) return;
@@ -256,6 +262,12 @@ const LeagueDetailPage = () => {
     fetchRosterOptions();
   }, [id, rosterOptionsStatus]);
 
+  useEffect(() => {
+    if (!id) return;
+    if (eloRangeStatus !== 'idle') return;
+    fetchEloRange({ ttlMs: 10000 });
+  }, [id, eloRangeStatus]);
+
   const _eloDiff = (after, before) => {
     if (after == null || before == null) return null;
     const diff = after - before;
@@ -293,6 +305,7 @@ const LeagueDetailPage = () => {
         setLeaderboardPagination({ page: 1, pages: 1, total: 0, limit: 20 });
       }
       setLeaderboardStatus('loaded');
+      await fetchEloRange({ ttlMs: 0 });
       if (canManage) {
         await fetchMembers();
       }
@@ -381,6 +394,30 @@ const LeagueDetailPage = () => {
         setRosterOptionsError(t('leagues.eloTimelineError'));
       }
       setRosterOptionsStatus('error');
+    }
+  };
+
+  const fetchEloRange = async (options) => {
+    try {
+      setEloRangeStatus('loading');
+      setEloRangeError(null);
+      const res = await leaguesAPI.getEloRange(id, options);
+      const rangeData = res.data;
+      if (rangeData) {
+        setEloRange(rangeData);
+      } else {
+        setEloRange(null);
+      }
+      setEloRangeStatus('loaded');
+    } catch (e) {
+      console.error('Failed to load ELO range', e);
+      const apiMessage = e?.response?.data?.error;
+      if (typeof apiMessage === 'string' && apiMessage.length > 0) {
+        setEloRangeError(apiMessage);
+      } else {
+        setEloRangeError(t('leagues.eloTimelineError'));
+      }
+      setEloRangeStatus('error');
     }
   };
 
@@ -1226,6 +1263,7 @@ const LeagueDetailPage = () => {
               players={rosterOptions}
               playersStatus={rosterOptionsStatus}
               playersError={rosterOptionsError}
+              eloRange={eloRange}
             />
           </div>
         </div>
@@ -1237,99 +1275,106 @@ const LeagueDetailPage = () => {
             <CardHeader className="py-3">
               <CardTitle className="cyberpunk-subtitle text-sm">{t('common.overview')}</CardTitle>
             </CardHeader>
-            <CardContent className="pt-0 text-sm text-gray-300 space-y-2">
-              <div className="flex items-center gap-2"><Users className="h-4 w-4 text-blue-400" /> {t('leagues.membersLabel')}: {league.member_count}</div>
-              <div className="flex items-center gap-2"><ListChecks className="h-4 w-4 text-green-400" /> {t('leagues.matchesLabel')}: {league.match_count}</div>
-              {userMembership && (
-                <div className="flex items-center gap-2"><Trophy className="h-4 w-4 text-yellow-400" /> {t('leagues.yourElo', { elo: userMembership.current_elo })}</div>
-              )}
+            <CardContent className="pt-0 text-sm text-gray-300 space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2"><Users className="h-4 w-4 text-blue-400" /> {t('leagues.membersLabel')}: {league.member_count}</div>
+                <div className="flex items-center gap-2"><ListChecks className="h-4 w-4 text-green-400" /> {t('leagues.matchesLabel')}: {league.match_count}</div>
+                {userMembership && (
+                  <div className="flex items-center gap-2"><Trophy className="h-4 w-4 text-yellow-400" /> {t('leagues.yourElo', { elo: userMembership.current_elo })}</div>
+                )}
+              </div>
+
+              <div className={`grid gap-3 ${canManageLeague ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                {canManageLeague ? (
+                  <div className="bg-gray-800 p-3 rounded border border-gray-700">
+                    <div className="text-gray-400 text-xs">{t('leagues.pendingInvites')}</div>
+                    <div className="text-xl font-bold text-blue-400">{invites.length}</div>
+                  </div>
+                ) : null}
+                <div className="bg-gray-800 p-3 rounded border border-gray-700">
+                  <div className="text-gray-400 text-xs">{t('leagues.membersLabel')}</div>
+                  <div className="text-xl font-bold text-green-400">{league.member_count}</div>
+                </div>
+              </div>
+
+              {isAuthenticated && !userMembership ? (
+                <div className="pt-2 border-t border-gray-800 space-y-2">
+                  <div className="text-sm font-medium text-gray-200">{t('leagues.joinThisLeague')}</div>
+                  <div className="text-xs text-gray-400">{t('leagues.joinDescription')}</div>
+                  <form className="flex flex-col gap-2" onSubmit={handleJoin}>
+                    <Input
+                      placeholder={t('leagues.inviteCodePlaceholder')}
+                      value={inviteCode}
+                      onChange={(e) => setInviteCode(e.target.value)}
+                      disabled={joinLoading}
+                    />
+                    <Button type="submit" disabled={joinLoading} size="sm">
+                      {joinLoading ? t('status.joining') : t('actions.join')}
+                    </Button>
+                  </form>
+                  <div className="border-t border-gray-800 pt-3 space-y-2">
+                    <p className="text-xs text-gray-400">{t('leagues.requestJoinHelp')}</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRequestJoin}
+                      disabled={requestJoinLoading || joinRequestPending}
+                    >
+                      {joinRequestPending
+                        ? t('leagues.requestPending')
+                        : requestJoinLoading
+                          ? t('status.requesting')
+                          : t('leagues.requestJoin')}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 
-          {/* Join League */}
-          {isAuthenticated && !userMembership && (
+          {/* Record Match */}
+          {isAuthenticated && userMembership ? (
             <Card className="vg-card">
-              <CardHeader className="py-3">
-                <CardTitle className="cyberpunk-subtitle text-sm">{t('leagues.joinThisLeague')}</CardTitle>
-                <CardDescription className="text-gray-400 text-xs">{t('leagues.joinDescription')}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form className="flex flex-col gap-2" onSubmit={handleJoin}>
-                  <Input
-                    placeholder={t('leagues.inviteCodePlaceholder')}
-                    value={inviteCode}
-                    onChange={(e) => setInviteCode(e.target.value)}
-                    disabled={joinLoading}
-                  />
-                  <Button type="submit" disabled={joinLoading} size="sm">
-                    {joinLoading ? t('status.joining') : t('actions.join')}
-                  </Button>
-                </form>
-                <div className="mt-3 border-t border-gray-800 pt-3 space-y-2">
-                  <p className="text-xs text-gray-400">{t('leagues.requestJoinHelp')}</p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRequestJoin}
-                    disabled={requestJoinLoading || joinRequestPending}
-                  >
-                    {joinRequestPending
-                      ? t('leagues.requestPending')
-                      : requestJoinLoading
-                        ? t('status.requesting')
-                        : t('leagues.requestJoin')}
-                  </Button>
-                </div>
-              </CardContent>
+              <Collapsible open={showRecordMatch} onOpenChange={setShowRecordMatch}>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="cursor-pointer hover:bg-gray-800/50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="cyberpunk-subtitle flex items-center gap-2 text-lg">
+                        <Swords className="h-5 w-5 text-blue-400" />
+                        {t('recordMatch.title')}
+                      </CardTitle>
+                      {showRecordMatch ? (
+                        <ChevronUp className="h-5 w-5 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="h-5 w-5 text-gray-400" />
+                      )}
+                    </div>
+                    <CardDescription className="text-gray-400">
+                      {t('recordMatch.subtitle')}
+                    </CardDescription>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent>
+                    <RecordMatchForm
+                      initialLeagueId={parseInt(id)}
+                      hideLeagueSelector={true}
+                      leagueName={league.name}
+                      allowAdminMatchForOthers={canManageLeague}
+                      onSuccess={() => {
+                        setShowRecordMatch(false);
+                        fetchMatches();
+                        fetchLeaderboard(leaderboardPagination.page);
+                      }}
+                    />
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
             </Card>
-          )}
-
-
+          ) : null}
         </div>
       </div>
-
-      {/* Record Match Section - Collapsible */}
-      {isAuthenticated && userMembership && (
-        <Card className="vg-card">
-          <Collapsible open={showRecordMatch} onOpenChange={setShowRecordMatch}>
-            <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer hover:bg-gray-800/50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="cyberpunk-subtitle flex items-center gap-2 text-lg">
-                    <Swords className="h-5 w-5 text-blue-400" />
-                    {t('recordMatch.title')}
-                  </CardTitle>
-                  {showRecordMatch ? (
-                    <ChevronUp className="h-5 w-5 text-gray-400" />
-                  ) : (
-                    <ChevronDown className="h-5 w-5 text-gray-400" />
-                  )}
-                </div>
-                <CardDescription className="text-gray-400">
-                  {t('recordMatch.subtitle')}
-                </CardDescription>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent>
-                <RecordMatchForm
-                  initialLeagueId={parseInt(id)}
-                  hideLeagueSelector={true}
-                  leagueName={league.name}
-                  allowAdminMatchForOthers={canManageLeague}
-                  onSuccess={() => {
-                    setShowRecordMatch(false);
-                    // Refresh matches and leaderboard
-                    fetchMatches();
-                    fetchLeaderboard(leaderboardPagination.page);
-                  }}
-                />
-              </CardContent>
-            </CollapsibleContent>
-          </Collapsible>
-        </Card>
-      )}
 
       {/* Members List and Admin Panel - Side by Side (kept last in DOM) */}
       {canManageLeague ? (
@@ -1698,20 +1743,6 @@ const LeagueDetailPage = () => {
                 </Button>
               </div>
 
-              {/* Quick Stats */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium text-gray-300">Quick Stats</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                  <div className="bg-gray-800 p-3 rounded border border-gray-700">
-                    <div className="text-gray-400">Pending Invites</div>
-                    <div className="text-2xl font-bold text-blue-400">{invites.length}</div>
-                  </div>
-                  <div className="bg-gray-800 p-3 rounded border border-gray-700">
-                    <div className="text-gray-400">Total Members</div>
-                    <div className="text-2xl font-bold text-green-400">{members.length}</div>
-                  </div>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </div>

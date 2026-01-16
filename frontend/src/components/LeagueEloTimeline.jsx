@@ -19,7 +19,7 @@ const COLOR_PALETTE = [
   '#f472b6',
 ];
 
-const LeagueEloTimeline = ({ leagueId, players, playersStatus, playersError }) => {
+const LeagueEloTimeline = ({ leagueId, players, playersStatus, playersError, eloRange }) => {
   const { t } = useTranslation();
   const [selectedRosterIds, setSelectedRosterIds] = useState([]);
   const [series, setSeries] = useState([]);
@@ -126,6 +126,45 @@ const LeagueEloTimeline = ({ leagueId, players, playersStatus, playersError }) =
     return Array.from(dataMap.values()).sort((a, b) => a.timestamp - b.timestamp);
   }, [selectedSeries]);
 
+  const yDomain = useMemo(() => {
+    let minValue;
+    let maxValue;
+
+    if (eloRange) {
+      const minRaw = eloRange.min_elo;
+      const maxRaw = eloRange.max_elo;
+      const parsedMin = typeof minRaw === 'number' ? minRaw : Number.parseFloat(minRaw);
+      const parsedMax = typeof maxRaw === 'number' ? maxRaw : Number.parseFloat(maxRaw);
+      if (Number.isFinite(parsedMin) && Number.isFinite(parsedMax)) {
+        minValue = parsedMin;
+        maxValue = parsedMax;
+      }
+    }
+
+    if (minValue === undefined || maxValue === undefined) {
+      const values = [];
+      selectedSeries.forEach((entry) => {
+        if (!Array.isArray(entry.history)) return;
+        entry.history.forEach((point) => {
+          if (typeof point.elo_after === 'number') {
+            values.push(point.elo_after);
+          }
+        });
+      });
+      if (values.length > 0) {
+        minValue = Math.min(...values);
+        maxValue = Math.max(...values);
+      }
+    }
+
+    if (!Number.isFinite(minValue) || !Number.isFinite(maxValue)) {
+      return null;
+    }
+
+    const padding = 100;
+    return [minValue - padding, maxValue + padding];
+  }, [eloRange, selectedSeries]);
+
   const toggleRoster = (rosterId) => {
     setSelectedRosterIds((prev) => {
       const exists = prev.includes(rosterId);
@@ -230,6 +269,7 @@ const LeagueEloTimeline = ({ leagueId, players, playersStatus, playersError }) =
                 axisLine={false}
                 width={36}
                 tickFormatter={(value) => value.toString()}
+                domain={yDomain === null ? undefined : yDomain}
               />
               <ChartTooltip
                 cursor={{ strokeDasharray: '4 4' }}
