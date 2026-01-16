@@ -1024,8 +1024,10 @@ router.post('/:id/join-requests', authenticateToken, validateId, async (req, res
 router.get('/:id/join-requests', authenticateToken, requireLeagueAdmin, validateId, validatePagination, async (req, res) => {
     try {
         const leagueId = parseInt(req.params.id);
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 20;
+        const pageValue = parseInt(req.query.page);
+        const limitValue = parseInt(req.query.limit);
+        const page = Number.isFinite(pageValue) && pageValue > 0 ? pageValue : 1;
+        const limit = Number.isFinite(limitValue) && limitValue > 0 ? limitValue : 20;
         const offset = (page - 1) * limit;
         const statusFilter = 'pending';
 
