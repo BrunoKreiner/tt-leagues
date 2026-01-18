@@ -31,7 +31,7 @@ import { useTranslation } from 'react-i18next';
 import SiteFooter from '@/components/layout/SiteFooter';
 
 const Layout = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, isAuthenticated, isAdmin } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
@@ -45,7 +45,7 @@ const Layout = () => {
     { name: t('nav.dashboard'), href: '/app/dashboard', icon: Home },
     { name: t('nav.leagues'), href: '/app/leagues', icon: Trophy },
     { name: t('nav.matches'), href: '/app/matches', icon: Swords },
-    { name: t('nav.admin'), href: '/app/admin', icon: Shield },
+    ...(isAdmin ? [{ name: t('nav.admin'), href: '/app/admin', icon: Shield }] : []),
     {
       name: 'TTC Baden-Wettingen',
       label: (
@@ -92,12 +92,17 @@ const Layout = () => {
   };
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
     // initial fetch on layout mount
     fetchNotifications();
     // optional: poll every 60s
     const intervalId = setInterval(fetchNotifications, 60000);
     return () => clearInterval(intervalId);
-  }, []);
+  }, [isAuthenticated]);
 
   const markAsRead = async (id) => {
     try {
@@ -198,147 +203,160 @@ const Layout = () => {
                 <DropdownMenuItem onClick={() => i18n.changeLanguage('de')} className="text-gray-200 hover:bg-gray-700">{t('language.german')}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            {/* Notifications */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="relative" onClick={fetchNotifications}>
-                  <Bell className="h-4 w-4" />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[1rem] h-4 px-1 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center">
-                      {unreadCount}
-                    </span>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-96 bg-gray-900 border-2 border-gray-700 shadow-xl" align="end" forceMount>
-                <div className="px-4 py-3 flex items-center justify-between border-b border-gray-700">
-                  <span className="text-sm font-semibold text-gray-200">{t('notifications.title')}</span>
-                  <Button variant="ghost" size="sm" onClick={markAllAsRead} disabled={notifLoading || unreadCount === 0} className="h-7 px-2 text-xs">
-                    {t('actions.markAllRead')}
-                  </Button>
-                </div>
-                <div className="max-h-96 overflow-y-auto">
-                  {notifLoading ? (
-                    <div className="p-6 text-center text-sm text-gray-400">{t('common.loading')}</div>
-                  ) : notifications.length === 0 ? (
-                    <div className="p-6 text-center text-sm text-gray-400">{t('notifications.none')}</div>
-                  ) : (
-                    notifications.map((n) => (
-                      <div key={n.id} className={`px-4 py-3 border-b border-gray-800 last:border-b-0 hover:bg-gray-800/50 transition-colors ${!n.is_read ? 'bg-gray-800/30' : ''}`}>
-                        <div className="flex items-start gap-3">
-                          {/* Icon */}
-                          <div className={`mt-0.5 flex-shrink-0 ${n.type === 'league_invite' ? 'text-blue-400' : 'text-gray-400'}`}>
-                            {n.type === 'league_invite' ? (
-                              <UserPlus className="h-4 w-4" />
-                            ) : (
-                              <Bell className="h-4 w-4" />
-                            )}
-                          </div>
-                          {/* Content */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <div className={`text-sm mb-1 ${!n.is_read ? 'font-semibold text-gray-100' : 'font-medium text-gray-300'}`}>{n.title}</div>
-                                <div className="text-xs text-gray-400 mb-1.5 leading-relaxed">{n.message}</div>
-                                {n.created_at && (
-                                  <div className="text-[10px] text-gray-500">
-                                    {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
-                                  </div>
+            {isAuthenticated ? (
+              <>
+                {/* Notifications */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="relative" onClick={fetchNotifications}>
+                      <Bell className="h-4 w-4" />
+                      {unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 min-w-[1rem] h-4 px-1 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-96 bg-gray-900 border-2 border-gray-700 shadow-xl" align="end" forceMount>
+                    <div className="px-4 py-3 flex items-center justify-between border-b border-gray-700">
+                      <span className="text-sm font-semibold text-gray-200">{t('notifications.title')}</span>
+                      <Button variant="ghost" size="sm" onClick={markAllAsRead} disabled={notifLoading || unreadCount === 0} className="h-7 px-2 text-xs">
+                        {t('actions.markAllRead')}
+                      </Button>
+                    </div>
+                    <div className="max-h-96 overflow-y-auto">
+                      {notifLoading ? (
+                        <div className="p-6 text-center text-sm text-gray-400">{t('common.loading')}</div>
+                      ) : notifications.length === 0 ? (
+                        <div className="p-6 text-center text-sm text-gray-400">{t('notifications.none')}</div>
+                      ) : (
+                        notifications.map((n) => (
+                          <div key={n.id} className={`px-4 py-3 border-b border-gray-800 last:border-b-0 hover:bg-gray-800/50 transition-colors ${!n.is_read ? 'bg-gray-800/30' : ''}`}>
+                            <div className="flex items-start gap-3">
+                              {/* Icon */}
+                              <div className={`mt-0.5 flex-shrink-0 ${n.type === 'league_invite' ? 'text-blue-400' : 'text-gray-400'}`}>
+                                {n.type === 'league_invite' ? (
+                                  <UserPlus className="h-4 w-4" />
+                                ) : (
+                                  <Bell className="h-4 w-4" />
                                 )}
                               </div>
-                              {!n.is_read && (
-                                <Button variant="ghost" size="sm" onClick={() => markAsRead(n.id)} className="h-7 px-2 text-xs flex-shrink-0">{t('actions.read')}</Button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        {n.type === 'league_invite' && (
-                          <div className="mt-2 space-y-2">
-                            {!n.is_read ? (
-                              <div className="flex items-center gap-2">
-                                <Button size="sm" onClick={() => handleAcceptInvite(n)} disabled={!!acceptLoading[n.id]}>
-                                  {acceptLoading[n.id] ? t('status.joining') : t('actions.accept')}
-                                </Button>
-                                                                 <Button size="sm" variant="outline" onClick={() => handleDenyInvite(n)}>
-                                   {t('actions.reject')}
-                                 </Button>
+                              {/* Content */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <div className={`text-sm mb-1 ${!n.is_read ? 'font-semibold text-gray-100' : 'font-medium text-gray-300'}`}>{n.title}</div>
+                                    <div className="text-xs text-gray-400 mb-1.5 leading-relaxed">{n.message}</div>
+                                    {n.created_at && (
+                                      <div className="text-[10px] text-gray-500">
+                                        {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                                      </div>
+                                    )}
+                                  </div>
+                                  {!n.is_read && (
+                                    <Button variant="ghost" size="sm" onClick={() => markAsRead(n.id)} className="h-7 px-2 text-xs flex-shrink-0">{t('actions.read')}</Button>
+                                  )}
+                                </div>
                               </div>
-                            ) : (
-                                                             <div className="text-xs text-muted-foreground">{t('notifications.inviteHandled')}</div>
-                            )}
-                            {n.related_id && (
-                                                             <Link to={`/app/leagues/${n.related_id}`} className="text-xs text-primary underline">
-                                 {t('matchDetail.viewLeague')}
-                               </Link>
+                            </div>
+                            {n.type === 'league_invite' && (
+                              <div className="mt-2 space-y-2">
+                                {!n.is_read ? (
+                                  <div className="flex items-center gap-2">
+                                    <Button size="sm" onClick={() => handleAcceptInvite(n)} disabled={!!acceptLoading[n.id]}>
+                                      {acceptLoading[n.id] ? t('status.joining') : t('actions.accept')}
+                                    </Button>
+                                                                     <Button size="sm" variant="outline" onClick={() => handleDenyInvite(n)}>
+                                       {t('actions.reject')}
+                                     </Button>
+                                  </div>
+                                ) : (
+                                                                 <div className="text-xs text-muted-foreground">{t('notifications.inviteHandled')}</div>
+                                )}
+                                {n.related_id && (
+                                                                 <Link to={`/app/leagues/${n.related_id}`} className="text-xs text-primary underline">
+                                     {t('matchDetail.viewLeague')}
+                                   </Link>
+                                )}
+                              </div>
                             )}
                           </div>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-                <DropdownMenuSeparator />
-                <div className="p-2">
-                  <Link to="/app/notifications" className="w-full inline-flex items-center justify-center text-sm underline text-primary">
-                    {t('nav.notifications')}
-                  </Link>
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* User menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full cursor-pointer">
-                  <Avatar className="h-8 w-8" key={user?.avatar_url}>
-                    {user?.avatar_url && (
-                      <AvatarImage src={user.avatar_url} alt="Profile" />
-                    )}
-                    <AvatarFallback className="text-xs bg-gray-700 text-gray-200">
-                      {getUserInitials(user)}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56 bg-gray-800 border-gray-700" align="end" forceMount>
-                <DropdownMenuItem asChild className="text-gray-200 hover:bg-gray-700 p-2 cursor-pointer">
-                  <Link to="/app/profile" className="flex items-center justify-start gap-2 w-full">
-                    <Avatar className="h-10 w-10" key={user?.avatar_url}>
-                      {user?.avatar_url && (
-                        <AvatarImage src={user.avatar_url} alt="Profile" />
+                        ))
                       )}
-                      <AvatarFallback className="text-sm bg-gray-700 text-gray-200">
-                        {getUserInitials(user)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col space-y-1 leading-none">
-                      <p className="font-medium">{user?.first_name} {user?.last_name}</p>
-                      <p className="w-[200px] truncate text-sm text-gray-400">
-                        @{user?.username}
-                      </p>
                     </div>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="text-gray-200 hover:bg-gray-700">
-                  <Link to="/app/profile" className="flex items-center">
-                    <User className="mr-2 h-4 w-4" />
-                    <span>{t('nav.profile')}</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className="text-gray-200 hover:bg-gray-700">
-                  <Link to="/app/settings" className="flex items-center">
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>{t('nav.settings')}</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-gray-700" />
-                <DropdownMenuItem onClick={handleLogout} className="text-red-400 hover:bg-gray-700">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>{t('nav.logout')}</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    <DropdownMenuSeparator />
+                    <div className="p-2">
+                      <Link to="/app/notifications" className="w-full inline-flex items-center justify-center text-sm underline text-primary">
+                        {t('nav.notifications')}
+                      </Link>
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* User menu */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-8 w-8 rounded-full cursor-pointer">
+                      <Avatar className="h-8 w-8" key={user?.avatar_url}>
+                        {user?.avatar_url && (
+                          <AvatarImage src={user.avatar_url} alt="Profile" />
+                        )}
+                        <AvatarFallback className="text-xs bg-gray-700 text-gray-200">
+                          {getUserInitials(user)}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56 bg-gray-800 border-gray-700" align="end" forceMount>
+                    <DropdownMenuItem asChild className="text-gray-200 hover:bg-gray-700 p-2 cursor-pointer">
+                      <Link to="/app/profile" className="flex items-center justify-start gap-2 w-full">
+                        <Avatar className="h-10 w-10" key={user?.avatar_url}>
+                          {user?.avatar_url && (
+                            <AvatarImage src={user.avatar_url} alt="Profile" />
+                          )}
+                          <AvatarFallback className="text-sm bg-gray-700 text-gray-200">
+                            {getUserInitials(user)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col space-y-1 leading-none">
+                          <p className="font-medium">{user?.first_name} {user?.last_name}</p>
+                          <p className="w-[200px] truncate text-sm text-gray-400">
+                            @{user?.username}
+                          </p>
+                        </div>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild className="text-gray-200 hover:bg-gray-700">
+                      <Link to="/app/profile" className="flex items-center">
+                        <User className="mr-2 h-4 w-4" />
+                        <span>{t('nav.profile')}</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="text-gray-200 hover:bg-gray-700">
+                      <Link to="/app/settings" className="flex items-center">
+                        <Settings className="mr-2 h-4 w-4" />
+                        <span>{t('nav.settings')}</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-gray-700" />
+                    <DropdownMenuItem onClick={handleLogout} className="text-red-400 hover:bg-gray-700">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>{t('nav.logout')}</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/login">Log in</Link>
+                </Button>
+                <Button size="sm" asChild>
+                  <Link to="/register">Sign up</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -358,6 +376,7 @@ const Layout = () => {
         onClose={closeMobileMenu}
         navigation={navigation}
         user={user}
+        isAuthenticated={isAuthenticated}
         notifications={notifications}
         unreadCount={unreadCount}
         notifLoading={notifLoading}

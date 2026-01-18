@@ -102,7 +102,9 @@ function AppRoutes() {
         <Route path="/league/:id" element={<PublicLeaguePage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/support" element={<SupportTicketPage />} />
-        <Route path="/wiki/ttc-baden-wettingen" element={<TtcBadenWettingenWikiPage />} />
+        <Route element={<Layout />}>
+          <Route path="/wiki/ttc-baden-wettingen" element={<TtcBadenWettingenWikiPage />} />
+        </Route>
 
         {/* Protected routes */}
         <Route path="/app" element={
