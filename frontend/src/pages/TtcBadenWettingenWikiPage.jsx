@@ -9,7 +9,7 @@ const TtcBadenWettingenWikiPage = () => {
     <div className="mx-auto max-w-6xl">
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_240px]">
         <div className="space-y-8">
-          <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mt-8">
             <h1 className="cyberpunk-title text-3xl text-blue-300">
               <span className="inline-flex items-start gap-2">
                 <span>TTC Baden-Wettingen</span>
