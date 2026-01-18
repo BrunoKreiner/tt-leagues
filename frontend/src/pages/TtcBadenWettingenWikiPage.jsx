@@ -37,7 +37,7 @@ const TtcBadenWettingenWikiPage = () => {
             <h3 className="text-base font-semibold text-gray-200">Montag</h3>
             <p className="text-sm text-gray-300">18:00 - 20:30</p>
             <p className="text-sm text-gray-300">
-              Baden -{' '}
+              Baden -&gt;{' '}
               <a
                 href="https://share.google/DJjlIIBNnQcPDDbqa"
                 className="text-blue-400 hover:text-blue-300 underline"
@@ -53,7 +53,7 @@ const TtcBadenWettingenWikiPage = () => {
             <h3 className="text-base font-semibold text-gray-200">Dienstag</h3>
             <p className="text-sm text-gray-300">17:30 - 19:30</p>
             <p className="text-sm text-gray-300">
-              Wettingen -{' '}
+              Wettingen -&gt;{' '}
               <a
                 href="https://maps.app.goo.gl/j2an2j8ggnKDAjFP9"
                 className="text-blue-400 hover:text-blue-300 underline"
@@ -69,7 +69,7 @@ const TtcBadenWettingenWikiPage = () => {
             <h3 className="text-base font-semibold text-gray-200">Donnerstag</h3>
             <p className="text-sm text-gray-300">17:30 - 19:30</p>
             <p className="text-sm text-gray-300">
-              Wettingen -{' '}
+              Wettingen -&gt;{' '}
               <a
                 href="https://maps.app.goo.gl/j2an2j8ggnKDAjFP9"
                 className="text-blue-400 hover:text-blue-300 underline"
