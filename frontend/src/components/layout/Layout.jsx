@@ -19,7 +19,8 @@ import {
   LogOut,
   Bell,
   Shield,
-  UserPlus
+  UserPlus,
+  BookOpen
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -45,6 +46,17 @@ const Layout = () => {
     { name: t('nav.leagues'), href: '/app/leagues', icon: Trophy },
     { name: t('nav.matches'), href: '/app/matches', icon: Swords },
     { name: t('nav.admin'), href: '/app/admin', icon: Shield },
+    {
+      name: 'TTC Baden-Wettingen',
+      label: (
+        <span className="inline-flex items-start gap-1">
+          <span>TTC Baden-Wettingen</span>
+          <sup className="text-[10px] font-semibold text-blue-400 inline-block -skew-y-3">wiki</sup>
+        </span>
+      ),
+      href: '/wiki/ttc-baden-wettingen',
+      icon: BookOpen,
+    },
   ];
 
   const handleLogout = async () => {
@@ -147,10 +159,11 @@ const Layout = () => {
               const Icon = item.icon;
               const isActive = location.pathname === item.href || 
                              (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
+              const label = item.label ?? item.name;
               
               return (
                 <Link
-                  key={item.name}
+                  key={item.href}
                   to={item.href}
                   className={`cyberpunk-text flex items-center space-x-2 text-sm font-medium transition-all duration-200 hover:text-blue-400 hover:scale-105 ${
                     isActive 
@@ -159,7 +172,7 @@ const Layout = () => {
                   }`}
                 >
                   <Icon className="h-4 w-4" />
-                  <span className="hidden sm:inline">{item.name}</span>
+                  <span className="hidden sm:inline">{label}</span>
                 </Link>
               );
             })}
