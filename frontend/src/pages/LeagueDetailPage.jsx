@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { leaguesAPI, matchesAPI, badgesAPI } from '@/services/api';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -73,6 +73,7 @@ const LeagueDetailPage = () => {
   const [eloRange, setEloRange] = useState(null);
   const [eloRangeStatus, setEloRangeStatus] = useState('idle');
   const { isAuthenticated, isAdmin, user } = useAuth();
+  const navigate = useNavigate();
   const [inviteCode, setInviteCode] = useState('');
   const [joinLoading, setJoinLoading] = useState(false);
   const [joinRequest, setJoinRequest] = useState(null);
@@ -81,6 +82,7 @@ const LeagueDetailPage = () => {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteResult, setInviteResult] = useState(null);
   const [leaveLoading, setLeaveLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [updateLoading, setUpdateLoading] = useState(false);
   const [invites, setInvites] = useState([]);
   const [_invitesLoading, setInvitesLoading] = useState(false);
@@ -743,6 +745,25 @@ const LeagueDetailPage = () => {
     }
   };
 
+  const handleDeleteLeague = async () => {
+    if (!id) return;
+    try {
+      setDeleteLoading(true);
+      await leaguesAPI.delete(id);
+      toast.success('League deleted');
+      navigate('/app/leagues');
+    } catch (err) {
+      const apiMessage = err?.response?.data?.error;
+      if (apiMessage) {
+        toast.error(apiMessage);
+      } else {
+        toast.error('Failed to delete league');
+      }
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const handleLeave = async () => {
     try {
       setLeaveLoading(true);
@@ -869,6 +890,14 @@ const LeagueDetailPage = () => {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-center">
+        <Button variant="outline" size="lg" asChild className="flex items-start gap-1">
+          <Link to="/app/wiki/ttc-baden-wettingen">
+            <span className="text-base font-semibold">TTC Baden-Wettingen</span>
+            <sup className="text-xs font-semibold text-blue-400">wiki</sup>
+          </Link>
+        </Button>
+      </div>
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -909,6 +938,35 @@ const LeagueDetailPage = () => {
               </AlertDialogContent>
             </AlertDialog>
           )}
+          {canManageLeague ? (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm" disabled={deleteLoading}>
+                  Delete league
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete league?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action permanently removes the league and all related data.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction asChild>
+                    <Button
+                      variant="secondary"
+                      onClick={handleDeleteLeague}
+                      disabled={deleteLoading}
+                    >
+                      {deleteLoading ? 'Deleting...' : 'Are you sure?'}
+                    </Button>
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : null}
         </div>
       </div>
 

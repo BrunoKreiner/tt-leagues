@@ -27,6 +27,7 @@ import AdminPage from './pages/AdminPage';
 import NotificationsPage from './pages/NotificationsPage';
 import RecordMatchPage from './pages/RecordMatchPage';
 import MatchDetailPage from './pages/MatchDetailPage';
+import TtcBadenWettingenWikiPage from './pages/TtcBadenWettingenWikiPage';
 
 import './App.css';
 
@@ -118,6 +119,7 @@ function AppRoutes() {
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="profile/:username" element={<ProfilePage />} />
+          <Route path="wiki/ttc-baden-wettingen" element={<TtcBadenWettingenWikiPage />} />
           <Route path="admin" element={
             <ProtectedRoute>
               <AdminPage />
