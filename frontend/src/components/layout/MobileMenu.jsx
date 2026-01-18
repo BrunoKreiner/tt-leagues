@@ -20,7 +20,8 @@ const MobileMenu = ({
   isOpen, 
   onClose, 
   navigation, 
-  user, 
+  user,
+  isAuthenticated,
   notifications, 
   unreadCount, 
   notifLoading, 
@@ -106,26 +107,39 @@ const MobileMenu = ({
         </div>
 
         {/* User Profile Section */}
-        <Link to="/app/profile" onClick={onClose} className="block p-4 border-b border-gray-700 hover:bg-gray-800/50 transition-colors cursor-pointer touch-manipulation min-h-[64px]">
-          <div className="flex items-center space-x-3">
-            <Avatar className="h-10 w-10">
-              {user?.avatar_url && (
-                <img src={user.avatar_url} alt="Avatar" className="h-full w-full object-cover rounded-full" />
-              )}
-              <AvatarFallback className="text-sm bg-gray-700 text-gray-200">
-                {getUserInitials(user)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm truncate text-gray-200">
-                {user?.first_name} {user?.last_name}
-              </p>
-              <p className="text-xs text-gray-400 truncate">
-                @{user?.username}
-              </p>
+        {isAuthenticated ? (
+          <Link to="/app/profile" onClick={onClose} className="block p-4 border-b border-gray-700 hover:bg-gray-800/50 transition-colors cursor-pointer touch-manipulation min-h-[64px]">
+            <div className="flex items-center space-x-3">
+              <Avatar className="h-10 w-10">
+                {user?.avatar_url && (
+                  <img src={user.avatar_url} alt="Avatar" className="h-full w-full object-cover rounded-full" />
+                )}
+                <AvatarFallback className="text-sm bg-gray-700 text-gray-200">
+                  {getUserInitials(user)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm truncate text-gray-200">
+                  {user?.first_name} {user?.last_name}
+                </p>
+                <p className="text-xs text-gray-400 truncate">
+                  @{user?.username}
+                </p>
+              </div>
+            </div>
+          </Link>
+        ) : (
+          <div className="p-4 border-b border-gray-700">
+            <div className="flex items-center gap-2">
+              <Button asChild variant="ghost" className="flex-1">
+                <Link to="/login" onClick={onClose}>Log in</Link>
+              </Button>
+              <Button asChild className="flex-1">
+                <Link to="/register" onClick={onClose}>Sign up</Link>
+              </Button>
             </div>
           </div>
-        </Link>
+        )}
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto">
@@ -160,141 +174,147 @@ const MobileMenu = ({
           </div>
 
           {/* Quick Actions */}
-          <div className="p-2">
-            <Link
-              to="/app/profile"
-              className="flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-700 transition-colors min-h-[44px] touch-manipulation"
-              onClick={onClose}
-            >
-              <User className="h-5 w-5" />
-              <span>Profile</span>
-            </Link>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={handleLogoutClick}
-              className="w-full justify-start px-3 py-3 rounded-lg text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-900/20 min-h-[44px] touch-manipulation"
-            >
-              <LogOut className="h-5 w-5" />
-              <span>Log out</span>
-            </Button>
-          </div>
+          {isAuthenticated ? (
+            <div className="p-2">
+              <Link
+                to="/app/profile"
+                className="flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-700 transition-colors min-h-[44px] touch-manipulation"
+                onClick={onClose}
+              >
+                <User className="h-5 w-5" />
+                <span>Profile</span>
+              </Link>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleLogoutClick}
+                className="w-full justify-start px-3 py-3 rounded-lg text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-900/20 min-h-[44px] touch-manipulation"
+              >
+                <LogOut className="h-5 w-5" />
+                <span>Log out</span>
+              </Button>
+            </div>
+          ) : null}
 
           {/* Notifications Section */}
-          <div className="px-4 py-2">
-            <div className="h-px bg-gray-700" />
-          </div>
-          
-          <div className="p-2">
-            <div className="flex items-center justify-between px-3 py-2">
-              <div className="flex items-center space-x-3">
-                <Bell className="h-5 w-5 text-gray-400" />
-                <span className="text-sm font-medium text-gray-200">Notifications</span>
+          {isAuthenticated ? (
+            <>
+              <div className="px-4 py-2">
+                <div className="h-px bg-gray-700" />
               </div>
-              {unreadCount > 0 && (
-                <span className="min-w-[1.25rem] h-5 px-1.5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center">
-                  {unreadCount}
-                </span>
-              )}
-            </div>
-            
-            {/* Notifications List */}
-            <div className="max-h-64 overflow-y-auto">
-              {notifLoading ? (
-                                 <div className="px-3 py-2 text-sm text-gray-400">{t('common.loading')}</div>
-              ) : notifications.length === 0 ? (
-                                 <div className="px-3 py-2 text-sm text-gray-400">{t('notifications.none')}</div>
-              ) : (
-                notifications.slice(0, 5).map((n) => (
-                  <div key={n.id} className={`px-3 py-2 rounded-lg ${!n.is_read ? 'bg-gray-700/40' : 'bg-gray-800'}`}>
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5 text-gray-400">
-                        {n.type === 'league_invite' ? (
-                          <UserPlus className="h-4 w-4" />
-                        ) : (
-                          <Bell className="h-4 w-4" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className={`text-sm ${!n.is_read ? 'font-semibold' : 'font-medium'} truncate text-gray-200`}>
-                              {n.title}
-                            </div>
-                            <div className="text-xs text-gray-400 line-clamp-2">
-                              {n.message}
-                            </div>
-                            {n.created_at && (
-                              <div className="text-[10px] text-gray-500 mt-1">
-                                {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
-                              </div>
+              
+              <div className="p-2">
+                <div className="flex items-center justify-between px-3 py-2">
+                  <div className="flex items-center space-x-3">
+                    <Bell className="h-5 w-5 text-gray-400" />
+                    <span className="text-sm font-medium text-gray-200">Notifications</span>
+                  </div>
+                  {unreadCount > 0 && (
+                    <span className="min-w-[1.25rem] h-5 px-1.5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center">
+                      {unreadCount}
+                    </span>
+                  )}
+                </div>
+                
+                {/* Notifications List */}
+                <div className="max-h-64 overflow-y-auto">
+                  {notifLoading ? (
+                                     <div className="px-3 py-2 text-sm text-gray-400">{t('common.loading')}</div>
+                  ) : notifications.length === 0 ? (
+                                     <div className="px-3 py-2 text-sm text-gray-400">{t('notifications.none')}</div>
+                  ) : (
+                    notifications.slice(0, 5).map((n) => (
+                      <div key={n.id} className={`px-3 py-2 rounded-lg ${!n.is_read ? 'bg-gray-700/40' : 'bg-gray-800'}`}>
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 text-gray-400">
+                            {n.type === 'league_invite' ? (
+                              <UserPlus className="h-4 w-4" />
+                            ) : (
+                              <Bell className="h-4 w-4" />
                             )}
                           </div>
-                          {!n.is_read && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => onMarkAsRead(n.id)}
-                              className="min-h-[44px] px-3 text-xs touch-manipulation"
-                            >
-                              Read
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    {n.type === 'league_invite' && (
-                      <div className="mt-2 space-y-2">
-                        {!n.is_read ? (
-                          <div className="flex items-center gap-2">
-                            <Button 
-                              size="sm" 
-                              onClick={() => onAcceptInvite(n)} 
-                              disabled={!!acceptLoading[n.id]}
-                              className="flex-1 min-h-[44px] text-xs touch-manipulation"
-                            >
-                              {acceptLoading[n.id] ? t('status.joining') : t('actions.accept')}
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              onClick={() => onDenyInvite(n)}
-                              className="flex-1 min-h-[44px] text-xs touch-manipulation"
-                            >
-                              Deny
-                            </Button>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className={`text-sm ${!n.is_read ? 'font-semibold' : 'font-medium'} truncate text-gray-200`}>
+                                  {n.title}
+                                </div>
+                                <div className="text-xs text-gray-400 line-clamp-2">
+                                  {n.message}
+                                </div>
+                                {n.created_at && (
+                                  <div className="text-[10px] text-gray-500 mt-1">
+                                    {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                                  </div>
+                                )}
+                              </div>
+                              {!n.is_read && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => onMarkAsRead(n.id)}
+                                  className="min-h-[44px] px-3 text-xs touch-manipulation"
+                                >
+                                  Read
+                                </Button>
+                              )}
+                            </div>
                           </div>
-                        ) : (
-                          <div className="text-xs text-gray-400">Invite handled</div>
-                        )}
-                        {n.related_id && (
-                          <Link 
-                            to={`/app/leagues/${n.related_id}`} 
-                            className="text-xs text-blue-400 underline"
-                            onClick={onClose}
-                          >
-                            View league
-                          </Link>
+                        </div>
+                        {n.type === 'league_invite' && (
+                          <div className="mt-2 space-y-2">
+                            {!n.is_read ? (
+                              <div className="flex items-center gap-2">
+                                <Button 
+                                  size="sm" 
+                                  onClick={() => onAcceptInvite(n)} 
+                                  disabled={!!acceptLoading[n.id]}
+                                  className="flex-1 min-h-[44px] text-xs touch-manipulation"
+                                >
+                                  {acceptLoading[n.id] ? t('status.joining') : t('actions.accept')}
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  onClick={() => onDenyInvite(n)}
+                                  className="flex-1 min-h-[44px] text-xs touch-manipulation"
+                                >
+                                  Deny
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="text-xs text-gray-400">Invite handled</div>
+                            )}
+                            {n.related_id && (
+                              <Link 
+                                to={`/app/leagues/${n.related_id}`} 
+                                className="text-xs text-blue-400 underline"
+                                onClick={onClose}
+                              >
+                                View league
+                              </Link>
+                            )}
+                          </div>
                         )}
                       </div>
-                    )}
+                    ))
+                  )}
+                </div>
+                
+                {notifications.length > 0 && (
+                  <div className="mt-2">
+                    <Link 
+                      to="/app/notifications" 
+                      className="w-full inline-flex items-center justify-center text-sm underline text-blue-400 py-2"
+                      onClick={onClose}
+                    >
+                      View all notifications
+                    </Link>
                   </div>
-                ))
-              )}
-            </div>
-            
-            {notifications.length > 0 && (
-              <div className="mt-2">
-                <Link 
-                  to="/app/notifications" 
-                  className="w-full inline-flex items-center justify-center text-sm underline text-blue-400 py-2"
-                  onClick={onClose}
-                >
-                  View all notifications
-                </Link>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          ) : null}
         </nav>
       </div>
     </>
