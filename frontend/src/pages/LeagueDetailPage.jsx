@@ -752,13 +752,8 @@ const LeagueDetailPage = () => {
       await leaguesAPI.delete(id);
       toast.success('League deleted');
       navigate('/app/leagues');
-    } catch (err) {
-      const apiMessage = err?.response?.data?.error;
-      if (apiMessage) {
-        toast.error(apiMessage);
-      } else {
-        toast.error('Failed to delete league');
-      }
+    } catch {
+      toast.error('Failed to delete league');
     } finally {
       setDeleteLoading(false);
     }
@@ -960,7 +955,7 @@ const LeagueDetailPage = () => {
                       onClick={handleDeleteLeague}
                       disabled={deleteLoading}
                     >
-                      {deleteLoading ? 'Deleting...' : 'Are you sure?'}
+                      Are you sure?
                     </Button>
                   </AlertDialogAction>
                 </AlertDialogFooter>
