@@ -4,7 +4,12 @@ const TtcBadenWettingenWikiPage = () => {
   return (
     <div className="mx-auto max-w-3xl space-y-8">
       <header className="space-y-2">
-        <h1 className="cyberpunk-title text-3xl text-blue-300">TTC Baden-Wettingen Wiki</h1>
+        <h1 className="cyberpunk-title text-3xl text-blue-300">
+          <span className="inline-flex items-start gap-2">
+            <span>TTC Baden-Wettingen</span>
+            <sup className="text-sm font-semibold text-blue-400 inline-block -skew-y-3">wiki</sup>
+          </span>
+        </h1>
       </header>
 
       <section className="space-y-3">

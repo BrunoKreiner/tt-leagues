@@ -134,10 +134,11 @@ const MobileMenu = ({
               const Icon = item.icon;
               const isActive = location.pathname === item.href || 
                              (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
+              const label = item.label ?? item.name;
               
               return (
                 <Link
-                  key={item.name}
+                  key={item.href}
                   to={item.href}
                   className={`flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors min-h-[44px] touch-manipulation ${
                     isActive 
@@ -147,7 +148,7 @@ const MobileMenu = ({
                   onClick={onClose}
                 >
                   <Icon className="h-5 w-5" />
-                  <span>{item.name}</span>
+                  <span>{label}</span>
                 </Link>
               );
             })}
