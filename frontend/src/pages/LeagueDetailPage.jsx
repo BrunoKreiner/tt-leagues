@@ -887,7 +887,7 @@ const LeagueDetailPage = () => {
     <div className="space-y-6">
       <div className="flex justify-center">
         <Button variant="outline" size="lg" asChild className="flex items-start gap-1">
-          <Link to="/app/wiki/ttc-baden-wettingen">
+          <Link to="/wiki/ttc-baden-wettingen">
             <span className="text-base font-semibold">TTC Baden-Wettingen</span>
             <sup className="text-xs font-semibold text-blue-400">wiki</sup>
           </Link>

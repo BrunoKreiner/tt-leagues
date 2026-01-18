@@ -153,6 +153,14 @@ const PublicLeaguePage = () => {
 
       {/* Content */}
       <main className="max-w-5xl mx-auto px-4 py-8">
+        <div className="flex justify-center mb-6">
+          <Button variant="outline" size="lg" asChild className="flex items-start gap-1">
+            <Link to="/wiki/ttc-baden-wettingen">
+              <span className="text-base font-semibold">TTC Baden-Wettingen</span>
+              <sup className="text-xs font-semibold text-blue-400">wiki</sup>
+            </Link>
+          </Button>
+        </div>
         {/* League Header */}
         <div className="space-y-4 mb-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

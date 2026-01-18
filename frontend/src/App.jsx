@@ -102,6 +102,7 @@ function AppRoutes() {
         <Route path="/league/:id" element={<PublicLeaguePage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/support" element={<SupportTicketPage />} />
+        <Route path="/wiki/ttc-baden-wettingen" element={<TtcBadenWettingenWikiPage />} />
 
         {/* Protected routes */}
         <Route path="/app" element={
@@ -119,7 +120,6 @@ function AppRoutes() {
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="profile/:username" element={<ProfilePage />} />
-          <Route path="wiki/ttc-baden-wettingen" element={<TtcBadenWettingenWikiPage />} />
           <Route path="admin" element={
             <ProtectedRoute>
               <AdminPage />
@@ -138,6 +138,7 @@ function AppRoutes() {
         <Route path="/profile" element={<Navigate to="/app/profile" replace />} />
         <Route path="/profile/:username" element={<Navigate to="/app/profile/:username" replace />} />
         <Route path="/admin" element={<Navigate to="/app/admin" replace />} />
+        <Route path="/app/wiki/ttc-baden-wettingen" element={<Navigate to="/wiki/ttc-baden-wettingen" replace />} />
 
         {/* Catch all route */}
         <Route path="*" element={<Navigate to="/" replace />} />
