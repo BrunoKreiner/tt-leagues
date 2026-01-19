@@ -78,6 +78,9 @@ const allowedOriginPatterns = (process.env.FRONTEND_URL || '')
     return pattern;
   });
 
+// Always allow Vercel preview URLs (for development/preview deployments)
+allowedOriginPatterns.push(/^https:\/\/tt-league-frontend.*\.vercel\.app$/);
+
 const corsOptions = {
   origin: (origin, callback) => {
     // Allow non-browser requests or same-origin
