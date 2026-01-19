@@ -4,6 +4,7 @@ const { generateToken } = require('../utils/jwt');
 const { authenticateToken } = require('../middleware/auth');
 const { validateRegistration, validateLogin } = require('../middleware/validation');
 const { moderateText, ModerationError } = require('../middleware/contentModeration');
+const { verifyTurnstile, validateHoneypot } = require('../middleware/captcha');
 const database = require('../models/database');
 
 const router = express.Router();
@@ -12,7 +13,7 @@ const router = express.Router();
  * Register new user
  * POST /api/auth/register
  */
-router.post('/register', validateRegistration, async (req, res) => {
+router.post('/register', validateHoneypot, verifyTurnstile, validateRegistration, async (req, res) => {
     try {
         const { username, password, first_name, last_name, email } = req.body;
 
@@ -89,7 +90,7 @@ router.post('/register', validateRegistration, async (req, res) => {
  * Login user
  * POST /api/auth/login
  */
-router.post('/login', validateLogin, async (req, res) => {
+router.post('/login', validateHoneypot, verifyTurnstile, validateLogin, async (req, res) => {
     try {
         const { username, password } = req.body;
         

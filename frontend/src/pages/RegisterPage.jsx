@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import SiteFooter from '@/components/layout/SiteFooter';
 import { useTranslation } from 'react-i18next';
+import { Turnstile } from 'react-turnstile';
 
 const RegisterPage = () => {
   const { t } = useTranslation();
@@ -20,10 +21,14 @@ const RegisterPage = () => {
     first_name: '',
     last_name: '',
     email: '',
+    website: '', // Honeypot field
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
+  const [captchaToken, setCaptchaToken] = useState(null);
+  const [captchaError, setCaptchaError] = useState(false);
+  const turnstileRef = useRef(null);
   const { register, loading, error } = useAuth();
 
   const handleChange = (e) => {
@@ -75,16 +80,50 @@ const RegisterPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Check honeypot field
+    if (formData.website) {
+      // Bot detected - silently fail
+      return;
+    }
+    
     if (!validateForm()) {
+      return;
+    }
+
+    // Check CAPTCHA
+    if (!captchaToken) {
+      setCaptchaError(true);
       return;
     }
 
     const registrationData = { ...formData };
     delete registrationData.confirmPassword;
+    delete registrationData.website; // Remove honeypot field
     if (!registrationData.email) {
       delete registrationData.email; // omit empty email so BE treats it as truly optional
     }
+    
+    // Add CAPTCHA token
+    registrationData.captchaToken = captchaToken;
+    
     await register(registrationData);
+  };
+
+  const handleCaptchaSuccess = (token) => {
+    setCaptchaToken(token);
+    setCaptchaError(false);
+  };
+
+  const handleCaptchaError = () => {
+    setCaptchaError(true);
+    setCaptchaToken(null);
+  };
+
+  const handleCaptchaExpire = () => {
+    setCaptchaToken(null);
+    if (turnstileRef.current) {
+      turnstileRef.current.reset();
+    }
   };
 
   return (
@@ -245,7 +284,39 @@ const RegisterPage = () => {
                 )}
               </div>
 
-              <Button type="submit" className="w-full hover:scale-100 hover:shadow-sm" disabled={loading}>
+              {/* Honeypot field - hidden from users */}
+              <div style={{ position: 'absolute', left: '-9999px', opacity: 0, pointerEvents: 'none' }}>
+                <Label htmlFor="website">Website (leave blank)</Label>
+                <Input
+                  id="website"
+                  name="website"
+                  type="text"
+                  value={formData.website || ''}
+                  onChange={handleChange}
+                  tabIndex={-1}
+                  autoComplete="off"
+                />
+              </div>
+
+              {/* Cloudflare Turnstile */}
+              <div className="flex justify-center">
+                <Turnstile
+                  ref={turnstileRef}
+                  sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+                  onSuccess={handleCaptchaSuccess}
+                  onError={handleCaptchaError}
+                  onExpire={handleCaptchaExpire}
+                  options={{
+                    theme: 'dark',
+                    size: 'normal'
+                  }}
+                />
+              </div>
+              {captchaError && (
+                <p className="text-sm text-red-600 text-center">Please complete the security verification</p>
+              )}
+
+              <Button type="submit" className="w-full hover:scale-100 hover:shadow-sm" disabled={loading || !captchaToken}>
                 {loading ? (
                   <>
                     <LoadingSpinner size="sm" className="mr-2" />
