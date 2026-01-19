@@ -201,6 +201,13 @@ DATABASE_PATH=database/league.db
 JWT_SECRET=your-super-secret-jwt-key-change-in-production
 JWT_EXPIRES_IN=7d
 
+# Cloudflare Turnstile CAPTCHA (optional but recommended)
+# Get keys from: https://dash.cloudflare.com/?to=/:account/turnstile
+# For development/testing, you can use the test keys:
+# Site key: 1x00000000000000000000AA
+# Secret key: 1x0000000000000000000000000000000AA
+TURNSTILE_SECRET_KEY=your-turnstile-secret-key-here
+
 # Admin seeding (created/updated on startup; ADMIN_PASSWORD required in production)
 ADMIN_USERNAME=admin
 ADMIN_FIRST_NAME=Admin
@@ -217,6 +224,11 @@ Notes:
 ### Frontend (.env)
 ```
 VITE_API_URL=http://localhost:3001/api
+
+# Cloudflare Turnstile CAPTCHA (optional but recommended)
+# Get site key from: https://dash.cloudflare.com/?to=/:account/turnstile
+# For development/testing, you can use the test site key: 1x00000000000000000000AA
+VITE_TURNSTILE_SITE_KEY=your-turnstile-site-key-here
 ```
 
 ## Troubleshooting
