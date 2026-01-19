@@ -96,9 +96,24 @@ const TurnstileWrapper = forwardRef((props, ref) => {
     hasRef: !!ref
   });
 
+  // Ensure all required props are present before rendering
+  if (!props.sitekey) {
+    console.error('Cannot render Turnstile: sitekey is missing');
+    return null;
+  }
+
   try {
     console.log('Rendering Turnstile component with sitekey:', props.sitekey ? 'PRESENT' : 'MISSING', 'ref:', ref ? 'PRESENT' : 'MISSING');
-    const turnstileElement = <Turnstile ref={ref} {...props} />;
+    // Create a clean props object without undefined values
+    const cleanProps = {
+      sitekey: props.sitekey,
+      onSuccess: props.onSuccess,
+      onError: props.onError,
+      onExpire: props.onExpire,
+      onLoad: props.onLoad,
+      ...(props.options && { options: props.options })
+    };
+    const turnstileElement = <Turnstile ref={ref} {...cleanProps} />;
     console.log('Turnstile element created');
     return turnstileElement;
   } catch (error) {
