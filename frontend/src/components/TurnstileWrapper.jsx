@@ -21,20 +21,27 @@ const TurnstileWrapper = forwardRef((props, ref) => {
 
   // Auto-execute Turnstile once loaded (invisible mode)
   useEffect(() => {
-    if (loaded && ref?.current && Turnstile) {
+    if (loaded && Turnstile && props.sitekey) {
+      console.log('Turnstile ready, sitekey:', props.sitekey ? 'present' : 'missing');
+      // In invisible mode, Turnstile should execute automatically
+      // But we can trigger it manually if needed after a short delay
       const timer = setTimeout(() => {
-        if (ref.current) {
+        if (ref?.current) {
           try {
-            console.log('Attempting to execute Turnstile');
+            console.log('Attempting to execute Turnstile manually');
             ref.current.execute();
           } catch (e) {
             console.error('Failed to execute Turnstile:', e);
           }
+        } else {
+          console.warn('Turnstile ref not available yet');
         }
-      }, 500);
+      }, 1000);
       return () => clearTimeout(timer);
+    } else if (loaded && !props.sitekey) {
+      console.error('Turnstile sitekey is missing!');
     }
-  }, [loaded, ref, Turnstile]);
+  }, [loaded, ref, Turnstile, props.sitekey]);
 
   if (error) {
     console.error('Turnstile component is not available:', error);

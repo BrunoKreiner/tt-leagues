@@ -73,10 +73,15 @@ const LoginPage = () => {
   };
 
   const handleCaptchaSuccess = (token) => {
-    console.log('Turnstile success, token received');
-    setCaptchaToken(token);
-    setCaptchaError(false);
-    setTurnstileReady(true);
+    console.log('Turnstile success, token received:', token ? 'Token present' : 'Token missing');
+    if (token) {
+      setCaptchaToken(token);
+      setCaptchaError(false);
+      setTurnstileReady(true);
+    } else {
+      console.error('Turnstile success callback called but token is empty!');
+      setCaptchaError(true);
+    }
   };
 
   const handleCaptchaError = (error) => {
@@ -201,12 +206,34 @@ const LoginPage = () => {
                   onSuccess={handleCaptchaSuccess}
                   onError={handleCaptchaError}
                   onExpire={handleCaptchaExpire}
+                  onLoad={() => {
+                    console.log('Turnstile onLoad callback fired');
+                    // In invisible mode, Turnstile should execute automatically
+                    // But we can trigger it if needed
+                    if (turnstileRef.current) {
+                      setTimeout(() => {
+                        try {
+                          console.log('Triggering Turnstile execute from onLoad');
+                          turnstileRef.current.execute();
+                        } catch (e) {
+                          console.error('Failed to execute from onLoad:', e);
+                        }
+                      }, 500);
+                    }
+                  }}
                   options={{
                     theme: 'dark',
                     size: 'invisible'
                   }}
                 />
               </div>
+              {/* Debug info */}
+              {process.env.NODE_ENV === 'development' && (
+                <p className="text-xs text-gray-500 text-center">
+                  Sitekey: {import.meta.env.VITE_TURNSTILE_SITE_KEY ? 'Set' : 'Missing'} | 
+                  Token: {captchaToken ? 'Yes' : 'No'}
+                </p>
+              )}
               {captchaError && (
                 <p className="text-sm text-red-600 text-center">Please complete the security verification</p>
               )}
