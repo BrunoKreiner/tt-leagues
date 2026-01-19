@@ -4,6 +4,7 @@ const TurnstileWrapper = forwardRef((props, ref) => {
   const [Turnstile, setTurnstile] = useState(null);
   const [error, setError] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     // Dynamically import Turnstile to handle bundling issues
@@ -96,10 +97,42 @@ const TurnstileWrapper = forwardRef((props, ref) => {
     hasRef: !!ref
   });
 
+  // Wait a bit to ensure DOM is ready before rendering
+  useEffect(() => {
+    if (loaded && Turnstile && props.sitekey) {
+      const timer = setTimeout(() => {
+        console.log('Setting mounted to true');
+        setMounted(true);
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [loaded, Turnstile, props.sitekey]);
+
+  // Ensure all required props are present before rendering
+  if (!props.sitekey) {
+    console.error('Cannot render Turnstile: sitekey is missing');
+    return null;
+  }
+
+  if (!mounted) {
+    console.log('TurnstileWrapper: Not mounted yet, waiting...');
+    return null;
+  }
+
   try {
     console.log('Rendering Turnstile component with sitekey:', props.sitekey ? 'PRESENT' : 'MISSING', 'ref:', ref ? 'PRESENT' : 'MISSING');
-    const turnstileElement = <Turnstile ref={ref} {...props} />;
-    console.log('Turnstile element created');
+    // Create a clean props object - only include defined callbacks
+    const cleanProps = {
+      sitekey: props.sitekey,
+      ...(props.onSuccess && { onSuccess: props.onSuccess }),
+      ...(props.onError && { onError: props.onError }),
+      ...(props.onExpire && { onExpire: props.onExpire }),
+      ...(props.onLoad && { onLoad: props.onLoad }),
+      ...(props.options && { options: props.options })
+    };
+    console.log('Clean props:', Object.keys(cleanProps));
+    const turnstileElement = <Turnstile ref={ref} {...cleanProps} />;
+    console.log('Turnstile element created successfully');
     return turnstileElement;
   } catch (error) {
     console.error('Turnstile render error:', error);
