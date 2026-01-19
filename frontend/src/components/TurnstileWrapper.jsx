@@ -121,14 +121,18 @@ const TurnstileWrapper = forwardRef((props, ref) => {
 
   try {
     console.log('Rendering Turnstile component with sitekey:', props.sitekey ? 'PRESENT' : 'MISSING', 'ref:', ref ? 'PRESENT' : 'MISSING');
-    // Create a clean props object - only include defined callbacks
+    // Create a clean props object - react-turnstile uses direct props, not options object
     const cleanProps = {
       sitekey: props.sitekey,
       ...(props.onSuccess && { onSuccess: props.onSuccess }),
       ...(props.onError && { onError: props.onError }),
       ...(props.onExpire && { onExpire: props.onExpire }),
       ...(props.onLoad && { onLoad: props.onLoad }),
-      ...(props.options && { options: props.options })
+      // Support both direct props and options object for backward compatibility
+      ...(props.size && { size: props.size }),
+      ...(props.theme && { theme: props.theme }),
+      ...(props.options?.size && { size: props.options.size }),
+      ...(props.options?.theme && { theme: props.options.theme })
     };
     console.log('Clean props:', Object.keys(cleanProps));
     const turnstileElement = <Turnstile ref={ref} {...cleanProps} />;

@@ -220,7 +220,7 @@ const LoginPage = () => {
               </div>
 
               {/* Cloudflare Turnstile - Invisible Mode */}
-              <div style={{ position: 'absolute', left: '0', top: '0', width: '1px', height: '1px', opacity: 0, pointerEvents: 'none' }}>
+              <div className="hidden">
                 <TurnstileWrapper
                   ref={turnstileRef}
                   sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
@@ -228,10 +228,8 @@ const LoginPage = () => {
                   onError={handleCaptchaError}
                   onExpire={handleCaptchaExpire}
                   onLoad={handleTurnstileLoad}
-                  options={{
-                    theme: 'dark',
-                    size: 'invisible'
-                  }}
+                  size="invisible"
+                  theme="dark"
                 />
               </div>
               {captchaError && (
