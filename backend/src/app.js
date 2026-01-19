@@ -81,7 +81,17 @@ const allowedOriginPatterns = (process.env.FRONTEND_URL || '')
 const corsOptions = {
   origin: (origin, callback) => {
     // Allow non-browser requests or same-origin
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      console.log('CORS: No origin header (non-browser request), allowing');
+      return callback(null, true);
+    }
+    
+    // Always allow leagues.lol and www.leagues.lol
+    if (origin === 'https://leagues.lol' || origin === 'https://www.leagues.lol') {
+      console.log('CORS: Allowed production origin:', origin);
+      return callback(null, true);
+    }
+    
     if (allowedOriginPatterns.length === 0) {
       // No explicit origins configured: reflect request origin (use env FRONTEND_URL in production)
       console.log('CORS: No patterns configured, allowing origin:', origin);
