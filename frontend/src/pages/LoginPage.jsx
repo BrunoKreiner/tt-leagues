@@ -22,6 +22,7 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [captchaToken, setCaptchaToken] = useState(null);
   const [captchaError, setCaptchaError] = useState(false);
+  const [turnstileReady, setTurnstileReady] = useState(false);
   const turnstileRef = useRef(null);
   const { login, loading, error } = useAuth();
 
@@ -43,12 +44,12 @@ const LoginPage = () => {
     
     // Check CAPTCHA - in invisible mode it should execute automatically
     // But trigger manually if not executed yet
-    if (!captchaToken) {
-      if (turnstileRef.current) {
+    if (import.meta.env.VITE_TURNSTILE_SITE_KEY && !captchaToken) {
+      if (turnstileRef.current && turnstileReady) {
         try {
           turnstileRef.current.execute();
           // Wait a moment for token
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 1000));
           if (!captchaToken) {
             setCaptchaError(true);
             return;
@@ -58,7 +59,7 @@ const LoginPage = () => {
           setCaptchaError(true);
           return;
         }
-      } else {
+      } else if (import.meta.env.VITE_TURNSTILE_SITE_KEY) {
         setCaptchaError(true);
         return;
       }
@@ -66,7 +67,9 @@ const LoginPage = () => {
 
     const loginData = { ...formData };
     delete loginData.website; // Remove honeypot field
-    loginData.captchaToken = captchaToken;
+    if (import.meta.env.VITE_TURNSTILE_SITE_KEY && captchaToken) {
+      loginData.captchaToken = captchaToken;
+    }
     
     await login(loginData);
   };
@@ -74,11 +77,14 @@ const LoginPage = () => {
   const handleCaptchaSuccess = (token) => {
     setCaptchaToken(token);
     setCaptchaError(false);
+    setTurnstileReady(true);
   };
 
-  const handleCaptchaError = () => {
+  const handleCaptchaError = (error) => {
+    console.error('Turnstile error:', error);
     setCaptchaError(true);
     setCaptchaToken(null);
+    setTurnstileReady(false);
   };
 
   const handleCaptchaExpire = () => {
@@ -90,13 +96,18 @@ const LoginPage = () => {
 
   // Auto-execute Turnstile on mount (invisible mode)
   useEffect(() => {
-    if (turnstileRef.current) {
-      try {
-        turnstileRef.current.execute();
-      } catch (error) {
-        // Silently handle - Turnstile will execute automatically in invisible mode
+    if (!import.meta.env.VITE_TURNSTILE_SITE_KEY) return;
+    
+    const timer = setTimeout(() => {
+      if (turnstileRef.current) {
+        try {
+          turnstileRef.current.execute();
+        } catch (error) {
+          console.error('Turnstile execution error:', error);
+        }
       }
-    }
+    }, 500);
+    return () => clearTimeout(timer);
   }, []);
 
   return (
@@ -186,19 +197,21 @@ const LoginPage = () => {
               </div>
 
               {/* Cloudflare Turnstile - Invisible Mode */}
-              <div style={{ display: 'none' }}>
-                <Turnstile
-                  ref={turnstileRef}
-                  sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
-                  onSuccess={handleCaptchaSuccess}
-                  onError={handleCaptchaError}
-                  onExpire={handleCaptchaExpire}
-                  options={{
-                    theme: 'dark',
-                    size: 'invisible'
-                  }}
-                />
-              </div>
+              {import.meta.env.VITE_TURNSTILE_SITE_KEY && (
+                <div style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', overflow: 'hidden' }}>
+                  <Turnstile
+                    ref={turnstileRef}
+                    sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+                    onSuccess={handleCaptchaSuccess}
+                    onError={handleCaptchaError}
+                    onExpire={handleCaptchaExpire}
+                    options={{
+                      theme: 'dark',
+                      size: 'invisible'
+                    }}
+                  />
+                </div>
+              )}
               {captchaError && (
                 <p className="text-sm text-red-600 text-center">Please complete the security verification</p>
               )}
