@@ -153,9 +153,23 @@ const RegisterPage = () => {
   };
 
   const handleCaptchaExpire = () => {
+    console.log('Turnstile token expired');
     setCaptchaToken(null);
     if (turnstileRef.current) {
       turnstileRef.current.reset();
+    }
+  };
+
+  const handleTurnstileLoad = () => {
+    console.log('Turnstile widget loaded, attempting to execute');
+    if (turnstileRef.current) {
+      setTimeout(() => {
+        try {
+          turnstileRef.current.execute();
+        } catch (e) {
+          console.error('Failed to execute on load:', e);
+        }
+      }, 500);
     }
   };
 
@@ -342,6 +356,7 @@ const RegisterPage = () => {
                   onSuccess={handleCaptchaSuccess}
                   onError={handleCaptchaError}
                   onExpire={handleCaptchaExpire}
+                  onLoad={handleTurnstileLoad}
                   options={{
                     theme: 'dark',
                     size: 'invisible'

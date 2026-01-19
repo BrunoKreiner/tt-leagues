@@ -103,9 +103,23 @@ const LoginPage = () => {
   };
 
   const handleCaptchaExpire = () => {
+    console.log('Turnstile token expired');
     setCaptchaToken(null);
     if (turnstileRef.current) {
       turnstileRef.current.reset();
+    }
+  };
+
+  const handleTurnstileLoad = () => {
+    console.log('Turnstile widget loaded, attempting to execute');
+    if (turnstileRef.current) {
+      setTimeout(() => {
+        try {
+          turnstileRef.current.execute();
+        } catch (e) {
+          console.error('Failed to execute on load:', e);
+        }
+      }, 500);
     }
   };
 
@@ -199,25 +213,20 @@ const LoginPage = () => {
               </div>
 
               {/* Cloudflare Turnstile - Invisible Mode */}
-              {(() => {
-                const sitekey = import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA';
-                console.log('Rendering Turnstile with sitekey:', sitekey ? 'PRESENT' : 'MISSING', sitekey?.substring(0, 15) + '...');
-                return (
-                  <div style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', overflow: 'hidden' }}>
-                    <TurnstileWrapper
-                      ref={turnstileRef}
-                      sitekey={sitekey}
-                      onSuccess={handleCaptchaSuccess}
-                      onError={handleCaptchaError}
-                      onExpire={handleCaptchaExpire}
-                      options={{
-                        theme: 'dark',
-                        size: 'invisible'
-                      }}
-                    />
-                  </div>
-                );
-              })()}
+              <div style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', overflow: 'hidden' }}>
+                <TurnstileWrapper
+                  ref={turnstileRef}
+                  sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+                  onSuccess={handleCaptchaSuccess}
+                  onError={handleCaptchaError}
+                  onExpire={handleCaptchaExpire}
+                  onLoad={handleTurnstileLoad}
+                  options={{
+                    theme: 'dark',
+                    size: 'invisible'
+                  }}
+                />
+              </div>
               {captchaError && (
                 <p className="text-sm text-red-600 text-center">Please complete the security verification</p>
               )}
