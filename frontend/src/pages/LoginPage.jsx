@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -41,10 +41,27 @@ const LoginPage = () => {
       return;
     }
     
-    // Check CAPTCHA
+    // Check CAPTCHA - in invisible mode it should execute automatically
+    // But trigger manually if not executed yet
     if (!captchaToken) {
-      setCaptchaError(true);
-      return;
+      if (turnstileRef.current) {
+        try {
+          turnstileRef.current.execute();
+          // Wait a moment for token
+          await new Promise(resolve => setTimeout(resolve, 500));
+          if (!captchaToken) {
+            setCaptchaError(true);
+            return;
+          }
+        } catch (error) {
+          console.error('Turnstile execution error:', error);
+          setCaptchaError(true);
+          return;
+        }
+      } else {
+        setCaptchaError(true);
+        return;
+      }
     }
 
     const loginData = { ...formData };
@@ -70,6 +87,17 @@ const LoginPage = () => {
       turnstileRef.current.reset();
     }
   };
+
+  // Auto-execute Turnstile on mount (invisible mode)
+  useEffect(() => {
+    if (turnstileRef.current) {
+      try {
+        turnstileRef.current.execute();
+      } catch (error) {
+        // Silently handle - Turnstile will execute automatically in invisible mode
+      }
+    }
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-950 via-gray-900 to-gray-800">
@@ -157,8 +185,8 @@ const LoginPage = () => {
                 />
               </div>
 
-              {/* Cloudflare Turnstile */}
-              <div className="flex justify-center">
+              {/* Cloudflare Turnstile - Invisible Mode */}
+              <div style={{ display: 'none' }}>
                 <Turnstile
                   ref={turnstileRef}
                   sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
@@ -167,7 +195,7 @@ const LoginPage = () => {
                   onExpire={handleCaptchaExpire}
                   options={{
                     theme: 'dark',
-                    size: 'normal'
+                    size: 'invisible'
                   }}
                 />
               </div>
@@ -175,7 +203,7 @@ const LoginPage = () => {
                 <p className="text-sm text-red-600 text-center">Please complete the security verification</p>
               )}
 
-              <Button type="submit" className="w-full hover:scale-100 hover:shadow-sm" disabled={loading || !captchaToken}>
+              <Button type="submit" className="w-full hover:scale-100 hover:shadow-sm" disabled={loading}>
                 {loading ? (
                   <>
                     <LoadingSpinner size="sm" className="mr-2" />
