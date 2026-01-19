@@ -91,13 +91,12 @@ const RegisterPage = () => {
       return;
     }
 
-    // Check CAPTCHA - in invisible mode it should execute automatically
-    // But trigger manually if not executed yet
-    if (import.meta.env.VITE_TURNSTILE_SITE_KEY && !captchaToken) {
-      if (turnstileRef.current && turnstileReady) {
+    // Check CAPTCHA - REQUIRED
+    if (!captchaToken) {
+      if (turnstileRef.current) {
         try {
           turnstileRef.current.execute();
-          // Wait a moment for token
+          // Wait for token
           await new Promise(resolve => setTimeout(resolve, 1000));
           if (!captchaToken) {
             setCaptchaError(true);
@@ -108,7 +107,7 @@ const RegisterPage = () => {
           setCaptchaError(true);
           return;
         }
-      } else if (import.meta.env.VITE_TURNSTILE_SITE_KEY) {
+      } else {
         setCaptchaError(true);
         return;
       }
@@ -121,10 +120,8 @@ const RegisterPage = () => {
       delete registrationData.email; // omit empty email so BE treats it as truly optional
     }
     
-    // Add CAPTCHA token only if Turnstile is configured
-    if (import.meta.env.VITE_TURNSTILE_SITE_KEY && captchaToken) {
-      registrationData.captchaToken = captchaToken;
-    }
+    // Add CAPTCHA token - REQUIRED
+    registrationData.captchaToken = captchaToken;
     
     await register(registrationData);
   };
@@ -151,8 +148,6 @@ const RegisterPage = () => {
 
   // Auto-execute Turnstile on mount (invisible mode)
   useEffect(() => {
-    if (!import.meta.env.VITE_TURNSTILE_SITE_KEY) return;
-    
     const timer = setTimeout(() => {
       if (turnstileRef.current) {
         try {
@@ -338,21 +333,19 @@ const RegisterPage = () => {
               </div>
 
               {/* Cloudflare Turnstile - Invisible Mode */}
-              {import.meta.env.VITE_TURNSTILE_SITE_KEY && (
-                <div style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', overflow: 'hidden' }}>
-                  <Turnstile
-                    ref={turnstileRef}
-                    sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
-                    onSuccess={handleCaptchaSuccess}
-                    onError={handleCaptchaError}
-                    onExpire={handleCaptchaExpire}
-                    options={{
-                      theme: 'dark',
-                      size: 'invisible'
-                    }}
-                  />
-                </div>
-              )}
+              <div style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', overflow: 'hidden' }}>
+                <Turnstile
+                  ref={turnstileRef}
+                  sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+                  onSuccess={handleCaptchaSuccess}
+                  onError={handleCaptchaError}
+                  onExpire={handleCaptchaExpire}
+                  options={{
+                    theme: 'dark',
+                    size: 'invisible'
+                  }}
+                />
+              </div>
               {captchaError && (
                 <p className="text-sm text-red-600 text-center">Please complete the security verification</p>
               )}
