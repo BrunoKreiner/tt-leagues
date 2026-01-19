@@ -9,12 +9,14 @@ const TurnstileWrapper = forwardRef((props, ref) => {
     // Dynamically import Turnstile to handle bundling issues
     import('react-turnstile')
       .then((module) => {
-        console.log('Turnstile module loaded successfully, Turnstile component:', module.Turnstile ? 'PRESENT' : 'MISSING', 'module keys:', Object.keys(module));
-        if (module.Turnstile) {
-          console.log('Setting Turnstile component, type:', typeof module.Turnstile);
-          setTurnstile(module.Turnstile);
+        console.log('Turnstile module loaded successfully, module keys:', Object.keys(module));
+        // react-turnstile uses default export, not named export
+        const TurnstileComponent = module.default || module.Turnstile;
+        console.log('Turnstile component:', TurnstileComponent ? 'PRESENT' : 'MISSING', 'type:', typeof TurnstileComponent);
+        if (TurnstileComponent) {
+          setTurnstile(TurnstileComponent);
           setLoaded(true);
-          console.log('Turnstile state should now be set');
+          console.log('Turnstile state set successfully');
         } else {
           console.error('Turnstile component not found in module:', module);
           setError(new Error('Turnstile component not found'));
