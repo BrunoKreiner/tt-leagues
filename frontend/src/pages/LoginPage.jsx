@@ -73,7 +73,7 @@ const LoginPage = () => {
   };
 
   const handleCaptchaSuccess = (token) => {
-    console.log('Turnstile success, token received:', token ? 'Token present' : 'Token missing');
+    console.log('Turnstile success, token received:', token ? 'YES' : 'NO', token?.substring(0, 20) + '...');
     if (token) {
       setCaptchaToken(token);
       setCaptchaError(false);
@@ -199,41 +199,25 @@ const LoginPage = () => {
               </div>
 
               {/* Cloudflare Turnstile - Invisible Mode */}
-              <div style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', overflow: 'hidden' }}>
-                <TurnstileWrapper
-                  ref={turnstileRef}
-                  sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
-                  onSuccess={handleCaptchaSuccess}
-                  onError={handleCaptchaError}
-                  onExpire={handleCaptchaExpire}
-                  onLoad={() => {
-                    console.log('Turnstile onLoad callback fired');
-                    // In invisible mode, Turnstile should execute automatically
-                    // But we can trigger it if needed
-                    if (turnstileRef.current) {
-                      setTimeout(() => {
-                        try {
-                          console.log('Triggering Turnstile execute from onLoad');
-                          turnstileRef.current.execute();
-                        } catch (e) {
-                          console.error('Failed to execute from onLoad:', e);
-                        }
-                      }, 500);
-                    }
-                  }}
-                  options={{
-                    theme: 'dark',
-                    size: 'invisible'
-                  }}
-                />
-              </div>
-              {/* Debug info */}
-              {process.env.NODE_ENV === 'development' && (
-                <p className="text-xs text-gray-500 text-center">
-                  Sitekey: {import.meta.env.VITE_TURNSTILE_SITE_KEY ? 'Set' : 'Missing'} | 
-                  Token: {captchaToken ? 'Yes' : 'No'}
-                </p>
-              )}
+              {(() => {
+                const sitekey = import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA';
+                console.log('Rendering Turnstile with sitekey:', sitekey ? 'PRESENT' : 'MISSING', sitekey?.substring(0, 15) + '...');
+                return (
+                  <div style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', overflow: 'hidden' }}>
+                    <TurnstileWrapper
+                      ref={turnstileRef}
+                      sitekey={sitekey}
+                      onSuccess={handleCaptchaSuccess}
+                      onError={handleCaptchaError}
+                      onExpire={handleCaptchaExpire}
+                      options={{
+                        theme: 'dark',
+                        size: 'invisible'
+                      }}
+                    />
+                  </div>
+                );
+              })()}
               {captchaError && (
                 <p className="text-sm text-red-600 text-center">Please complete the security verification</p>
               )}
