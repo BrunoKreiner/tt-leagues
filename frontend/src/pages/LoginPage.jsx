@@ -73,10 +73,15 @@ const LoginPage = () => {
   };
 
   const handleCaptchaSuccess = (token) => {
-    console.log('Turnstile success, token received');
-    setCaptchaToken(token);
-    setCaptchaError(false);
-    setTurnstileReady(true);
+    console.log('Turnstile success, token received:', token ? 'YES' : 'NO', token?.substring(0, 20) + '...');
+    if (token) {
+      setCaptchaToken(token);
+      setCaptchaError(false);
+      setTurnstileReady(true);
+    } else {
+      console.error('Turnstile success callback called but token is empty!');
+      setCaptchaError(true);
+    }
   };
 
   const handleCaptchaError = (error) => {
@@ -194,19 +199,25 @@ const LoginPage = () => {
               </div>
 
               {/* Cloudflare Turnstile - Invisible Mode */}
-              <div style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', overflow: 'hidden' }}>
-                <TurnstileWrapper
-                  ref={turnstileRef}
-                  sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
-                  onSuccess={handleCaptchaSuccess}
-                  onError={handleCaptchaError}
-                  onExpire={handleCaptchaExpire}
-                  options={{
-                    theme: 'dark',
-                    size: 'invisible'
-                  }}
-                />
-              </div>
+              {(() => {
+                const sitekey = import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA';
+                console.log('Rendering Turnstile with sitekey:', sitekey ? 'PRESENT' : 'MISSING', sitekey?.substring(0, 15) + '...');
+                return (
+                  <div style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', overflow: 'hidden' }}>
+                    <TurnstileWrapper
+                      ref={turnstileRef}
+                      sitekey={sitekey}
+                      onSuccess={handleCaptchaSuccess}
+                      onError={handleCaptchaError}
+                      onExpire={handleCaptchaExpire}
+                      options={{
+                        theme: 'dark',
+                        size: 'invisible'
+                      }}
+                    />
+                  </div>
+                );
+              })()}
               {captchaError && (
                 <p className="text-sm text-red-600 text-center">Please complete the security verification</p>
               )}
