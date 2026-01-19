@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Users, ChevronRight, ListChecks, Calendar, Globe, Sparkles } from 'lucide-react';
+import { Trophy, Users, ChevronRight, ListChecks, Calendar, Globe, Sparkles, BookOpen } from 'lucide-react';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { leaguesAPI } from '../services/api';
 import MedalIcon from '@/components/MedalIcon';
@@ -135,6 +135,17 @@ const LandingPage = () => {
               </span>
             </Link>
             <div className="flex items-center gap-3">
+              <Button variant="ghost" size="sm" asChild className="text-gray-400 hover:text-white">
+                <Link to="/wiki/ttc-baden-wettingen" className="flex items-center gap-2">
+                  <BookOpen className="h-4 w-4" />
+                  <span className="hidden sm:inline">
+                    <span className="inline-flex items-start gap-1">
+                      <span>TTC Baden-Wettingen</span>
+                      <sup className="text-[10px] font-semibold text-blue-400 inline-block -skew-y-3">wiki</sup>
+                    </span>
+                  </span>
+                </Link>
+              </Button>
               <Button variant="ghost" size="sm" asChild className="text-gray-400 hover:text-white">
                 <Link to="/login">Log in</Link>
               </Button>

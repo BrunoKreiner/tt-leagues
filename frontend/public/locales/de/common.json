@@ -452,6 +452,27 @@
     "submitMatch": "Spiel einreichen",
     "matchRecordedSuccess": "Spiel erfolgreich eingetragen",
     "failedToRecordMatch": "Spiel konnte nicht eingetragen werden"
+  },
+  "wiki": {
+    "chapters": "Kapitel",
+    "material": {
+      "title": "Material",
+      "text": "Bevor du neues Material kaufst, kontaktiere mich bitte unter <email>brunokreiner@hotmail.ch</email> oder nutze die <support>Support-Seite</support> im Footer. Wir bieten deutlich günstigeres Material und Service, als bei anderen Shops, insbesondere den Schweizer Shops. Wir verkaufen auch gebrauchtes Material und kaufen im Ausland mit Rabatten bzw. in grösseren Mengen ein. (Offizielle Shop-Seite folgt bald.)"
+    },
+    "trainingsplanJugend": {
+      "title": "Trainingsplan Jugend",
+      "monday": "Montag",
+      "tuesday": "Dienstag",
+      "thursday": "Donnerstag",
+      "baden": "Baden",
+      "wettingen": "Wettingen"
+    },
+    "demnaechst": {
+      "title": "Demnächst auf dieser Seite",
+      "item1": "Liste der Trainingserfolge",
+      "item2": "Trainingspläne",
+      "item3": "Trainingsmoral beim TTC Baden-Wettingen"
+    }
   }
 }
 
