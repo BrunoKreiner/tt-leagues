@@ -58,7 +58,6 @@ const TtcBadenWettingenWikiPage = () => {
 
           <section id="trainingsplan-jugend" className="space-y-4 scroll-mt-24">
             <h2 className="cyberpunk-subtitle text-xl">{t('wiki.trainingsplanJugend.title')}</h2>
-            <p className="text-sm text-gray-400">{t('wiki.trainingsplanJugend.subtitle')}</p>
 
             <div className="space-y-3">
               <div className="space-y-1">

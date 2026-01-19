@@ -458,11 +458,10 @@
     "chapters": "Chapters",
     "material": {
       "title": "Equipment",
-      "text": "Before you buy new equipment, please contact me at <email>brunokreiner@hotmail.ch</email> or the <support>Support page</support> in the footer. We offer significantly cheaper equipment and service than other shops, especially Swiss shops. We also sell used equipment and buy abroad with discounts or in larger quantities. (Official shop page coming soon.)"
+      "text": "Before you buy new equipment, please contact me at <email>brunokreiner@hotmail.ch</email> or use the <support>Support page</support> in the footer. We offer significantly cheaper equipment and service than other shops, especially Swiss shops. We also sell used equipment and buy abroad with discounts or in larger quantities. (Official shop page coming soon.)"
     },
     "trainingsplanJugend": {
       "title": "Youth Training Schedule",
-      "subtitle": "Training schedule for beginners and advanced players",
       "monday": "Monday",
       "tuesday": "Tuesday",
       "thursday": "Thursday",
