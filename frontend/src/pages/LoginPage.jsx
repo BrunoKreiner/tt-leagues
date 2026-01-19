@@ -10,7 +10,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import SiteFooter from '@/components/layout/SiteFooter';
 import { useTranslation } from 'react-i18next';
-import { Turnstile } from 'react-turnstile';
+import TurnstileWrapper from '../components/TurnstileWrapper';
 
 const LoginPage = () => {
   const { t } = useTranslation();
@@ -194,21 +194,19 @@ const LoginPage = () => {
               </div>
 
               {/* Cloudflare Turnstile - Invisible Mode */}
-              {Turnstile ? (
-                <div style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', overflow: 'hidden' }}>
-                  <Turnstile
-                    ref={turnstileRef}
-                    sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
-                    onSuccess={handleCaptchaSuccess}
-                    onError={handleCaptchaError}
-                    onExpire={handleCaptchaExpire}
-                    options={{
-                      theme: 'dark',
-                      size: 'invisible'
-                    }}
-                  />
-                </div>
-              ) : null}
+              <div style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', overflow: 'hidden' }}>
+                <TurnstileWrapper
+                  ref={turnstileRef}
+                  sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+                  onSuccess={handleCaptchaSuccess}
+                  onError={handleCaptchaError}
+                  onExpire={handleCaptchaExpire}
+                  options={{
+                    theme: 'dark',
+                    size: 'invisible'
+                  }}
+                />
+              </div>
               {captchaError && (
                 <p className="text-sm text-red-600 text-center">Please complete the security verification</p>
               )}
