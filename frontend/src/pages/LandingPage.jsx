@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Users, ChevronRight, ListChecks, Calendar, Globe, Sparkles, BookOpen } from 'lucide-react';
+import { Trophy, Users, ChevronRight, ListChecks, Calendar, Globe, Sparkles, BookOpen, Menu, X } from 'lucide-react';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { leaguesAPI } from '../services/api';
 import MedalIcon from '@/components/MedalIcon';
@@ -14,13 +14,47 @@ import SiteFooter from '@/components/layout/SiteFooter';
 
 const LandingPage = () => {
   const { t } = useTranslation();
+  const location = useLocation();
   const [publicLeagues, setPublicLeagues] = useState([]);
   const [leagueLeaderboards, setLeagueLeaderboards] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [leaderboardStatus, setLeaderboardStatus] = useState({});
   const [shouldLoadLeaderboards, setShouldLoadLeaderboards] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const leaderboardSectionRef = useRef(null);
+
+  const toggleMobileMenu = useCallback(() => {
+    setMobileMenuOpen((open) => !open);
+  }, []);
+
+  const closeMobileMenu = useCallback(() => {
+    setMobileMenuOpen(false);
+  }, []);
+
+  // Close menu on route change
+  useEffect(() => {
+    closeMobileMenu();
+  }, [location.pathname, closeMobileMenu]);
+
+  // Handle escape key and body scroll
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && mobileMenuOpen) {
+        closeMobileMenu();
+      }
+    };
+
+    if (mobileMenuOpen) {
+      document.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [mobileMenuOpen, closeMobileMenu]);
 
   const leaderboardLeagues = useMemo(() => publicLeagues.slice(0, 2), [publicLeagues]);
 
@@ -135,22 +169,39 @@ const LandingPage = () => {
               </span>
             </Link>
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" asChild className="text-gray-400 hover:text-white">
-                <Link to="/wiki/ttc-baden-wettingen" className="flex items-center gap-2">
-                  <BookOpen className="h-4 w-4" />
-                  <span className="hidden sm:inline">
+              {/* Desktop: Wiki link and auth buttons */}
+              <div className="hidden md:flex items-center gap-3">
+                <Button variant="ghost" size="sm" asChild className="text-gray-400 hover:text-white">
+                  <Link to="/wiki/ttc-baden-wettingen" className="flex items-center gap-2">
+                    <BookOpen className="h-4 w-4" />
                     <span className="inline-flex items-start gap-1">
                       <span>TTC Baden-Wettingen</span>
                       <sup className="text-[10px] font-semibold text-blue-400 inline-block -skew-y-3">wiki</sup>
                     </span>
-                  </span>
-                </Link>
-              </Button>
-              <Button variant="ghost" size="sm" asChild className="text-gray-400 hover:text-white">
-                <Link to="/login">Log in</Link>
-              </Button>
-              <Button size="sm" asChild className="bg-blue-600 hover:bg-blue-500">
-                <Link to="/register">Get started</Link>
+                  </Link>
+                </Button>
+                <Button variant="ghost" size="sm" asChild className="text-gray-400 hover:text-white">
+                  <Link to="/login">Log in</Link>
+                </Button>
+                <Button size="sm" asChild className="bg-blue-600 hover:bg-blue-500">
+                  <Link to="/register">Get started</Link>
+                </Button>
+              </div>
+              
+              {/* Mobile: Hamburger button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleMobileMenu}
+                className="md:hidden h-11 w-11 p-0 flex items-center justify-center hover:bg-transparent active:bg-transparent focus-visible:ring-0 focus:outline-none touch-manipulation"
+                aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+                aria-expanded={mobileMenuOpen}
+              >
+                {mobileMenuOpen ? (
+                  <X className="w-6 h-6 text-gray-200" />
+                ) : (
+                  <Menu className="w-6 h-6 text-gray-200" />
+                )}
               </Button>
             </div>
           </div>
@@ -394,6 +445,78 @@ const LandingPage = () => {
       </main>
 
       <SiteFooter />
+
+      {/* Mobile Menu */}
+      <>
+        {/* Backdrop */}
+        <div 
+          className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300 ${
+            mobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`} 
+          onClick={closeMobileMenu}
+          aria-hidden="true"
+        />
+        
+        {/* Menu Panel */}
+        <div 
+          className={`fixed right-0 top-0 h-full w-80 bg-gray-900 border-l border-gray-700 z-50 transform transition-transform duration-300 ease-in-out ${
+            mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Mobile navigation menu"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-700">
+            <div className="flex items-center space-x-2">
+              <span className="font-bold text-lg text-gray-200">Menu</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={closeMobileMenu}
+              className="h-11 w-11 p-0 touch-manipulation"
+              aria-label="Close menu"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 overflow-y-auto">
+            <div className="p-2">
+              <Link
+                to="/wiki/ttc-baden-wettingen"
+                className="flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-700 transition-colors min-h-[44px] touch-manipulation"
+                onClick={closeMobileMenu}
+              >
+                <BookOpen className="h-5 w-5" />
+                <span className="inline-flex items-start gap-1">
+                  <span>TTC Baden-Wettingen</span>
+                  <sup className="text-[10px] font-semibold text-blue-400 inline-block -skew-y-3">wiki</sup>
+                </span>
+              </Link>
+            </div>
+
+            {/* Divider */}
+            <div className="px-4 py-2">
+              <div className="h-px bg-gray-700" />
+            </div>
+
+            {/* Auth Buttons */}
+            <div className="p-4">
+              <div className="flex flex-col gap-2">
+                <Button asChild variant="ghost" className="w-full justify-start min-h-[44px] touch-manipulation">
+                  <Link to="/login" onClick={closeMobileMenu}>Log in</Link>
+                </Button>
+                <Button asChild className="w-full min-h-[44px] touch-manipulation">
+                  <Link to="/register" onClick={closeMobileMenu}>Get started</Link>
+                </Button>
+              </div>
+            </div>
+          </nav>
+        </div>
+      </>
     </div>
   );
 };
