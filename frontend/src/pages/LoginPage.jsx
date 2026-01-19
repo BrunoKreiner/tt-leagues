@@ -46,9 +46,10 @@ const LoginPage = () => {
     if (!captchaToken) {
       if (turnstileRef.current) {
         try {
+          // Try to execute if not already executed
           turnstileRef.current.execute();
-          // Wait for token
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          // Wait a bit longer for the token callback
+          await new Promise(resolve => setTimeout(resolve, 1500));
           if (!captchaToken) {
             setCaptchaError(true);
             return;
@@ -72,6 +73,7 @@ const LoginPage = () => {
   };
 
   const handleCaptchaSuccess = (token) => {
+    console.log('Turnstile success, token received');
     setCaptchaToken(token);
     setCaptchaError(false);
     setTurnstileReady(true);
@@ -82,6 +84,17 @@ const LoginPage = () => {
     setCaptchaError(true);
     setCaptchaToken(null);
     setTurnstileReady(false);
+    // Try to reset and execute again
+    if (turnstileRef.current) {
+      setTimeout(() => {
+        try {
+          turnstileRef.current.reset();
+          turnstileRef.current.execute();
+        } catch (e) {
+          console.error('Failed to reset Turnstile:', e);
+        }
+      }, 1000);
+    }
   };
 
   const handleCaptchaExpire = () => {
@@ -91,19 +104,8 @@ const LoginPage = () => {
     }
   };
 
-  // Auto-execute Turnstile on mount (invisible mode)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (turnstileRef.current) {
-        try {
-          turnstileRef.current.execute();
-        } catch (error) {
-          console.error('Turnstile execution error:', error);
-        }
-      }
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
+  // In invisible mode, Turnstile executes automatically on mount
+  // No need to manually execute - it will call onSuccess when ready
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-950 via-gray-900 to-gray-800">
@@ -192,21 +194,19 @@ const LoginPage = () => {
               </div>
 
               {/* Cloudflare Turnstile - Invisible Mode */}
-              {Turnstile && (
-                <div style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', overflow: 'hidden' }}>
-                  <Turnstile
-                    ref={turnstileRef}
-                    sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
-                    onSuccess={handleCaptchaSuccess}
-                    onError={handleCaptchaError}
-                    onExpire={handleCaptchaExpire}
-                    options={{
-                      theme: 'dark',
-                      size: 'invisible'
-                    }}
-                  />
-                </div>
-              )}
+              <div style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', overflow: 'hidden' }}>
+                <Turnstile
+                  ref={turnstileRef}
+                  sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+                  onSuccess={handleCaptchaSuccess}
+                  onError={handleCaptchaError}
+                  onExpire={handleCaptchaExpire}
+                  options={{
+                    theme: 'dark',
+                    size: 'invisible'
+                  }}
+                />
+              </div>
               {captchaError && (
                 <p className="text-sm text-red-600 text-center">Please complete the security verification</p>
               )}
