@@ -9,9 +9,16 @@ const TurnstileWrapper = forwardRef((props, ref) => {
     // Dynamically import Turnstile to handle bundling issues
     import('react-turnstile')
       .then((module) => {
-        console.log('Turnstile module loaded successfully');
-        setTurnstile(() => module.Turnstile);
-        setLoaded(true);
+        console.log('Turnstile module loaded successfully, Turnstile component:', module.Turnstile ? 'PRESENT' : 'MISSING', 'module keys:', Object.keys(module));
+        if (module.Turnstile) {
+          console.log('Setting Turnstile component, type:', typeof module.Turnstile);
+          setTurnstile(module.Turnstile);
+          setLoaded(true);
+          console.log('Turnstile state should now be set');
+        } else {
+          console.error('Turnstile component not found in module:', module);
+          setError(new Error('Turnstile component not found'));
+        }
       })
       .catch((err) => {
         console.error('Failed to load Turnstile:', err);
@@ -21,9 +28,12 @@ const TurnstileWrapper = forwardRef((props, ref) => {
 
   // Auto-execute Turnstile once loaded (invisible mode)
   useEffect(() => {
-    console.log('TurnstileWrapper useEffect - loaded:', loaded, 'Turnstile:', !!Turnstile, 'sitekey:', !!props.sitekey);
+    console.log('TurnstileWrapper useEffect - loaded:', loaded, 'Turnstile:', typeof Turnstile, 'sitekey:', !!props.sitekey);
     
     if (!loaded || !Turnstile || !props.sitekey) {
+      if (loaded && !Turnstile) {
+        console.error('Turnstile loaded flag is true but Turnstile component is not set!');
+      }
       if (loaded && !props.sitekey) {
         console.error('Turnstile loaded but sitekey is missing!');
       }
@@ -63,7 +73,7 @@ const TurnstileWrapper = forwardRef((props, ref) => {
       clearTimeout(timer1);
       clearTimeout(timer2);
     };
-  }, [loaded, Turnstile, props.sitekey]);
+  }, [loaded, Turnstile, props.sitekey, ref]);
 
   if (error) {
     console.error('Turnstile component is not available:', error);
