@@ -21,6 +21,8 @@ const TurnstileWrapper = forwardRef((props, ref) => {
 
   // Auto-execute Turnstile once loaded (invisible mode)
   useEffect(() => {
+    console.log('TurnstileWrapper useEffect - loaded:', loaded, 'Turnstile:', !!Turnstile, 'sitekey:', !!props.sitekey);
+    
     if (!loaded || !Turnstile || !props.sitekey) {
       if (loaded && !props.sitekey) {
         console.error('Turnstile loaded but sitekey is missing!');
@@ -31,7 +33,8 @@ const TurnstileWrapper = forwardRef((props, ref) => {
     console.log('Turnstile ready, sitekey present: YES');
     
     // Wait for Turnstile to fully mount before executing
-    const timer = setTimeout(() => {
+    const timer1 = setTimeout(() => {
+      console.log('Checking Turnstile ref:', ref?.current ? 'AVAILABLE' : 'NOT AVAILABLE');
       if (ref?.current) {
         try {
           console.log('Attempting to execute Turnstile manually');
@@ -42,9 +45,24 @@ const TurnstileWrapper = forwardRef((props, ref) => {
       } else {
         console.warn('Turnstile ref not available for manual execute');
       }
-    }, 1500);
+    }, 2000);
     
-    return () => clearTimeout(timer);
+    // Try again after longer delay
+    const timer2 = setTimeout(() => {
+      if (ref?.current) {
+        try {
+          console.log('Second attempt to execute Turnstile');
+          ref.current.execute();
+        } catch (e) {
+          console.error('Second attempt failed:', e);
+        }
+      }
+    }, 4000);
+    
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
   }, [loaded, Turnstile, props.sitekey]);
 
   if (error) {
@@ -54,12 +72,23 @@ const TurnstileWrapper = forwardRef((props, ref) => {
 
   if (!Turnstile) {
     // Still loading
+    console.log('TurnstileWrapper: Still loading, Turnstile component not available yet');
     return null;
   }
+  
+  console.log('TurnstileWrapper: About to render Turnstile, props:', { 
+    hasSitekey: !!props.sitekey, 
+    hasOnSuccess: !!props.onSuccess,
+    hasOnError: !!props.onError,
+    hasOnLoad: !!props.onLoad,
+    hasRef: !!ref
+  });
 
   try {
-    console.log('Rendering Turnstile component with sitekey:', props.sitekey ? 'PRESENT' : 'MISSING');
-    return <Turnstile ref={ref} {...props} />;
+    console.log('Rendering Turnstile component with sitekey:', props.sitekey ? 'PRESENT' : 'MISSING', 'ref:', ref ? 'PRESENT' : 'MISSING');
+    const turnstileElement = <Turnstile ref={ref} {...props} />;
+    console.log('Turnstile element created');
+    return turnstileElement;
   } catch (error) {
     console.error('Turnstile render error:', error);
     return null;

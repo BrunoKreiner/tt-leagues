@@ -73,13 +73,14 @@ const LoginPage = () => {
   };
 
   const handleCaptchaSuccess = (token) => {
-    console.log('Turnstile success, token received:', token ? 'YES' : 'NO', token?.substring(0, 20) + '...');
-    if (token) {
+    console.log('🎉 Turnstile success callback fired! Token:', token ? 'YES' : 'NO', token ? token.substring(0, 30) + '...' : 'EMPTY');
+    if (token && token.length > 0) {
+      console.log('Setting captcha token, length:', token.length);
       setCaptchaToken(token);
       setCaptchaError(false);
       setTurnstileReady(true);
     } else {
-      console.error('Turnstile success callback called but token is empty!');
+      console.error('❌ Turnstile success callback called but token is empty!');
       setCaptchaError(true);
     }
   };
@@ -123,8 +124,14 @@ const LoginPage = () => {
     }
   };
 
-  // In invisible mode, Turnstile executes automatically on mount
-  // No need to manually execute - it will call onSuccess when ready
+  // Debug: Log when component mounts/updates
+  useEffect(() => {
+    console.log('LoginPage mounted, turnstileRef:', turnstileRef.current ? 'AVAILABLE' : 'NOT AVAILABLE');
+  }, []);
+  
+  useEffect(() => {
+    console.log('LoginPage: captchaToken changed:', captchaToken ? 'HAS TOKEN' : 'NO TOKEN');
+  }, [captchaToken]);
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-950 via-gray-900 to-gray-800">
@@ -213,7 +220,7 @@ const LoginPage = () => {
               </div>
 
               {/* Cloudflare Turnstile - Invisible Mode */}
-              <div style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', left: '0', top: '0', width: '1px', height: '1px', opacity: 0, pointerEvents: 'none' }}>
                 <TurnstileWrapper
                   ref={turnstileRef}
                   sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
