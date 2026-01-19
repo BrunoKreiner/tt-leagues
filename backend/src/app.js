@@ -84,12 +84,17 @@ const corsOptions = {
     if (!origin) return callback(null, true);
     if (allowedOriginPatterns.length === 0) {
       // No explicit origins configured: reflect request origin (use env FRONTEND_URL in production)
+      console.log('CORS: No patterns configured, allowing origin:', origin);
       return callback(null, true);
     }
     const allowed = allowedOriginPatterns.some(entry =>
       typeof entry === 'string' ? entry === origin : entry.test(origin)
     );
-    if (allowed) return callback(null, true);
+    if (allowed) {
+      console.log('CORS: Allowed origin:', origin);
+      return callback(null, true);
+    }
+    console.error('CORS: Rejected origin:', origin, 'Allowed patterns:', allowedOriginPatterns);
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
