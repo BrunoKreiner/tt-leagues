@@ -121,17 +121,18 @@ const TurnstileWrapper = forwardRef((props, ref) => {
 
   try {
     console.log('Rendering Turnstile component with sitekey:', props.sitekey ? 'PRESENT' : 'MISSING', 'ref:', ref ? 'PRESENT' : 'MISSING');
-    // Create a clean props object without undefined values
+    // Create a clean props object - only include defined callbacks
     const cleanProps = {
       sitekey: props.sitekey,
-      onSuccess: props.onSuccess || (() => {}),
-      onError: props.onError || (() => {}),
-      onExpire: props.onExpire || (() => {}),
+      ...(props.onSuccess && { onSuccess: props.onSuccess }),
+      ...(props.onError && { onError: props.onError }),
+      ...(props.onExpire && { onExpire: props.onExpire }),
       ...(props.onLoad && { onLoad: props.onLoad }),
       ...(props.options && { options: props.options })
     };
+    console.log('Clean props:', Object.keys(cleanProps));
     const turnstileElement = <Turnstile ref={ref} {...cleanProps} />;
-    console.log('Turnstile element created');
+    console.log('Turnstile element created successfully');
     return turnstileElement;
   } catch (error) {
     console.error('Turnstile render error:', error);
