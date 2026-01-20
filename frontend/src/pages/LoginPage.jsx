@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,6 @@ import { Eye, EyeOff } from 'lucide-react';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import SiteFooter from '@/components/layout/SiteFooter';
 import { useTranslation } from 'react-i18next';
-import TurnstileWrapper from '../components/TurnstileWrapper';
 
 const LoginPage = () => {
   const { t } = useTranslation();
@@ -20,10 +19,6 @@ const LoginPage = () => {
     website: '', // Honeypot field
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState(null);
-  const [captchaError, setCaptchaError] = useState(false);
-  const [turnstileReady, setTurnstileReady] = useState(false);
-  const turnstileRef = useRef(null);
   const { login, loading, error } = useAuth();
 
   const handleChange = (e) => {
@@ -41,33 +36,9 @@ const LoginPage = () => {
       // Bot detected - silently fail
       return;
     }
-    
-    // Check CAPTCHA - REQUIRED
-    if (!captchaToken) {
-      if (turnstileRef.current) {
-        try {
-          // Try to execute if not already executed
-          turnstileRef.current.execute();
-          // Wait a bit longer for the token callback
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          if (!captchaToken) {
-            setCaptchaError(true);
-            return;
-          }
-        } catch (error) {
-          console.error('Turnstile execution error:', error);
-          setCaptchaError(true);
-          return;
-        }
-      } else {
-        setCaptchaError(true);
-        return;
-      }
-    }
 
     const loginData = { ...formData };
     delete loginData.website; // Remove honeypot field
-    loginData.captchaToken = captchaToken;
     
     await login(loginData);
   };
@@ -219,24 +190,6 @@ const LoginPage = () => {
                 />
               </div>
 
-              {/* Cloudflare Turnstile - Invisible Mode */}
-              <ErrorBoundary fallback={<div className="text-xs text-gray-500">Security verification unavailable</div>}>
-                <div className="opacity-0 absolute pointer-events-none" style={{ left: 0, top: 0, width: '1px', height: '1px' }}>
-                  <TurnstileWrapper
-                    ref={turnstileRef}
-                    sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
-                    onSuccess={handleCaptchaSuccess}
-                    onError={handleCaptchaError}
-                    onExpire={handleCaptchaExpire}
-                    onLoad={handleTurnstileLoad}
-                    size="invisible"
-                    theme="dark"
-                  />
-                </div>
-              </ErrorBoundary>
-              {captchaError && (
-                <p className="text-sm text-red-600 text-center">Please complete the security verification</p>
-              )}
 
               <Button type="submit" className="w-full hover:scale-100 hover:shadow-sm" disabled={loading}>
                 {loading ? (

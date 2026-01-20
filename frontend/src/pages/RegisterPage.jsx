@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,6 @@ import { Eye, EyeOff } from 'lucide-react';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import SiteFooter from '@/components/layout/SiteFooter';
 import { useTranslation } from 'react-i18next';
-import TurnstileWrapper from '../components/TurnstileWrapper';
 
 const RegisterPage = () => {
   const { t } = useTranslation();
@@ -26,10 +25,6 @@ const RegisterPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
-  const [captchaToken, setCaptchaToken] = useState(null);
-  const [captchaError, setCaptchaError] = useState(false);
-  const [turnstileReady, setTurnstileReady] = useState(false);
-  const turnstileRef = useRef(null);
   const { register, loading, error } = useAuth();
 
   const handleChange = (e) => {
@@ -91,29 +86,6 @@ const RegisterPage = () => {
       return;
     }
 
-    // Check CAPTCHA - REQUIRED
-    if (!captchaToken) {
-      if (turnstileRef.current) {
-        try {
-          // Try to execute if not already executed
-          turnstileRef.current.execute();
-          // Wait a bit longer for the token callback
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          if (!captchaToken) {
-            setCaptchaError(true);
-            return;
-          }
-        } catch (error) {
-          console.error('Turnstile execution error:', error);
-          setCaptchaError(true);
-          return;
-        }
-      } else {
-        setCaptchaError(true);
-        return;
-      }
-    }
-
     const registrationData = { ...formData };
     delete registrationData.confirmPassword;
     delete registrationData.website; // Remove honeypot field
@@ -121,60 +93,9 @@ const RegisterPage = () => {
       delete registrationData.email; // omit empty email so BE treats it as truly optional
     }
     
-    // Add CAPTCHA token - REQUIRED
-    registrationData.captchaToken = captchaToken;
-    
     await register(registrationData);
   };
 
-  const handleCaptchaSuccess = (token) => {
-    console.log('Turnstile success, token received');
-    setCaptchaToken(token);
-    setCaptchaError(false);
-    setTurnstileReady(true);
-  };
-
-  const handleCaptchaError = (error) => {
-    console.error('Turnstile error:', error);
-    setCaptchaError(true);
-    setCaptchaToken(null);
-    setTurnstileReady(false);
-    // Try to reset and execute again
-    if (turnstileRef.current) {
-      setTimeout(() => {
-        try {
-          turnstileRef.current.reset();
-          turnstileRef.current.execute();
-        } catch (e) {
-          console.error('Failed to reset Turnstile:', e);
-        }
-      }, 1000);
-    }
-  };
-
-  const handleCaptchaExpire = () => {
-    console.log('Turnstile token expired');
-    setCaptchaToken(null);
-    if (turnstileRef.current) {
-      turnstileRef.current.reset();
-    }
-  };
-
-  const handleTurnstileLoad = () => {
-    console.log('Turnstile widget loaded, attempting to execute');
-    if (turnstileRef.current) {
-      setTimeout(() => {
-        try {
-          turnstileRef.current.execute();
-        } catch (e) {
-          console.error('Failed to execute on load:', e);
-        }
-      }, 500);
-    }
-  };
-
-  // In invisible mode, Turnstile executes automatically on mount
-  // No need to manually execute - it will call onSuccess when ready
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-950 via-gray-900 to-gray-800">
@@ -348,24 +269,6 @@ const RegisterPage = () => {
                 />
               </div>
 
-              {/* Cloudflare Turnstile - Invisible Mode */}
-              <ErrorBoundary fallback={<div className="text-xs text-gray-500">Security verification unavailable</div>}>
-                <div className="opacity-0 absolute pointer-events-none" style={{ left: 0, top: 0, width: '1px', height: '1px' }}>
-                  <TurnstileWrapper
-                    ref={turnstileRef}
-                    sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
-                    onSuccess={handleCaptchaSuccess}
-                    onError={handleCaptchaError}
-                    onExpire={handleCaptchaExpire}
-                    onLoad={handleTurnstileLoad}
-                    size="invisible"
-                    theme="dark"
-                  />
-                </div>
-              </ErrorBoundary>
-              {captchaError && (
-                <p className="text-sm text-red-600 text-center">Please complete the security verification</p>
-              )}
 
               <Button type="submit" className="w-full hover:scale-100 hover:shadow-sm" disabled={loading}>
                 {loading ? (
