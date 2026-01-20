@@ -16,6 +16,10 @@ class ErrorBoundary extends Component {
 
   render() {
     if (this.state.hasError) {
+      // If a fallback prop is provided, use it; otherwise use default error UI
+      if (this.props.fallback) {
+        return this.props.fallback;
+      }
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-950">
           <div className="text-center">
