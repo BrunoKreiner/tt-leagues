@@ -349,18 +349,20 @@ const RegisterPage = () => {
               </div>
 
               {/* Cloudflare Turnstile - Invisible Mode */}
-              <div className="hidden">
-                <TurnstileWrapper
-                  ref={turnstileRef}
-                  sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
-                  onSuccess={handleCaptchaSuccess}
-                  onError={handleCaptchaError}
-                  onExpire={handleCaptchaExpire}
-                  onLoad={handleTurnstileLoad}
-                  size="invisible"
-                  theme="dark"
-                />
-              </div>
+              <ErrorBoundary fallback={<div className="text-xs text-gray-500">Security verification unavailable</div>}>
+                <div className="opacity-0 absolute pointer-events-none" style={{ left: 0, top: 0, width: '1px', height: '1px' }}>
+                  <TurnstileWrapper
+                    ref={turnstileRef}
+                    sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+                    onSuccess={handleCaptchaSuccess}
+                    onError={handleCaptchaError}
+                    onExpire={handleCaptchaExpire}
+                    onLoad={handleTurnstileLoad}
+                    size="invisible"
+                    theme="dark"
+                  />
+                </div>
+              </ErrorBoundary>
               {captchaError && (
                 <p className="text-sm text-red-600 text-center">Please complete the security verification</p>
               )}
