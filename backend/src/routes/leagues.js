@@ -598,42 +598,18 @@ router.get('/:id/members', authenticateToken, validateId, async (req, res) => {
             }
         }
 
-        // Normalize empty display names (existing bad data).
-        // - Assigned users: use username as display_name.
-        // - Unassigned placeholders: ensure non-empty label.
-        await database.run(
-            `
-            UPDATE league_roster
-            SET display_name = (
-                SELECT u.username
-                FROM users u
-                WHERE u.id = league_roster.user_id
-            )
-            WHERE league_id = ?
-              AND user_id IS NOT NULL
-              AND (display_name IS NULL OR TRIM(display_name) = '')
-            `,
-            [leagueId]
-        );
-        await database.run(
-            `
-            UPDATE league_roster
-            SET display_name = 'Placeholder'
-            WHERE league_id = ?
-              AND user_id IS NULL
-              AND (display_name IS NULL OR TRIM(display_name) = '')
-            `,
-            [leagueId]
-        );
-        
         const members = await database.all(`
-            SELECT 
+            SELECT
                 lr.id as roster_id,
                 lr.user_id,
                 u.username,
                 u.first_name,
                 u.last_name,
-                lr.display_name,
+                CASE
+                    WHEN lr.display_name IS NOT NULL AND TRIM(lr.display_name) != '' THEN lr.display_name
+                    WHEN lr.user_id IS NOT NULL THEN u.username
+                    ELSE 'Placeholder'
+                END as display_name,
                 lr.current_elo,
                 lr.is_admin as is_league_admin,
                 lr.is_participating,

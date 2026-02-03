@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { leaguesAPI } from '@/services/api';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 
 const LeaguesPage = () => {
   const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -28,23 +29,10 @@ const LeaguesPage = () => {
       try {
         setLoading(true);
         setError(null);
-        // Fetch all pages so we can filter/split client-side.
-        const PAGE_LIMIT = 50;
-        const first = await leaguesAPI.getAll({ page: 1, limit: PAGE_LIMIT });
-        const firstData = first.data;
-        const firstLeagues = firstData.leagues || [];
-        const pagesTotal = Number(firstData.pagination?.pages || 1);
-
-        let all = firstLeagues;
-        if (pagesTotal > 1) {
-          const restPages = Array.from({ length: pagesTotal - 1 }).map((_, idx) => idx + 2);
-          const rest = await Promise.all(restPages.map((p) => leaguesAPI.getAll({ page: p, limit: PAGE_LIMIT })));
-          const restLeagues = rest.flatMap((r) => r.data.leagues || []);
-          all = [...firstLeagues, ...restLeagues];
-        }
-
+        // Fetch all leagues in a single request (avoids sequential multi-page fetches)
+        const res = await leaguesAPI.getAll({ page: 1, limit: 500 }, { ttlMs: 15000 });
         if (cancelled) return;
-        setLeagues(all);
+        setLeagues(res.data?.leagues || []);
       } catch (err) {
         if (cancelled) return;
         setError(err.response?.data?.error || 'Failed to load leagues');
@@ -198,7 +186,7 @@ const LeaguesPage = () => {
                   <Card
                     key={l.id}
                     className="vg-card cursor-pointer hover:scale-105 transition-transform"
-                    onClick={() => window.location.href = `/app/leagues/${l.id}`}
+                    onClick={() => navigate(`/app/leagues/${l.id}`)}
                   >
                     <CardHeader className="space-y-1">
                       <div className="flex items-center justify-between">
@@ -269,7 +257,7 @@ const LeaguesPage = () => {
                   <Card
                     key={l.id}
                     className="vg-card cursor-pointer hover:scale-105 transition-transform"
-                    onClick={() => window.location.href = `/app/leagues/${l.id}`}
+                    onClick={() => navigate(`/app/leagues/${l.id}`)}
                   >
                     <CardHeader className="space-y-1">
                       <div className="flex items-center justify-between">

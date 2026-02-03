@@ -31,7 +31,7 @@ const TimelineStats = ({ userId }) => {
     const fetchTimelineStats = async () => {
       try {
         setLoading(true);
-        const res = await usersAPI.getTimelineStats(userId);
+        const res = await usersAPI.getTimelineStats(userId, { ttlMs: 30000 });
         const timeline = res.data.timeline || [];
         setTimelineData(timeline);
       } catch (error) {
