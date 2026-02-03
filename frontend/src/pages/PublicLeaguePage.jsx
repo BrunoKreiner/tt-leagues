@@ -135,12 +135,12 @@ const PublicLeaguePage = () => {
     <div className="min-h-screen">
       {/* Nav */}
       <nav className="sticky top-0 z-50 border-b border-gray-800/50 bg-gray-950/95 backdrop-blur-sm">
-        <div className="max-w-5xl mx-auto px-4 h-14 grid grid-cols-3 items-center">
+        <div className="max-w-5xl mx-auto px-4 h-14 grid grid-cols-2 md:grid-cols-3 items-center">
           <Link to="/" className="flex items-center gap-2 text-gray-400 hover:text-white justify-self-start">
             <ArrowLeft className="h-4 w-4" />
             <span className="text-sm">Back</span>
           </Link>
-          <div className="justify-self-center">
+          <div className="hidden md:block justify-self-center">
             <Button variant="outline" size="sm" asChild className="flex items-start gap-1">
               <Link to="/wiki/ttc-baden-wettingen">
                 <span className="text-sm font-semibold">TTC Baden-Wettingen</span>
