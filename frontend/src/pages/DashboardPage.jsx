@@ -1,12 +1,10 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Trophy, Users, Swords, TrendingUp, Plus, Calendar, Target, Award, ArrowRight, User } from 'lucide-react';
+import { Trophy, Swords, ArrowRight, User } from 'lucide-react';
 import MedalIcon from '@/components/MedalIcon';
-import EloSparkline from '@/components/EloSparkline';
 import TimelineStats from '@/components/TimelineStats';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { leaguesAPI, matchesAPI, authAPI, usersAPI } from '../services/api';
@@ -14,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 
 const DashboardPage = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -27,7 +26,7 @@ const DashboardPage = () => {
   const [shouldLoadLeaderboards, setShouldLoadLeaderboards] = useState(false);
   const leaderboardSectionRef = useRef(null);
 
-  const leaderboardLeagues = useMemo(() => userLeagues, [userLeagues]);
+  const leaderboardLeagues = userLeagues;
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -37,11 +36,12 @@ const DashboardPage = () => {
         setMatchesError(null);
         setLeaguesError(null);
         
-        // Fetch base data
-        const [userResponse, matchesResponse, leaguesResponse] = await Promise.allSettled([
+        // Fetch all base data in parallel (user.id from AuthContext avoids sequential dependency)
+        const [userResponse, matchesResponse, leaguesResponse, statsResponse] = await Promise.allSettled([
           authAPI.getMe({ ttlMs: 10000 }),
           matchesAPI.getAll({ limit: 5, status: 'accepted' }, { ttlMs: 10000 }),
-          leaguesAPI.getAll({ limit: 10 }, { ttlMs: 10000 })
+          leaguesAPI.getAll({ limit: 10 }, { ttlMs: 10000 }),
+          user?.id ? usersAPI.getStats(user.id, { ttlMs: 15000 }) : Promise.reject(new Error('no user id'))
         ]);
 
         if (userResponse.status === 'rejected') {
@@ -50,16 +50,15 @@ const DashboardPage = () => {
           return;
         }
 
-        // Fetch up-to-date user stats (authoritative source)
-        try {
-          const statsRes = await usersAPI.getStats(userResponse.value.data.user.id, { ttlMs: 15000 });
-          // Normalize to have a stable shape
-          const normalized = statsRes.data?.overall
-            ? { ...statsRes.data, avg_elo: statsRes.data.overall.average_elo, win_rate: statsRes.data.overall.win_rate, leagues_count: statsRes.data.overall.leagues_count, matches_played: statsRes.data.overall.matches_played }
-            : statsRes.data;
+        // Process stats (already fetched in parallel)
+        if (statsResponse.status === 'fulfilled') {
+          const statsData = statsResponse.value.data;
+          const normalized = statsData?.overall
+            ? { ...statsData, avg_elo: statsData.overall.average_elo, win_rate: statsData.overall.win_rate, leagues_count: statsData.overall.leagues_count, matches_played: statsData.overall.matches_played }
+            : statsData;
           setStats(normalized);
-        } catch (e) {
-          console.error('Failed to load user stats, falling back to /auth/me stats', e);
+        } else {
+          // Fall back to stats from /auth/me
           const s = userResponse.value.data.stats || null;
           const normalized = s?.overall
             ? { ...s, avg_elo: s.overall.average_elo, win_rate: s.overall.win_rate, leagues_count: s.overall.leagues_count, matches_played: s.overall.matches_played }
@@ -357,7 +356,7 @@ const DashboardPage = () => {
             <Card 
               key={league.id} 
               className="vg-card cursor-pointer hover:scale-105 transition-transform"
-              onClick={() => window.location.href = `/app/leagues/${league.id}`}
+              onClick={() => navigate(`/app/leagues/${league.id}`)}
             >
               <CardHeader className="compact-card-header">
                 <CardTitle className="cyberpunk-subtitle flex items-center gap-2 text-lg">
@@ -428,22 +427,7 @@ const DashboardPage = () => {
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-gray-400">{player.current_elo}</span>
-                            <div className="w-12 h-6">
-                              {player.user_id ? (
-                                <EloSparkline 
-                                  userId={player.user_id} 
-                                  leagueId={league.id} 
-                                  width={48} 
-                                  height={16} 
-                                  points={15} 
-                                />
-                              ) : (
-                                <span className="text-xs text-gray-500">—</span>
-                              )}
-                            </div>
-                          </div>
+                          <span className="text-sm text-gray-400 tabular-nums">{player.current_elo}</span>
                         </div>
                       ))}
                     </div>

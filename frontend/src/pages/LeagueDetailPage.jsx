@@ -244,29 +244,31 @@ const LeagueDetailPage = () => {
     fetchLeaderboard(1);
   }, [shouldLoadLeaderboard, id, leaderboardStatus]);
 
+  // Fetch matches, members/roster, and ELO range in parallel once league is loaded
   useEffect(() => {
     if (!league || !id) return;
-    if (matchesStatus !== 'idle') return;
-    fetchMatches();
-  }, [league, id, matchesStatus]);
 
-  useEffect(() => {
-    if (!canManageLeague || !id) return;
-    if (membersStatus !== 'idle') return;
-    fetchMembers();
-  }, [canManageLeague, id, membersStatus]);
+    const fetches = [];
 
-  useEffect(() => {
-    if (!id) return;
-    if (rosterOptionsStatus !== 'idle') return;
-    fetchRosterOptions();
-  }, [id, rosterOptionsStatus]);
+    if (matchesStatus === 'idle') {
+      fetches.push(fetchMatches());
+    }
 
-  useEffect(() => {
-    if (!id) return;
-    if (eloRangeStatus !== 'idle') return;
-    fetchEloRange({ ttlMs: 10000 });
-  }, [id, eloRangeStatus]);
+    if (eloRangeStatus === 'idle') {
+      fetches.push(fetchEloRange({ ttlMs: 10000 }));
+    }
+
+    // If user can manage, fetch members and share with roster options (1 call instead of 2)
+    if (canManageLeague && membersStatus === 'idle') {
+      fetches.push(fetchMembers({ shareWithRoster: true }));
+    } else if (rosterOptionsStatus === 'idle') {
+      // Non-admin: just fetch roster options for ELO timeline
+      fetches.push(fetchRosterOptions());
+    }
+
+    // Fire all in parallel - no need to await since each manages its own state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [league, id]);
 
   const _eloDiff = (after, before) => {
     if (after == null || before == null) return null;
@@ -350,18 +352,19 @@ const LeagueDetailPage = () => {
     }
   };
 
-  const fetchMembers = async () => {
+  const fetchMembers = async ({ shareWithRoster = false } = {}) => {
     try {
       setMembersStatus('loading');
       setMembersError(null);
       const res = await leaguesAPI.getMembers(id, { ttlMs: 10000 });
       const memberData = res.data?.members;
-      if (Array.isArray(memberData)) {
-        setMembers(memberData);
-      } else {
-        setMembers([]);
-      }
+      const list = Array.isArray(memberData) ? memberData : [];
+      setMembers(list);
       setMembersStatus('loaded');
+      // Share with roster options to avoid a duplicate API call
+      if (shareWithRoster) {
+        fetchRosterOptions(list);
+      }
     } catch (e) {
       console.error('Failed to load members', e);
       if (e?.response?.data?.error) {
@@ -373,14 +376,20 @@ const LeagueDetailPage = () => {
     }
   };
 
-  const fetchRosterOptions = async () => {
+  const fetchRosterOptions = async (memberData) => {
+    // Reuse member data if available (avoids duplicate API call)
+    if (Array.isArray(memberData)) {
+      setRosterOptions(memberData);
+      setRosterOptionsStatus('loaded');
+      return;
+    }
     try {
       setRosterOptionsStatus('loading');
       setRosterOptionsError(null);
       const res = await leaguesAPI.getMembers(id, { ttlMs: 10000 });
-      const memberData = res.data?.members;
-      if (Array.isArray(memberData)) {
-        setRosterOptions(memberData);
+      const data = res.data?.members;
+      if (Array.isArray(data)) {
+        setRosterOptions(data);
       } else {
         setRosterOptions([]);
       }
