@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -42,67 +42,6 @@ const LoginPage = () => {
     
     await login(loginData);
   };
-
-  const handleCaptchaSuccess = (token) => {
-    console.log('🎉 Turnstile success callback fired! Token:', token ? 'YES' : 'NO', token ? token.substring(0, 30) + '...' : 'EMPTY');
-    if (token && token.length > 0) {
-      console.log('Setting captcha token, length:', token.length);
-      setCaptchaToken(token);
-      setCaptchaError(false);
-      setTurnstileReady(true);
-    } else {
-      console.error('❌ Turnstile success callback called but token is empty!');
-      setCaptchaError(true);
-    }
-  };
-
-  const handleCaptchaError = (error) => {
-    console.error('Turnstile error:', error);
-    setCaptchaError(true);
-    setCaptchaToken(null);
-    setTurnstileReady(false);
-    // Try to reset and execute again
-    if (turnstileRef.current) {
-      setTimeout(() => {
-        try {
-          turnstileRef.current.reset();
-          turnstileRef.current.execute();
-        } catch (e) {
-          console.error('Failed to reset Turnstile:', e);
-        }
-      }, 1000);
-    }
-  };
-
-  const handleCaptchaExpire = () => {
-    console.log('Turnstile token expired');
-    setCaptchaToken(null);
-    if (turnstileRef.current) {
-      turnstileRef.current.reset();
-    }
-  };
-
-  const handleTurnstileLoad = () => {
-    console.log('Turnstile widget loaded, attempting to execute');
-    if (turnstileRef.current) {
-      setTimeout(() => {
-        try {
-          turnstileRef.current.execute();
-        } catch (e) {
-          console.error('Failed to execute on load:', e);
-        }
-      }, 500);
-    }
-  };
-
-  // Debug: Log when component mounts/updates
-  useEffect(() => {
-    console.log('LoginPage mounted, turnstileRef:', turnstileRef.current ? 'AVAILABLE' : 'NOT AVAILABLE');
-  }, []);
-  
-  useEffect(() => {
-    console.log('LoginPage: captchaToken changed:', captchaToken ? 'HAS TOKEN' : 'NO TOKEN');
-  }, [captchaToken]);
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-950 via-gray-900 to-gray-800">
