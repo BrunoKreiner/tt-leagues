@@ -7,7 +7,7 @@ import { Trophy, Swords, ArrowRight, User } from 'lucide-react';
 import MedalIcon from '@/components/MedalIcon';
 import TimelineStats from '@/components/TimelineStats';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
-import { leaguesAPI, matchesAPI, authAPI, usersAPI } from '../services/api';
+import { leaguesAPI, matchesAPI, usersAPI } from '../services/api';
 import { useTranslation } from 'react-i18next';
 
 const DashboardPage = () => {
@@ -36,33 +36,18 @@ const DashboardPage = () => {
         setMatchesError(null);
         setLeaguesError(null);
         
-        // Fetch all base data in parallel (user.id from AuthContext avoids sequential dependency)
-        const [userResponse, matchesResponse, leaguesResponse, statsResponse] = await Promise.allSettled([
-          authAPI.getMe({ ttlMs: 10000 }),
+        // Fetch all data in parallel - user comes from AuthContext (no extra getMe call)
+        const [matchesResponse, leaguesResponse, statsResponse] = await Promise.allSettled([
           matchesAPI.getAll({ limit: 5, status: 'accepted' }, { ttlMs: 10000 }),
           leaguesAPI.getAll({ limit: 10 }, { ttlMs: 10000 }),
           user?.id ? usersAPI.getStats(user.id, { ttlMs: 15000 }) : Promise.reject(new Error('no user id'))
         ]);
 
-        if (userResponse.status === 'rejected') {
-          const apiMessage = userResponse.reason?.response?.data?.error;
-          setLoadError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : 'Failed to load dashboard');
-          return;
-        }
-
-        // Process stats (already fetched in parallel)
         if (statsResponse.status === 'fulfilled') {
           const statsData = statsResponse.value.data;
           const normalized = statsData?.overall
             ? { ...statsData, avg_elo: statsData.overall.average_elo, win_rate: statsData.overall.win_rate, leagues_count: statsData.overall.leagues_count, matches_played: statsData.overall.matches_played }
             : statsData;
-          setStats(normalized);
-        } else {
-          // Fall back to stats from /auth/me
-          const s = userResponse.value.data.stats || null;
-          const normalized = s?.overall
-            ? { ...s, avg_elo: s.overall.average_elo, win_rate: s.overall.win_rate, leagues_count: s.overall.leagues_count, matches_played: s.overall.matches_played }
-            : s;
           setStats(normalized);
         }
 
@@ -212,7 +197,7 @@ const DashboardPage = () => {
       <div className="section-divider"></div>
 
       {/* Section 1: Timeline Statistics */}
-      <div ref={leaderboardSectionRef}>
+      <div>
         <TimelineStats userId={user?.id} />
       </div>
 
@@ -332,8 +317,8 @@ const DashboardPage = () => {
       {/* Divider */}
       <div className="section-divider"></div>
 
-      {/* Section 3: Leaderboards */}
-      <div>
+      {/* Section 3: Leaderboards (ref triggers lazy-load via IntersectionObserver) */}
+      <div ref={leaderboardSectionRef}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-6">
           <h2 className="cyberpunk-title text-xl sm:text-2xl bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Leaderboards</h2>
           <Link

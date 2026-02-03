@@ -20,17 +20,14 @@ const setPublicCacheHeaders = (req, res) => {
 
 const buildLeagueSnapshot = async (leagueId, leagueRow) => {
     const league = leagueRow || await database.get(`
-        SELECT 
+        SELECT
             l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at,
             u.username as created_by_username,
-            COUNT(DISTINCT lr.id) as member_count,
-            COUNT(DISTINCT m.id) as match_count
+            (SELECT COUNT(*) FROM league_roster lr2 WHERE lr2.league_id = l.id) as member_count,
+            (SELECT COUNT(*) FROM matches m2 WHERE m2.league_id = l.id AND m2.is_accepted = ?) as match_count
         FROM leagues l
         JOIN users u ON l.created_by = u.id
-        LEFT JOIN league_roster lr ON l.id = lr.league_id
-        LEFT JOIN matches m ON l.id = m.league_id AND m.is_accepted = ?
         WHERE l.id = ? AND l.is_active = ?
-        GROUP BY l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at, u.username
     `, [true, leagueId, true]);
 
     if (!league) {
@@ -152,77 +149,73 @@ router.get('/', optionalAuth, validatePagination, async (req, res) => {
         const pageValue = parseInt(req.query.page);
         const limitValue = parseInt(req.query.limit);
         const page = Number.isFinite(pageValue) && pageValue > 0 ? pageValue : 1;
-        const limit = Number.isFinite(limitValue) && limitValue > 0 ? limitValue : 20;
+        const limit = Number.isFinite(limitValue) && limitValue > 0 ? Math.min(limitValue, 500) : 20;
         const offset = (page - 1) * limit;
-        
+
+        // Use subqueries instead of LEFT JOINs for counts - much faster on Neon/Postgres
+        // The old approach JOINed every roster entry × every match, creating huge intermediate sets
         let query = `
-            SELECT 
+            SELECT
                 l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at, l.updated_at,
                 u.username as created_by_username,
-                COUNT(DISTINCT lr.id) as member_count,
-                COUNT(DISTINCT m.id) as match_count,
-                MAX(m.played_at) as last_match_at,
+                (SELECT COUNT(*) FROM league_roster lr2 WHERE lr2.league_id = l.id) as member_count,
+                (SELECT COUNT(*) FROM matches m2 WHERE m2.league_id = l.id AND m2.is_accepted = ?) as match_count,
+                (SELECT MAX(m3.played_at) FROM matches m3 WHERE m3.league_id = l.id AND m3.is_accepted = ?) as last_match_at,
                 ${req.user
-                    ? 'MAX(CASE WHEN lr.user_id = ? THEN 1 ELSE 0 END) as is_member, MAX(CASE WHEN lr.user_id = ? THEN CASE WHEN lr.is_admin THEN 1 ELSE 0 END ELSE 0 END) as is_league_admin'
+                    ? `(SELECT COUNT(*) FROM league_roster lr3 WHERE lr3.league_id = l.id AND lr3.user_id = ?) as is_member,
+                       (SELECT CASE WHEN lr4.is_admin THEN 1 ELSE 0 END FROM league_roster lr4 WHERE lr4.league_id = l.id AND lr4.user_id = ? LIMIT 1) as is_league_admin`
                     : '0 as is_member, 0 as is_league_admin'}
             FROM leagues l
             JOIN users u ON l.created_by = u.id
-            LEFT JOIN league_roster lr ON l.id = lr.league_id
-            LEFT JOIN matches m ON l.id = m.league_id AND m.is_accepted = ?
             WHERE l.is_active = ?
         `;
-        
-        // Build params in the exact textual order of placeholders in the query string above
+
         const params = [];
+        // Subquery params: match_count, last_match_at
+        params.push(true, true);
         if (req.user) {
-            // For SELECT is_member aggregator
+            // Subquery params: is_member, is_league_admin
             params.push(req.user.id, req.user.id);
         }
-        // For LEFT JOIN matches m.is_accepted = ?
+        // WHERE l.is_active = ?
         params.push(true);
-        // For WHERE l.is_active = ?
-        params.push(true);
-        
-        // If user is authenticated, show their leagues + public leagues
-        // If not authenticated, show only public leagues
+
         if (req.user) {
-            query += ` AND (l.is_public = ? OR lr.user_id = ?)`;
+            query += ` AND (l.is_public = ? OR EXISTS (SELECT 1 FROM league_roster lr5 WHERE lr5.league_id = l.id AND lr5.user_id = ?))`;
             params.push(true, req.user.id);
         } else {
             query += ` AND l.is_public = ?`;
             params.push(true);
         }
-        
+
         query += `
-            GROUP BY l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at, l.updated_at, u.username
             ORDER BY COALESCE(l.updated_at, l.created_at) DESC
             LIMIT ? OFFSET ?
         `;
-        
+
         params.push(limit, offset);
-        
+
         const leagues = await database.all(query, params);
-        
-        // Get total count
+
+        // Get total count (lightweight - no JOINs needed)
         let countQuery = `
-            SELECT COUNT(DISTINCT l.id) as count
+            SELECT COUNT(*) as count
             FROM leagues l
-            LEFT JOIN league_roster lr ON l.id = lr.league_id
             WHERE l.is_active = ?
         `;
-        
+
         const countParams = [true];
-        
+
         if (req.user) {
-            countQuery += ` AND (l.is_public = ? OR lr.user_id = ?)`;
+            countQuery += ` AND (l.is_public = ? OR EXISTS (SELECT 1 FROM league_roster lr6 WHERE lr6.league_id = l.id AND lr6.user_id = ?))`;
             countParams.push(true, req.user.id);
         } else {
             countQuery += ` AND l.is_public = ?`;
             countParams.push(true);
         }
-        
+
         const totalCount = await database.get(countQuery, countParams);
-        
+
         setPublicCacheHeaders(req, res);
         res.json({
             leagues,
@@ -306,17 +299,14 @@ router.get('/:id/snapshot', optionalAuth, validateId, async (req, res) => {
         const leagueId = parseInt(req.params.id);
 
         const leagueRow = await database.get(`
-            SELECT 
+            SELECT
                 l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at,
                 u.username as created_by_username,
-                COUNT(DISTINCT lr.id) as member_count,
-                COUNT(DISTINCT m.id) as match_count
+                (SELECT COUNT(*) FROM league_roster lr2 WHERE lr2.league_id = l.id) as member_count,
+                (SELECT COUNT(*) FROM matches m2 WHERE m2.league_id = l.id AND m2.is_accepted = ?) as match_count
             FROM leagues l
             JOIN users u ON l.created_by = u.id
-            LEFT JOIN league_roster lr ON l.id = lr.league_id
-            LEFT JOIN matches m ON l.id = m.league_id AND m.is_accepted = ?
             WHERE l.id = ? AND l.is_active = ?
-            GROUP BY l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at, u.username
         `, [true, leagueId, true]);
 
         if (!leagueRow) {
@@ -399,21 +389,16 @@ router.get('/:id', optionalAuth, validateId, async (req, res) => {
         const leagueId = parseInt(req.params.id);
         
         const league = await database.get(`
-            SELECT 
+            SELECT
                 l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at,
                 u.username as created_by_username,
-                COUNT(DISTINCT lr.id) as member_count,
-                COUNT(DISTINCT m.id) as match_count
+                (SELECT COUNT(*) FROM league_roster lr2 WHERE lr2.league_id = l.id) as member_count,
+                (SELECT COUNT(*) FROM matches m2 WHERE m2.league_id = l.id AND m2.is_accepted = ?) as match_count
             FROM leagues l
             JOIN users u ON l.created_by = u.id
-            LEFT JOIN league_roster lr ON l.id = lr.league_id
-            LEFT JOIN matches m ON l.id = m.league_id AND m.is_accepted = ?
             WHERE l.id = ? AND l.is_active = ?
-            GROUP BY l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at, u.username
         `, [true, leagueId, true]);
-        
-        // Note: avoid logging membership details in production.
-        
+
         if (!league) {
             return res.status(404).json({ error: 'League not found' });
         }

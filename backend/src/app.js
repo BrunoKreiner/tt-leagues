@@ -83,31 +83,22 @@ allowedOriginPatterns.push(/^https:\/\/tt-league-frontend.*\.vercel\.app$/);
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow non-browser requests or same-origin
     if (!origin) {
-      console.log('CORS: No origin header (non-browser request), allowing');
       return callback(null, true);
     }
-    
-    // Always allow leagues.lol and www.leagues.lol
     if (origin === 'https://leagues.lol' || origin === 'https://www.leagues.lol') {
-      console.log('CORS: Allowed production origin:', origin);
       return callback(null, true);
     }
-    
     if (allowedOriginPatterns.length === 0) {
-      // No explicit origins configured: reflect request origin (use env FRONTEND_URL in production)
-      console.log('CORS: No patterns configured, allowing origin:', origin);
       return callback(null, true);
     }
     const allowed = allowedOriginPatterns.some(entry =>
       typeof entry === 'string' ? entry === origin : entry.test(origin)
     );
     if (allowed) {
-      console.log('CORS: Allowed origin:', origin);
       return callback(null, true);
     }
-    console.error('CORS: Rejected origin:', origin, 'Allowed patterns:', allowedOriginPatterns);
+    console.error('CORS: Rejected origin:', origin);
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
@@ -116,13 +107,16 @@ const corsOptions = {
 // Apply CORS and ensure preflight requests are handled
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
-app.use(morgan('combined'));
+app.use(morgan('short'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
-// Ensure DB is ready before proceeding (no-op locally since startServer awaited it)
+// Ensure DB is ready before proceeding (one-shot: clears after first resolve)
 app.use(async (req, res, next) => {
     try {
-        if (dbReady) await dbReady;
+        if (dbReady) {
+            await dbReady;
+            dbReady = null;
+        }
         return next();
     } catch (e) {
         return next(e);
