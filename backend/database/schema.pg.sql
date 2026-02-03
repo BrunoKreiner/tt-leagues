@@ -273,5 +273,14 @@ CREATE INDEX IF NOT EXISTS idx_elo_history_match_id ON elo_history(match_id);
 CREATE INDEX IF NOT EXISTS idx_elo_history_user_league_recorded ON elo_history(user_id, league_id, recorded_at);
 -- Note: idx_elo_history_roster_id is created in ensureRosterIndexes() after roster_id column is ensured
 
+-- Roster composite index for membership lookups (used by GET /api/leagues EXISTS subqueries)
+CREATE INDEX IF NOT EXISTS idx_league_roster_league_user ON league_roster(league_id, user_id);
+
+-- Matches composite for accepted match counts with played_at (covers subqueries + MAX(played_at))
+CREATE INDEX IF NOT EXISTS idx_matches_league_accepted_played ON matches(league_id, is_accepted, played_at);
+
+-- Roster roster_id index for ELO history lookups
+CREATE INDEX IF NOT EXISTS idx_elo_history_roster_league ON elo_history(roster_id, league_id);
+
 -- Match sets table
 CREATE INDEX IF NOT EXISTS idx_match_sets_match_id ON match_sets(match_id);

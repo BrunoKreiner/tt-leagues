@@ -28,7 +28,13 @@ class Database {
             const hasQuery = rawUrl.includes('?');
             const hasSslMode = /[?&]sslmode=/i.test(rawUrl);
             const connString = hasSslMode ? rawUrl : `${rawUrl}${hasQuery ? '&' : '?'}sslmode=require`;
-            this.pool = new Pool({ connectionString: connString, ssl: { rejectUnauthorized: false } });
+            this.pool = new Pool({
+                connectionString: connString,
+                ssl: { rejectUnauthorized: false },
+                max: 10,
+                idleTimeoutMillis: 30000,
+                connectionTimeoutMillis: 5000,
+            });
             try {
                 await this.pool.query('SELECT 1');
                 console.log('Connected to Postgres database');
