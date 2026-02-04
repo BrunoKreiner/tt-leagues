@@ -5,58 +5,57 @@
 ## Quick Reference: Current Implementation Status
 
 - ✅ **Record Match on League Detail Page**: Completed - Collapsible form at bottom of league pages
-- ✅ **Profile Enhancements**: Already implemented - Equipment and playstyle fields are functional
-- ❌ **Cross-link Profiles**: Not implemented  
-- ❌ **Dashboard Profile CTA**: Not implemented
-- ⚠️ **Translation Completion**: Partially done (missing some German strings)
-- ⚠️ **Mobile Responsiveness**: Mostly done, needs verification
+- ✅ **Profile Enhancements**: Completed - Equipment and playstyle fields are functional
+- ✅ **Cross-link Profiles**: Completed - All usernames link to user profiles throughout the app
+- ✅ **Dashboard Profile CTA**: Completed - Profile CTAs added in header and empty states
+- ✅ **Translation Completion**: Completed - All known translations including German "sets won" strings
+- ⚠️ **Mobile Responsiveness**: Mostly done, needs final verification
 
 ---
 
-## Recommended Next Task: Cross-link Profiles Across App
+## Recommended Next Tasks
 
-**Note**: Profile Enhancements (equipment & playstyle) are already fully implemented. The next logical quick win is making profiles more discoverable through clickable usernames.
+**Note**: All "Quick Win" items from the previous TODO list have been completed:
+- ✅ Profile Enhancements (equipment & playstyle)
+- ✅ Cross-link Profiles Across App
+- ✅ Dashboard Profile CTA Placement
+- ✅ Translation Completion
 
-**Priority**: High (Quick Win)  
-**Estimated Complexity**: Low-Medium  
-**Files to Modify**: Multiple frontend components
+### Next Priority: Mobile Responsiveness & Polish
+
+**Priority**: Medium (Final polish)
+**Estimated Complexity**: Medium
+**Scope**: Testing and refinement
 
 ### Implementation Steps
 
-1. **Identify all username display locations**:
-   - League detail page leaderboard
-   - League detail page members table
-   - Dashboard leaderboards
-   - Matches page (player names)
-   - Match detail pages
-   - Any notifications or other lists
+1. **Mobile Testing**:
+   - Test all pages on various mobile devices (320px - 768px widths)
+   - Verify touch targets are adequate (44x44px minimum)
+   - Check form layouts and inputs on mobile
+   - Test navigation menu on mobile
+   - Verify tables are scrollable/responsive on mobile
+   - Test leaderboard cards and match lists
 
-2. **Convert usernames to links**:
-   - Replace plain text usernames with `<Link to={`/profile/${username}`}>` components
-   - Ensure consistent styling (blue-400 text with hover effects)
-   - Preserve existing styling and layout
+2. **Performance Optimization**:
+   - Review bundle size and lazy loading opportunities
+   - Ensure smooth animations and transitions
+   - Optimize images and assets
 
-3. **Test navigation**:
-   - Verify links work correctly
-   - Check that auth context is preserved
-   - Ensure public profiles load properly
+3. **Accessibility Review**:
+   - Verify WCAG compliance (keyboard navigation, ARIA labels)
+   - Check color contrast ratios
+   - Test with screen readers
+   - Ensure all interactive elements are accessible
 
-### Files to Modify
+### Files to Review
 
-- `frontend/src/pages/LeagueDetailPage.jsx`
-  - Leaderboard table username column
-  - Members table username column
-  
-- `frontend/src/pages/DashboardPage.jsx`
-  - Leaderboard row usernames
-
-- `frontend/src/pages/MatchesPage.jsx`
-  - Player 1 and Player 2 names in match list
-  
-- `frontend/src/pages/MatchDetailPage.jsx` (if exists)
-  - Player names
-
-- Any other components displaying usernames that should link to profiles
+- All frontend components and pages, especially:
+  - `frontend/src/pages/DashboardPage.jsx`
+  - `frontend/src/pages/LeagueDetailPage.jsx`
+  - `frontend/src/pages/MatchesPage.jsx`
+  - `frontend/src/components/layout/MobileMenu.jsx`
+  - `frontend/src/components/ui/*`
 
 ---
 
