@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Trophy, Swords, ArrowRight, User } from 'lucide-react';
 import MedalIcon from '@/components/MedalIcon';
 import TimelineStats from '@/components/TimelineStats';
+import EloSparkline from '@/components/EloSparkline';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { leaguesAPI, matchesAPI, usersAPI } from '../services/api';
 import { useTranslation } from 'react-i18next';
@@ -430,7 +431,28 @@ const DashboardPage = () => {
                               </span>
                             )}
                           </div>
-                          <span className="text-sm text-gray-400 tabular-nums">{player.current_elo}</span>
+                          <div className="flex items-center gap-2">
+                            {player.user_id ? (
+                              <EloSparkline
+                                userId={player.user_id}
+                                leagueId={league.id}
+                                width={56}
+                                height={14}
+                                points={15}
+                              />
+                            ) : player.roster_id ? (
+                              <EloSparkline
+                                rosterId={player.roster_id}
+                                leagueId={league.id}
+                                width={56}
+                                height={14}
+                                points={15}
+                              />
+                            ) : (
+                              <span className="text-xs text-gray-500">—</span>
+                            )}
+                            <span className="text-sm text-gray-400 tabular-nums shrink-0 w-10 text-right">{player.current_elo}</span>
+                          </div>
                         </div>
                       ))}
                     </div>
