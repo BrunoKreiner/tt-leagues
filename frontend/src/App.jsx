@@ -24,6 +24,7 @@ const AdminPage = lazy(() => import('./pages/AdminPage'));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 const RecordMatchPage = lazy(() => import('./pages/RecordMatchPage'));
 const MatchDetailPage = lazy(() => import('./pages/MatchDetailPage'));
+const QuickMatchPage = lazy(() => import('./pages/QuickMatchPage'));
 const TtcBadenWettingenWikiPage = lazy(() => import('./pages/TtcBadenWettingenWikiPage'));
 
 import './App.css';
@@ -142,6 +143,7 @@ function AppRoutes() {
           <Route path="leagues/:id" element={<LeagueDetailPage />} />
           <Route path="matches" element={<MatchesPage />} />
           <Route path="matches/record" element={<RecordMatchPage />} />
+          <Route path="quick-match" element={<QuickMatchPage />} />
           <Route path="matches/:id" element={<MatchDetailPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="profile" element={<ProfilePage />} />

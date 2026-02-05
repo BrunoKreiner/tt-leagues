@@ -10,6 +10,7 @@
     "dashboard": "Übersicht",
     "leagues": "Ligen",
     "matches": "Spiele",
+    "quickMatch": "Schnellerfassung",
     "admin": "Verwalten",
     "notifications": "Benachrichtigungen",
     "profile": "Profil",
@@ -452,6 +453,18 @@
     "submitMatch": "Spiel einreichen",
     "matchRecordedSuccess": "Spiel erfolgreich eingetragen",
     "failedToRecordMatch": "Spiel konnte nicht eingetragen werden"
+  },
+  "quickMatch": {
+    "subtitle": "Spiel in 4 schnellen Schritten eintragen",
+    "selectLeague": "Liga auswählen",
+    "selectOpponent": "Gegner auswählen",
+    "finalScore": "Endergebnis",
+    "score": "Ergebnis",
+    "reviewAndSubmit": "Überprüfen & Absenden",
+    "next": "Weiter",
+    "back": "Zurück",
+    "submit": "Spiel einreichen",
+    "needDetailedScores": "Detaillierte Satzergebnisse eingeben?"
   },
   "wiki": {
     "chapters": "Kapitel",

@@ -361,7 +361,7 @@ export default function RecordMatchForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         {/* League selector - hidden if hideLeagueSelector is true */}
         {!hideLeagueSelector && (
           <FormField
@@ -582,11 +582,16 @@ export default function RecordMatchForm({
                   type="number"
                   min={0}
                   value={s.p1}
+                  onFocus={(e) => {
+                    if (e.target.value === '0') {
+                      e.target.select();
+                    }
+                  }}
                   onChange={(e) => {
                     const v = Number(e.target.value);
                     setSetScores((arr) => arr.map((it, i) => (i === idx ? { ...it, p1: Number.isFinite(v) ? v : 0 } : it)));
                   }}
-                  className="w-14 h-8 px-2 text-sm"
+                  className="w-16 h-10 px-2 text-sm"
                   style={getSetClosenessStyle(s.p1, s.p2)}
                   aria-label={`Your points in set ${idx + 1}`}
                 />
@@ -595,11 +600,16 @@ export default function RecordMatchForm({
                   type="number"
                   min={0}
                   value={s.p2}
+                  onFocus={(e) => {
+                    if (e.target.value === '0') {
+                      e.target.select();
+                    }
+                  }}
                   onChange={(e) => {
                     const v = Number(e.target.value);
                     setSetScores((arr) => arr.map((it, i) => (i === idx ? { ...it, p2: Number.isFinite(v) ? v : 0 } : it)));
                   }}
-                  className="w-14 h-8 px-2 text-sm"
+                  className="w-16 h-10 px-2 text-sm"
                   style={getSetClosenessStyle(s.p2, s.p1)}
                   aria-label={`Opponent points in set ${idx + 1}`}
                 />
