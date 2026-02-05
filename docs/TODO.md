@@ -155,10 +155,16 @@ Quick facts (current state):
 
 ## 2) Schema Parity and Quality (Medium Priority)
 
-- [ ] Align SQLite and Postgres schemas
+- [x] Align SQLite and Postgres schemas
   - Files: `backend/database/schema.sql`, `backend/database/schema.pg.sql`
   - Action: Ensure consistent columns, defaults, indexes, and constraints. Confirm all entities are created with `IF NOT EXISTS`. Document any expected dialect differences (e.g., autoincrement vs serial/identity; datetime types).
   - Acceptance: Feature parity across DBs; initialization succeeds in both modes.
+  - Status: ✅ **COMPLETED** - Schemas are now aligned:
+    - Added 8 user profile columns to SQLite (forehand_rubber, backhand_rubber, blade_wood, playstyle, strengths, weaknesses, goals, avatar_url)
+    - Added foreign key constraints for roster_id fields in SQLite matches table
+    - Added 3 missing composite indexes to SQLite (league_roster, matches, elo_history)
+    - Added default seed data to PostgreSQL (admin user and default badge)
+    - Both schemas now have feature parity with only expected dialect differences remaining
 
 - [x] Indexing review for critical queries
   - Files: `backend/database/schema.sql`, `backend/database/schema.pg.sql`
@@ -178,15 +184,26 @@ Quick facts (current state):
 
 ## 3) CORS and Developer Workflow (Medium/Low Priority)
 
-- [ ] CORS docs
+- [x] CORS docs
   - Files: `README.md`
   - Action: Document `FRONTEND_URL` behavior (comma-separated, wildcard support). Provide local and Vercel examples.
   - Acceptance: Clear CORS configuration guidance.
+  - Status: ✅ **COMPLETED** - Added comprehensive CORS Configuration section to README.md with:
+    - Configuration format explanation
+    - Examples for local development, production, and mixed environments
+    - Default behavior and wildcard pattern matching documentation
+    - Clear guidance for various deployment scenarios
 
-- [ ] Developer workflow docs
+- [x] Developer workflow docs
   - Files: `README.md`
   - Action: Document local SQLite workflow (database file under `backend/database`, `npm run init-db`, docker-compose) vs Vercel/Neon production.
   - Acceptance: New devs can follow repeatable steps.
+  - Status: ✅ **COMPLETED** - Added comprehensive Developer Workflows section to README.md covering:
+    - Local Development with SQLite (database location, initialization, advantages)
+    - Docker Development with SQLite
+    - Production deployment with Vercel + Neon/Postgres
+    - Optional local Postgres testing workflow
+    - Schema parity documentation
 
 - [ ] Optional: local Postgres dev script
   - Files: `backend/package.json`

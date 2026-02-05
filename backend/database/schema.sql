@@ -13,9 +13,17 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Optional public profile fields (add columns if they do not exist)
--- Note: SQLite doesn't support IF NOT EXISTS in ALTER TABLE, so we'll handle this in the application
--- These columns will be added by the application if they don't exist
+-- Optional public profile fields
+-- Note: These ALTER TABLE statements will fail silently if columns already exist
+-- Application code should handle the potential error gracefully
+ALTER TABLE users ADD COLUMN forehand_rubber TEXT;
+ALTER TABLE users ADD COLUMN backhand_rubber TEXT;
+ALTER TABLE users ADD COLUMN blade_wood TEXT;
+ALTER TABLE users ADD COLUMN playstyle VARCHAR(100);
+ALTER TABLE users ADD COLUMN strengths TEXT;
+ALTER TABLE users ADD COLUMN weaknesses TEXT;
+ALTER TABLE users ADD COLUMN goals TEXT;
+ALTER TABLE users ADD COLUMN avatar_url TEXT;
 
 -- Leagues table
 CREATE TABLE IF NOT EXISTS leagues (
@@ -96,7 +104,10 @@ CREATE TABLE IF NOT EXISTS matches (
     FOREIGN KEY (player1_id) REFERENCES users(id),
     FOREIGN KEY (player2_id) REFERENCES users(id),
     FOREIGN KEY (winner_id) REFERENCES users(id),
-    FOREIGN KEY (accepted_by) REFERENCES users(id)
+    FOREIGN KEY (accepted_by) REFERENCES users(id),
+    FOREIGN KEY (player1_roster_id) REFERENCES league_roster(id),
+    FOREIGN KEY (player2_roster_id) REFERENCES league_roster(id),
+    FOREIGN KEY (winner_roster_id) REFERENCES league_roster(id)
 );
 
 -- Match sets table (for detailed set scores)
@@ -225,6 +236,7 @@ CREATE INDEX IF NOT EXISTS idx_league_members_league_id ON league_members(league
 CREATE INDEX IF NOT EXISTS idx_league_members_user_id ON league_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_league_roster_league_id ON league_roster(league_id);
 CREATE INDEX IF NOT EXISTS idx_league_roster_user_id ON league_roster(user_id);
+CREATE INDEX IF NOT EXISTS idx_league_roster_league_user ON league_roster(league_id, user_id);
 CREATE INDEX IF NOT EXISTS idx_league_roster_league_elo ON league_roster(league_id, current_elo);
 CREATE INDEX IF NOT EXISTS idx_matches_league_id ON matches(league_id);
 CREATE INDEX IF NOT EXISTS idx_matches_player1_id ON matches(player1_id);
@@ -239,6 +251,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
 -- Matches table
 CREATE INDEX IF NOT EXISTS idx_matches_is_accepted ON matches(is_accepted);
 CREATE INDEX IF NOT EXISTS idx_matches_league_accepted ON matches(league_id, is_accepted);
+CREATE INDEX IF NOT EXISTS idx_matches_league_accepted_played ON matches(league_id, is_accepted, played_at);
 CREATE INDEX IF NOT EXISTS idx_matches_winner_id ON matches(winner_id);
 CREATE INDEX IF NOT EXISTS idx_matches_elo_applied ON matches(elo_applied);
 CREATE INDEX IF NOT EXISTS idx_matches_created_at ON matches(created_at);
@@ -291,6 +304,7 @@ CREATE INDEX IF NOT EXISTS idx_league_snapshots_dirty ON league_snapshots(dirty)
 -- ELO history table
 CREATE INDEX IF NOT EXISTS idx_elo_history_match_id ON elo_history(match_id);
 CREATE INDEX IF NOT EXISTS idx_elo_history_user_league_recorded ON elo_history(user_id, league_id, recorded_at);
+CREATE INDEX IF NOT EXISTS idx_elo_history_roster_league ON elo_history(roster_id, league_id);
 -- Note: idx_elo_history_roster_id is created in ensureRosterIndexes() after roster_id column is ensured
 
 -- Match sets table
