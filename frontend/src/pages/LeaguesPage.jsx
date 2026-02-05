@@ -35,7 +35,15 @@ const LeaguesPage = () => {
         setLeagues(res.data?.leagues || []);
       } catch (err) {
         if (cancelled) return;
-        setError(err.response?.data?.error || 'Failed to load leagues');
+        console.error('LeaguesPage fetch error:', {
+          error: err.response?.data?.error,
+          details: err.response?.data?.details,
+          status: err.response?.status,
+          fullError: err
+        });
+        const errorMsg = err.response?.data?.error || 'Failed to load leagues';
+        const details = err.response?.data?.details;
+        setError(details ? `${errorMsg}: ${JSON.stringify(details)}` : errorMsg);
       } finally {
         if (!cancelled) setLoading(false);
       }

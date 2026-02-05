@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Trophy, Swords, ArrowRight, User } from 'lucide-react';
 import MedalIcon from '@/components/MedalIcon';
 import TimelineStats from '@/components/TimelineStats';
+import EloSparkline from '@/components/EloSparkline';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { leaguesAPI, matchesAPI, usersAPI } from '../services/api';
 import { useTranslation } from 'react-i18next';
@@ -259,23 +260,31 @@ const DashboardPage = () => {
                     >
                       {/* Players and Score Line */}
                       <div className="flex items-center gap-2 text-sm whitespace-nowrap">
-                        <Link
-                          to={`/app/profile/${match.player1_username}`}
-                          className="text-blue-400 hover:text-blue-300 font-medium"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {match.player1_username}
-                        </Link>
+                        {match.player1_username ? (
+                          <Link
+                            to={`/app/profile/${match.player1_username}`}
+                            className="text-blue-400 hover:text-blue-300 font-medium"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {match.player1_display_name || match.player1_username}
+                          </Link>
+                        ) : (
+                          <span className="text-blue-400 font-medium">{match.player1_display_name || 'Player 1'}</span>
+                        )}
                         <span className={`font-bold text-lg ${player1Won ? 'text-green-400' : 'text-gray-300'}`}>{match.player1_sets_won}</span>
                         <span className="text-gray-500 font-bold">-</span>
                         <span className={`font-bold text-lg ${player2Won ? 'text-green-400' : 'text-gray-300'}`}>{match.player2_sets_won}</span>
-                        <Link
-                          to={`/app/profile/${match.player2_username}`}
-                          className="text-blue-400 hover:text-blue-300 font-medium"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {match.player2_username}
-                        </Link>
+                        {match.player2_username ? (
+                          <Link
+                            to={`/app/profile/${match.player2_username}`}
+                            className="text-blue-400 hover:text-blue-300 font-medium"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {match.player2_display_name || match.player2_username}
+                          </Link>
+                        ) : (
+                          <span className="text-blue-400 font-medium">{match.player2_display_name || 'Player 2'}</span>
+                        )}
                       </div>
                       
                       {/* ELO Points Line */}
@@ -430,7 +439,28 @@ const DashboardPage = () => {
                               </span>
                             )}
                           </div>
-                          <span className="text-sm text-gray-400 tabular-nums">{player.current_elo}</span>
+                          <div className="flex items-center gap-2">
+                            {player.user_id ? (
+                              <EloSparkline
+                                userId={player.user_id}
+                                leagueId={league.id}
+                                width={56}
+                                height={14}
+                                points={15}
+                              />
+                            ) : player.roster_id ? (
+                              <EloSparkline
+                                rosterId={player.roster_id}
+                                leagueId={league.id}
+                                width={56}
+                                height={14}
+                                points={15}
+                              />
+                            ) : (
+                              <span className="text-xs text-gray-500">—</span>
+                            )}
+                            <span className="text-sm text-gray-400 tabular-nums shrink-0 w-10 text-right">{player.current_elo}</span>
+                          </div>
                         </div>
                       ))}
                     </div>
