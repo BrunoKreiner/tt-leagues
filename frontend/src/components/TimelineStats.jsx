@@ -72,10 +72,10 @@ const TimelineStats = ({ userId }) => {
 
   // Grey color for lines (matching leaderboard default ELO timeline)
   const lineColor = '#6b7280';
-  const chartHeight = 60;
-  const chartWidth = 300; // Base width for viewBox
-  const maxChartWidth = 300; // Max width to prevent over-stretching on large screens
-  const padding = { top: 35, bottom: 20, left: 10, right: 20 }; // Increased top padding for value labels
+  const chartHeight = 80;
+  const chartWidth = 240; // Base width for viewBox
+  const maxChartWidth = 280; // Max width to prevent over-stretching on large screens
+  const padding = { top: 35, bottom: 25, left: 15, right: 15 }; // Increased padding for better spacing
 
   // Render a chart using raw SVG (like EloSparkline)
   const renderChart = (title, dataKey, dotColor, data = formattedData) => {
@@ -84,9 +84,9 @@ const TimelineStats = ({ userId }) => {
     // Show a placeholder if no data for this chart yet
     if (values.length === 0) {
       return (
-        <div className="w-full">
-          <div className="text-sm font-medium text-gray-300 text-center mb-2">{title}</div>
-          <div className="h-[75px] flex items-start justify-center pt-0">
+        <div className="w-full bg-gray-800/30 rounded-lg p-4 border border-gray-700/50 hover:border-gray-600/50 transition-colors">
+          <div className="text-sm font-semibold text-gray-300 text-center mb-3">{title}</div>
+          <div className="flex items-start justify-center">
             <svg
               width="100%"
               height={chartHeight}
@@ -147,9 +147,9 @@ const TimelineStats = ({ userId }) => {
     const svgHeight = chartHeight + verticalOffset;
     
     return (
-      <div className="w-full">
-        <div className="text-sm font-medium text-gray-300 text-center mb-2">{title}</div>
-        <div className="h-[75px] flex items-start justify-center pt-0">
+      <div className="w-full bg-gray-800/30 rounded-lg p-4 border border-gray-700/50 hover:border-gray-600/50 transition-colors">
+        <div className="text-sm font-semibold text-gray-300 text-center mb-3">{title}</div>
+        <div className="flex items-start justify-center">
           <svg
             width="100%"
             height={svgHeight}
@@ -223,16 +223,18 @@ const TimelineStats = ({ userId }) => {
   };
 
   return (
-    <div className="grid grid-cols-2 gap-1 w-full">
-      {renderChart(t('dashboard.leaguesOverTime'), 'leagues_count', chartConfig.leagues.color)}
-      {renderChart(t('dashboard.matchesPerMonth'), 'matches_per_month', chartConfig.matches.color)}
-      {renderChart(t('dashboard.winRateOverTime'), 'win_rate', chartConfig.winRate.color)}
-      {renderChart(
-        t('dashboard.avgEloOverTime'),
-        'avg_elo', 
-        chartConfig.elo.color,
-        formattedData
-      )}
+    <div className="max-w-5xl mx-auto">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {renderChart(t('dashboard.leaguesOverTime'), 'leagues_count', chartConfig.leagues.color)}
+        {renderChart(t('dashboard.matchesPerMonth'), 'matches_per_month', chartConfig.matches.color)}
+        {renderChart(t('dashboard.winRateOverTime'), 'win_rate', chartConfig.winRate.color)}
+        {renderChart(
+          t('dashboard.avgEloOverTime'),
+          'avg_elo',
+          chartConfig.elo.color,
+          formattedData
+        )}
+      </div>
     </div>
   );
 };
