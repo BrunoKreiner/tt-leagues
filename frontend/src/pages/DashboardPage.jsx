@@ -253,20 +253,27 @@ const DashboardPage = () => {
                   const player2Won = match.player2_sets_won > match.player1_sets_won;
 
                   return (
-                    <Link
+                    <div
                       key={match.id}
-                      to={`/app/matches/${match.id}`}
-                      className="flex flex-col items-center min-w-fit px-4 py-3 bg-gray-800/30 rounded-lg border border-gray-700/50 hover:border-gray-600/50 hover:bg-gray-800/50 transition-all cursor-pointer"
+                      className="flex flex-col items-center min-w-fit px-4 py-3 bg-gray-800/30 rounded-lg border border-gray-700/50 hover:border-gray-600/50 hover:bg-gray-800/50 transition-all"
                     >
-                      {/* Score Line */}
+                      {/* Players and Score Line */}
                       <div className="flex items-center gap-2 text-sm whitespace-nowrap">
-                        <Link to={`/app/profile/${match.player1_username}`} className="text-blue-400 hover:text-blue-300">
+                        <Link
+                          to={`/app/profile/${match.player1_username}`}
+                          className="text-blue-400 hover:text-blue-300 font-medium"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           {match.player1_username}
                         </Link>
                         <span className={`font-bold text-lg ${player1Won ? 'text-green-400' : 'text-gray-300'}`}>{match.player1_sets_won}</span>
                         <span className="text-gray-500 font-bold">-</span>
                         <span className={`font-bold text-lg ${player2Won ? 'text-green-400' : 'text-gray-300'}`}>{match.player2_sets_won}</span>
-                        <Link to={`/app/profile/${match.player2_username}`} className="text-blue-400 hover:text-blue-300">
+                        <Link
+                          to={`/app/profile/${match.player2_username}`}
+                          className="text-blue-400 hover:text-blue-300 font-medium"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           {match.player2_username}
                         </Link>
                       </div>
@@ -303,10 +310,13 @@ const DashboardPage = () => {
                       </div>
                       
                       {/* Date and League Line */}
-                      <div className="text-[11px] text-gray-500 mt-1 text-center">
+                      <Link
+                        to={`/app/matches/${match.id}`}
+                        className="text-[11px] text-gray-400 hover:text-blue-400 mt-1 text-center transition-colors"
+                      >
                         {formatDate(match.played_at)} • {match.league_name || 'Unknown'}
-                      </div>
-                    </Link>
+                      </Link>
+                    </div>
                   );
                 })}
               </div>
