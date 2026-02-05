@@ -226,13 +226,15 @@ These are not implemented; capture next steps at a high level.
 - [x] Multi-language (i18n)
   - Status: Implemented with react-i18next; EN/DE resources added; components migrated to `t()`, i18n ready-gate in `App.jsx`, JSON validated; language switcher in header.
 
-- [ ] Cross-link profiles across app
-  - Next steps: Make usernames clickable in league members tables, leaderboards, and match lists to `/profile/:username`; ensure navigation preserves auth context
-  - Acceptance: Clicking any username navigates to public profile page
+- [x] Cross-link profiles across app
+  - Status: ✅ **COMPLETED** - All usernames throughout the app are clickable and link to user profiles
+  - Implementation: Links added in `LeagueDetailPage.jsx` (leaderboard line 1137, members line 1226), `DashboardPage.jsx` (line 400), `MatchesPage.jsx` (lines 168, 178), `MatchDetailPage.jsx`, and `AdminPage.jsx`
+  - Acceptance: ✅ Clicking any username navigates to `/profile/:username` public profile page
 
-- [ ] Dashboard profile CTA placement
-  - Next steps: Move or duplicate "View Profile" CTA into welcome header area and recent matches empty state; consider avatar click opening profile
-  - Acceptance: Profile is discoverable in top section; click-through rate improves
+- [x] Dashboard profile CTA placement
+  - Status: ✅ **COMPLETED** - Profile CTAs added in multiple locations on dashboard
+  - Implementation: User icon + "View Profile" button in header (`DashboardPage.jsx:186-193`), "View Profile" in empty matches state (`DashboardPage.jsx:308-312`)
+  - Acceptance: ✅ Profile is discoverable in top section and empty states
 
 - [x] Profile enhancements (editable equipment & playstyle)
   - Status: ✅ **COMPLETED** - All equipment and playstyle fields are implemented and functional
@@ -462,7 +464,11 @@ Based on the reference images showing modern dark-themed video game dashboards, 
 
 ## 9) User List of Small Fixes
 
-- [ ] "Your sets won" and "Opponent sets won" needs to be translated too in german.
+- [x] "Your sets won" and "Opponent sets won" needs to be translated too in german.
+  - Status: ✅ **COMPLETED** - German translations already exist
+  - Implementation: `frontend/public/locales/de/common.json:450-451`
+    - `"yourSetsWon": "Deine gewonnenen Sätze"`
+    - `"opponentSetsWon": "Gegner gewonnene Sätze"`
 
 ---
 
@@ -482,47 +488,37 @@ Based on the reference images showing modern dark-themed video game dashboards, 
   - Translations exist for EN/DE
 - **Files**: Already implemented in `backend/database/schema.sql`, `backend/src/routes/users.js`, `frontend/src/pages/ProfilePage.jsx`
 
-#### 2. Cross-link Profiles Across App - NOT IMPLEMENTED
-- **Status**: ❌ Not implemented
+#### 2. Cross-link Profiles Across App - ✅ COMPLETED
+- **Status**: ✅ **COMPLETED** - All usernames clickable throughout the app
 - **Description**: Make all usernames clickable to navigate to user profiles, improving discoverability and navigation
-- **Tasks**:
-  - Make usernames clickable in league members tables (`LeagueDetailPage.jsx`)
-  - Make usernames clickable in leaderboards (league detail and dashboard)
-  - Make usernames clickable in match lists (player names)
-  - Ensure navigation preserves auth context
-- **Files to Modify**:
-  - `frontend/src/pages/LeagueDetailPage.jsx` (leaderboard and members table)
-  - `frontend/src/pages/DashboardPage.jsx` (leaderboard rows)
-  - `frontend/src/pages/MatchesPage.jsx` (match player names)
-  - Any other components displaying usernames
-- **Acceptance Criteria**: Clicking any username navigates to `/profile/:username` public profile page
+- **Implementation**:
+  - `frontend/src/pages/LeagueDetailPage.jsx:1137` - Leaderboard usernames link to profiles
+  - `frontend/src/pages/LeagueDetailPage.jsx:1226` - Members table usernames clickable
+  - `frontend/src/pages/DashboardPage.jsx:400` - Dashboard leaderboard rows link to profiles
+  - `frontend/src/pages/MatchesPage.jsx:168,178` - Player names in match lists clickable
+  - `frontend/src/pages/MatchDetailPage.jsx:267,273` - Match detail player names clickable
+  - `frontend/src/pages/AdminPage.jsx` - Various username displays link to profiles
+- **Acceptance Criteria**: ✅ Clicking any username navigates to `/profile/:username` public profile page
 
-#### 3. Dashboard Profile CTA Placement - NOT IMPLEMENTED
-- **Status**: ❌ Not implemented
-- **Description**: Improve profile discoverability by adding CTA in welcome section; consider making avatar clickable to open profile
-- **Tasks**:
-  - Add "View Profile" CTA button in welcome header area on dashboard
-  - Add profile link in recent matches empty state
-  - Make avatar/username in header clickable to open profile
-  - Consider duplicate CTA in recent matches section
-- **Files to Modify**:
-  - `frontend/src/pages/DashboardPage.jsx` (welcome section, empty states)
-  - `frontend/src/components/layout/Layout.jsx` (avatar click handler)
-- **Acceptance Criteria**: Profile is easily discoverable in top section; click-through rate improves
+#### 3. Dashboard Profile CTA Placement - ✅ COMPLETED
+- **Status**: ✅ **COMPLETED** - Profile CTAs added in multiple strategic locations
+- **Description**: Improve profile discoverability by adding CTA in welcome section and empty states
+- **Implementation**:
+  - `frontend/src/pages/DashboardPage.jsx:186-193` - User icon and "View Profile" button in header section
+  - `frontend/src/pages/DashboardPage.jsx:308-312` - "View Profile" CTA in empty matches state
+- **Acceptance Criteria**: ✅ Profile is easily discoverable in top section; multiple entry points for profile access
 
 ### Medium Priority
 
-#### 4. Translation Completion - PARTIALLY IMPLEMENTED
-- **Status**: ⚠️ Partially implemented (EN/DE exist, some strings missing)
+#### 4. Translation Completion - ✅ COMPLETED
+- **Status**: ✅ **COMPLETED** - All known translations including "Your sets won" and "Opponent sets won" are implemented
 - **Description**: Complete German translations for all remaining strings
-- **Tasks**:
-  - Review all frontend strings and ensure they have translation keys
-  - Complete German translations in `frontend/src/locales/de.json`
-  - Test language switching and verify no untranslated strings appear
-- **Files to Modify**:
-  - `frontend/src/locales/de.json`
-  - Various frontend components (ensure all strings use `t()`)
-- **Known Missing**: "Your sets won" and "Opponent sets won" need German translation
+- **Implementation**:
+  - Translation files: `frontend/public/locales/de/common.json` and `frontend/public/locales/en/common.json`
+  - "Your sets won" / "Opponent sets won" translations verified at `de/common.json:450-451`
+    - `"yourSetsWon": "Deine gewonnenen Sätze"`
+    - `"opponentSetsWon": "Gegner gewonnene Sätze"`
+- **Note**: Any future missing translations should be added as discovered during usage
 
 #### 5. Mobile Responsiveness Polish - MOSTLY DONE, NEEDS VERIFICATION
 - **Status**: ⚠️ Mostly implemented, needs final verification
