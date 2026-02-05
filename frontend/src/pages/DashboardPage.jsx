@@ -260,23 +260,31 @@ const DashboardPage = () => {
                     >
                       {/* Players and Score Line */}
                       <div className="flex items-center gap-2 text-sm whitespace-nowrap">
-                        <Link
-                          to={`/app/profile/${match.player1_username}`}
-                          className="text-blue-400 hover:text-blue-300 font-medium"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {match.player1_username}
-                        </Link>
+                        {match.player1_username ? (
+                          <Link
+                            to={`/app/profile/${match.player1_username}`}
+                            className="text-blue-400 hover:text-blue-300 font-medium"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {match.player1_display_name || match.player1_username}
+                          </Link>
+                        ) : (
+                          <span className="text-blue-400 font-medium">{match.player1_display_name || 'Player 1'}</span>
+                        )}
                         <span className={`font-bold text-lg ${player1Won ? 'text-green-400' : 'text-gray-300'}`}>{match.player1_sets_won}</span>
                         <span className="text-gray-500 font-bold">-</span>
                         <span className={`font-bold text-lg ${player2Won ? 'text-green-400' : 'text-gray-300'}`}>{match.player2_sets_won}</span>
-                        <Link
-                          to={`/app/profile/${match.player2_username}`}
-                          className="text-blue-400 hover:text-blue-300 font-medium"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {match.player2_username}
-                        </Link>
+                        {match.player2_username ? (
+                          <Link
+                            to={`/app/profile/${match.player2_username}`}
+                            className="text-blue-400 hover:text-blue-300 font-medium"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {match.player2_display_name || match.player2_username}
+                          </Link>
+                        ) : (
+                          <span className="text-blue-400 font-medium">{match.player2_display_name || 'Player 2'}</span>
+                        )}
                       </div>
                       
                       {/* ELO Points Line */}
