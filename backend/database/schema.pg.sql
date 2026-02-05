@@ -284,3 +284,14 @@ CREATE INDEX IF NOT EXISTS idx_elo_history_roster_league ON elo_history(roster_i
 
 -- Match sets table
 CREATE INDEX IF NOT EXISTS idx_match_sets_match_id ON match_sets(match_id);
+
+-- Default seed data
+-- Note: Password hash is for 'admin123' (bcrypt hash)
+INSERT INTO users (username, password_hash, first_name, last_name, email, is_admin)
+VALUES ('admin', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Admin', 'User', 'admin@tabletennis.local', TRUE)
+ON CONFLICT (username) DO NOTHING;
+
+-- Default badge
+INSERT INTO badges (name, description, icon, badge_type, visibility)
+VALUES ('League Champion', 'Winner of a league season', 'trophy', 'league_winner', 'public')
+ON CONFLICT (name) DO NOTHING;

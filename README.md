@@ -219,7 +219,6 @@ ADMIN_EMAIL=admin@tabletennis.local
 Notes:
 - Database selection: `backend/src/models/database.js` uses Postgres when `DATABASE_URL` is set; otherwise SQLite at `DATABASE_PATH`. On Vercel, the app requires `DATABASE_URL` to avoid ephemeral SQLite.
 - SSL: If `sslmode` is not present in `DATABASE_URL`, the app adds `sslmode=require` and sets `ssl: { rejectUnauthorized: false }` on the PG Pool.
-- CORS: `FRONTEND_URL` supports comma-separated origins and `*` wildcards.
 
 ### Frontend (.env)
 ```
@@ -230,6 +229,149 @@ VITE_API_URL=http://localhost:3001/api
 # For development/testing, you can use the test site key: 1x00000000000000000000AA
 VITE_TURNSTILE_SITE_KEY=your-turnstile-site-key-here
 ```
+
+## CORS Configuration
+
+The backend supports flexible CORS configuration via the `FRONTEND_URL` environment variable. This variable defines which frontend origins are allowed to make API requests.
+
+### Configuration Format
+
+- **Comma-separated**: Multiple origins separated by commas
+- **Wildcard support**: Use `*` for pattern matching (e.g., `https://*.vercel.app`)
+- **No value**: If `FRONTEND_URL` is not set, all origins are allowed
+
+### Examples
+
+#### Local Development
+```bash
+# Single local origin
+FRONTEND_URL=http://localhost:5173
+
+# Multiple local origins (different ports)
+FRONTEND_URL=http://localhost:5173,http://localhost:3000
+```
+
+#### Production (Vercel)
+```bash
+# Single production domain
+FRONTEND_URL=https://leagues.lol
+
+# Production + preview deployments with wildcard
+FRONTEND_URL=https://leagues.lol,https://tt-league-frontend-*.vercel.app
+
+# Multiple production domains + preview
+FRONTEND_URL=https://leagues.lol,https://www.leagues.lol,https://tt-league-frontend-*.vercel.app
+```
+
+#### Mixed Environments
+```bash
+# Local development + staging
+FRONTEND_URL=http://localhost:5173,https://staging.leagues.lol
+```
+
+### Default Behavior
+
+The backend automatically includes these origins regardless of `FRONTEND_URL`:
+- `https://leagues.lol`
+- `https://www.leagues.lol`
+- All Vercel preview URLs matching `https://tt-league-frontend*.vercel.app`
+
+### Wildcard Pattern Matching
+
+Wildcards (`*`) are converted to regex patterns for flexible matching:
+- `https://*.vercel.app` matches any subdomain on `vercel.app`
+- `https://preview-*.example.com` matches any preview domain
+- Pattern matching is case-sensitive and requires exact protocol match
+
+## Developer Workflows
+
+### Local Development (SQLite)
+
+The default local development workflow uses SQLite for simplicity:
+
+1. **Database location**: `backend/database/league.db` (created automatically)
+2. **Initialize database**:
+   ```bash
+   cd backend
+   npm run init-db
+   ```
+3. **Start backend**:
+   ```bash
+   npm start
+   ```
+4. **Environment**: SQLite is used when `DATABASE_URL` is not set
+
+**Advantages**:
+- No external database required
+- Simple setup for new developers
+- Fast local testing
+- Database file can be easily reset by deleting `league.db`
+
+**File locations**:
+- Schema: `backend/database/schema.sql`
+- Database file: `backend/database/league.db` (gitignored)
+
+### Docker Development (SQLite)
+
+Using Docker Compose with SQLite:
+
+```bash
+# Start all services
+docker-compose up -d
+
+# Database is persisted in Docker volume
+docker-compose down -v  # Remove -v to keep database
+```
+
+The database is stored in a Docker volume and persists across container restarts unless explicitly removed with `docker-compose down -v`.
+
+### Production (Vercel + Neon/Postgres)
+
+For serverless production deployments:
+
+1. **Database**: Use a managed Postgres service like Neon or Vercel Postgres
+2. **Environment**: Set `DATABASE_URL` in Vercel environment variables
+3. **SSL**: Automatically enforced (sslmode=require) if not in URL
+4. **Migrations**: Schema is applied automatically on first connection
+5. **Optional**: Set `DB_INIT_SKIP=1` to skip automatic schema initialization
+
+**Example Neon setup**:
+```bash
+# In Vercel environment variables
+DATABASE_URL=postgresql://user:pass@host.neon.tech/db?sslmode=require
+FRONTEND_URL=https://leagues.lol,https://tt-league-frontend-*.vercel.app
+DB_INIT_SKIP=1  # Optional: disable auto-init on serverless
+```
+
+**Schema parity**:
+- SQLite schema: `backend/database/schema.sql`
+- Postgres schema: `backend/database/schema.pg.sql`
+- Both schemas are kept in sync for feature parity
+
+### Testing Against Local Postgres (Optional)
+
+To test Postgres behavior locally without deploying:
+
+1. **Start local Postgres** (Docker or native):
+   ```bash
+   docker run -d -p 5432:5432 \
+     -e POSTGRES_PASSWORD=test \
+     -e POSTGRES_DB=ttleague \
+     postgres:16
+   ```
+
+2. **Set DATABASE_URL in backend/.env**:
+   ```bash
+   DATABASE_URL=postgresql://postgres:test@localhost:5432/ttleague
+   ```
+
+3. **Run backend**:
+   ```bash
+   cd backend
+   npm start
+   ```
+
+The backend will use Postgres instead of SQLite when `DATABASE_URL` is set.
 
 ## Troubleshooting
 

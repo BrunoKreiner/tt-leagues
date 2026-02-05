@@ -177,7 +177,7 @@ const Layout = () => {
                   }`}
                 >
                   <Icon className="h-4 w-4" />
-                  <span className="hidden sm:inline">{label}</span>
+                  <span className="hidden sm:inline-block">{label}</span>
                 </Link>
               );
             })}

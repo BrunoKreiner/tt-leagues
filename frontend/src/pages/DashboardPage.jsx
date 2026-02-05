@@ -177,9 +177,9 @@ const DashboardPage = () => {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-10 animate-fade-in max-w-7xl mx-auto">
       {/* Header: Username */}
-      <div className="flex items-center justify-center gap-4 flex-wrap py-4">
+      <div className="flex items-center justify-center gap-4 flex-wrap py-6 bg-gray-800/20 rounded-xl border border-gray-700/30">
         <h1 className="cyberpunk-title text-3xl sm:text-4xl bg-gradient-to-r from-blue-400 via-purple-400 to-blue-400 bg-clip-text text-transparent">
           {user?.first_name || user?.username}
         </h1>
@@ -193,69 +193,87 @@ const DashboardPage = () => {
         </Button>
       </div>
 
-      {/* Divider */}
-      <div className="section-divider"></div>
-
       {/* Section 1: Timeline Statistics */}
-      <div>
+      <div className="space-y-6">
+        <h2 className="cyberpunk-title text-2xl bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+          Performance Overview
+        </h2>
         <TimelineStats userId={user?.id} />
       </div>
 
-      {/* Divider */}
-      <div className="section-divider"></div>
-
       {/* Section 2: Recent Matches */}
-      <div>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="cyberpunk-title text-2xl bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+            Recent Matches
+          </h2>
+          <Link to="/app/matches" className="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1">
+            View all <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
         {matchesError ? (
           <div className="text-center py-4">
             <p className="text-sm text-red-400">{matchesError}</p>
           </div>
         ) : recentMatches.length > 0 ? (
-          <div className="relative mx-2">
+          <div className="relative">
             {/* Left Arrow */}
-            <button 
-              className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 text-gray-400 hover:text-gray-300 text-xl font-bold bg-gray-900/80 rounded-full w-6 h-6 flex items-center justify-center"
+            <button
+              className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 text-gray-400 hover:text-blue-400 transition-colors text-2xl bg-gray-900/90 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center border border-gray-700 hover:border-blue-500/50"
               onClick={() => {
                 const container = document.getElementById('dashboard-matches-scroll');
-                if (container) container.scrollLeft -= 200;
+                if (container) container.scrollLeft -= 250;
               }}
+              aria-label="Scroll left"
             >
               ‹
             </button>
-            
+
             {/* Right Arrow */}
-            <button 
-              className="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 text-gray-400 hover:text-gray-300 text-xl font-bold bg-gray-900/80 rounded-full w-6 h-6 flex items-center justify-center"
+            <button
+              className="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 text-gray-400 hover:text-blue-400 transition-colors text-2xl bg-gray-900/90 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center border border-gray-700 hover:border-blue-500/50"
               onClick={() => {
                 const container = document.getElementById('dashboard-matches-scroll');
-                if (container) container.scrollLeft += 200;
+                if (container) container.scrollLeft += 250;
               }}
+              aria-label="Scroll right"
             >
               ›
             </button>
-            
+
             {/* Matches Container */}
-            <div 
+            <div
               id="dashboard-matches-scroll"
-              className="overflow-x-auto scrollbar-hide px-8"
+              className="overflow-x-auto scrollbar-hide px-10"
               style={{ scrollBehavior: 'smooth' }}
             >
-              <div className="flex gap-3 min-w-max py-2 justify-center">
+              <div className="flex gap-4 min-w-max py-2 justify-center">
                 {recentMatches.slice(0, 5).map((match) => {
                   const player1Won = match.player1_sets_won > match.player2_sets_won;
                   const player2Won = match.player2_sets_won > match.player1_sets_won;
-                  
+
                   return (
-                    <div key={match.id} className="flex flex-col items-center min-w-fit px-1">
-                      {/* Score Line */}
-                      <div className="flex items-center gap-1 text-sm whitespace-nowrap">
-                        <Link to={`/app/profile/${match.player1_username}`} className="text-blue-400 hover:text-blue-300">
+                    <div
+                      key={match.id}
+                      className="flex flex-col items-center min-w-fit px-4 py-3 bg-gray-800/30 rounded-lg border border-gray-700/50 hover:border-gray-600/50 hover:bg-gray-800/50 transition-all"
+                    >
+                      {/* Players and Score Line */}
+                      <div className="flex items-center gap-2 text-sm whitespace-nowrap">
+                        <Link
+                          to={`/app/profile/${match.player1_username}`}
+                          className="text-blue-400 hover:text-blue-300 font-medium"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           {match.player1_username}
                         </Link>
-                        <span className="text-gray-300 font-bold">{match.player1_sets_won}</span>
-                        <span className="text-gray-500">:</span>
-                        <span className="text-gray-300 font-bold">{match.player2_sets_won}</span>
-                        <Link to={`/app/profile/${match.player2_username}`} className="text-blue-400 hover:text-blue-300">
+                        <span className={`font-bold text-lg ${player1Won ? 'text-green-400' : 'text-gray-300'}`}>{match.player1_sets_won}</span>
+                        <span className="text-gray-500 font-bold">-</span>
+                        <span className={`font-bold text-lg ${player2Won ? 'text-green-400' : 'text-gray-300'}`}>{match.player2_sets_won}</span>
+                        <Link
+                          to={`/app/profile/${match.player2_username}`}
+                          className="text-blue-400 hover:text-blue-300 font-medium"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           {match.player2_username}
                         </Link>
                       </div>
@@ -287,14 +305,17 @@ const DashboardPage = () => {
                             </span>
                           </>
                         ) : (
-                          <span className="text-yellow-400 font-medium">Pending ELO calculation</span>
+                          <span className="text-yellow-500/80 font-medium text-[11px]">Pending ELO</span>
                         )}
                       </div>
                       
                       {/* Date and League Line */}
-                      <div className="text-xs text-gray-500 mt-0.5 text-center">
+                      <Link
+                        to={`/app/matches/${match.id}`}
+                        className="text-[11px] text-gray-400 hover:text-blue-400 mt-1 text-center transition-colors"
+                      >
                         {formatDate(match.played_at)} • {match.league_name || 'Unknown'}
-                      </div>
+                      </Link>
                     </div>
                   );
                 })}
@@ -314,18 +335,15 @@ const DashboardPage = () => {
         )}
       </div>
 
-      {/* Divider */}
-      <div className="section-divider"></div>
-
       {/* Section 3: Leaderboards (ref triggers lazy-load via IntersectionObserver) */}
-      <div ref={leaderboardSectionRef}>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-6">
-          <h2 className="cyberpunk-title text-xl sm:text-2xl bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Leaderboards</h2>
+      <div ref={leaderboardSectionRef} className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="cyberpunk-title text-2xl bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Leaderboards</h2>
           <Link
             to="/app/leagues"
-            className="self-end sm:self-auto text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2"
+            className="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
           >
-            Browse all leagues <ArrowRight className="h-4 w-4" />
+            Browse all leagues <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
         {leaguesError && (
@@ -336,11 +354,11 @@ const DashboardPage = () => {
             </CardHeader>
           </Card>
         )}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {userLeagues.map((league) => (
-            <Card 
-              key={league.id} 
-              className="vg-card cursor-pointer hover:scale-105 transition-transform"
+            <Card
+              key={league.id}
+              className="vg-card cursor-pointer hover:scale-[1.02] transition-all bg-gray-800/30 border-gray-700/50 hover:border-gray-600/50 hover:shadow-lg hover:shadow-blue-500/10"
               onClick={() => navigate(`/app/leagues/${league.id}`)}
             >
               <CardHeader className="compact-card-header">
