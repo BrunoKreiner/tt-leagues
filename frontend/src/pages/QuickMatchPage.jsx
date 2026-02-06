@@ -24,6 +24,7 @@ export default function QuickMatchPage() {
 
   // Form data
   const [selectedLeague, setSelectedLeague] = useState(null);
+  const [selectedPlayer1, setSelectedPlayer1] = useState(null);
   const [selectedOpponent, setSelectedOpponent] = useState(null);
   const [selectedGameType, setSelectedGameType] = useState('best_of_3');
   const [setScores, setSetScores] = useState([]); // [{ p1, p2 }, ...]
@@ -43,6 +44,24 @@ export default function QuickMatchPage() {
       return null;
     }
   }, [user]);
+
+  // Find current user's roster entry
+  const selfRoster = useMemo(
+    () => members.find((m) => m.user_id === me?.id),
+    [members, me?.id]
+  );
+
+  // Check if user can select any player (admin or league setting enabled)
+  const canSelectAnyPlayer = useMemo(() => {
+    // Site admin or league admin can always select any player
+    if (me?.is_admin) return true;
+    const myRoster = members.find((m) => m.user_id === me?.id);
+    if (myRoster?.is_admin) return true;
+
+    // Check league setting
+    const selectedLeagueData = leagues.find((l) => l.id === selectedLeague);
+    return !!selectedLeagueData?.allow_member_match_recording;
+  }, [me, members, leagues, selectedLeague]);
 
   // Calculate stats from actual scores
   const { player1SetsWon, player2SetsWon, player1Points, player2Points } = useMemo(() => {
@@ -76,6 +95,7 @@ export default function QuickMatchPage() {
   useEffect(() => {
     if (!selectedLeague) {
       setMembers([]);
+      setSelectedPlayer1(null);
       setSelectedOpponent(null);
       return;
     }
@@ -85,8 +105,7 @@ export default function QuickMatchPage() {
         setLoadingMembers(true);
         const { data } = await leaguesAPI.getMembers(selectedLeague);
         const arr = (data.members || data) || [];
-        const filtered = arr.filter((m) => m.user_id !== me?.id);
-        setMembers(filtered);
+        setMembers(arr); // Keep all members (not filtered)
       } catch (e) {
         console.error('Failed to load members', e);
         toast.error(t('recordMatch.failedToLoadLeagueMembers'));
@@ -97,11 +116,19 @@ export default function QuickMatchPage() {
     loadMembers();
   }, [selectedLeague, me?.id, t]);
 
+  // Initialize Player 1 to current user when members load
+  useEffect(() => {
+    if (selfRoster?.roster_id && !selectedPlayer1) {
+      setSelectedPlayer1(selfRoster.roster_id);
+    }
+  }, [selfRoster?.roster_id, selectedPlayer1]);
+
   const handleSubmit = async () => {
     try {
       setSubmitting(true);
       const payload = {
         league_id: selectedLeague,
+        player1_roster_id: selectedPlayer1,
         player2_roster_id: selectedOpponent,
         player1_sets_won: player1SetsWon,
         player2_sets_won: player2SetsWon,
@@ -145,7 +172,7 @@ export default function QuickMatchPage() {
 
   const canProceed = () => {
     if (step === 1) return selectedLeague !== null;
-    if (step === 2) return selectedOpponent !== null;
+    if (step === 2) return selectedPlayer1 !== null && selectedOpponent !== null && selectedPlayer1 !== selectedOpponent;
     if (step === 3) return selectedGameType !== null;
     if (step >= 4 && step < totalSteps) {
       // On set entry steps, check if current set is entered
@@ -228,13 +255,46 @@ export default function QuickMatchPage() {
             </div>
           )}
 
-          {/* STEP 2: Opponent Selection */}
+          {/* STEP 2: Player Selection */}
           {step === 2 && (
             <div className="space-y-4">
+              {/* Player 1 */}
               <div>
-                <h2 className="text-lg font-medium flex items-center gap-2 mb-4">
+                <h2 className="text-lg font-medium flex items-center gap-2 mb-2">
                   <User className="h-5 w-5 text-blue-400" />
-                  {t('quickMatch.selectOpponent')}
+                  Player 1
+                </h2>
+                {canSelectAnyPlayer ? (
+                  <Select
+                    value={selectedPlayer1?.toString()}
+                    onValueChange={(v) => setSelectedPlayer1(Number(v))}
+                    disabled={loadingMembers}
+                  >
+                    <SelectTrigger className="w-full h-14 text-lg">
+                      <SelectValue
+                        placeholder={loadingMembers ? t('common.loading') : 'Select Player 1'}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {members.map((m) => (
+                        <SelectItem key={m.roster_id} value={String(m.roster_id)} className="text-lg py-3">
+                          {m.display_name} {typeof m.current_elo === 'number' ? `(${m.current_elo})` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="w-full h-14 px-4 flex items-center bg-gray-800/40 border border-gray-700 rounded-lg text-lg">
+                    {selfRoster?.display_name || me?.username || 'You'} {typeof selfRoster?.current_elo === 'number' ? `(${selfRoster.current_elo})` : ''}
+                  </div>
+                )}
+              </div>
+
+              {/* Player 2 */}
+              <div>
+                <h2 className="text-lg font-medium flex items-center gap-2 mb-2">
+                  <User className="h-5 w-5 text-green-400" />
+                  Player 2
                 </h2>
                 <Select
                   value={selectedOpponent?.toString()}
@@ -244,12 +304,12 @@ export default function QuickMatchPage() {
                   <SelectTrigger className="w-full h-14 text-lg">
                     <SelectValue
                       placeholder={
-                        loadingMembers ? t('common.loading') : t('recordMatch.selectOpponent')
+                        loadingMembers ? t('common.loading') : 'Select Player 2'
                       }
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {members.map((m) => (
+                    {members.filter((m) => m.roster_id !== selectedPlayer1).map((m) => (
                       <SelectItem key={m.roster_id} value={String(m.roster_id)} className="text-lg py-3">
                         {m.display_name} {typeof m.current_elo === 'number' ? `(${m.current_elo})` : ''}
                       </SelectItem>
@@ -257,6 +317,9 @@ export default function QuickMatchPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {selectedPlayer1 === selectedOpponent && selectedOpponent && (
+                <p className="text-sm text-red-400">Player 1 and Player 2 must be different</p>
+              )}
               <div className="flex gap-3">
                 <Button
                   variant="outline"
@@ -327,7 +390,8 @@ export default function QuickMatchPage() {
           {step >= 4 && step < totalSteps && (() => {
             const setIndex = step - 4;
             const setNumber = setIndex + 1;
-            const opponentName = members.find((m) => m.roster_id === selectedOpponent)?.display_name || '';
+            const player1Name = members.find((m) => m.roster_id === selectedPlayer1)?.display_name || 'Player 1';
+            const player2Name = members.find((m) => m.roster_id === selectedOpponent)?.display_name || 'Player 2';
 
             return (
               <div className="space-y-4">
@@ -336,14 +400,14 @@ export default function QuickMatchPage() {
                     Set {setNumber}
                   </h2>
                   <p className="text-sm text-muted-foreground mb-4">
-                    {me?.username || 'You'} vs {opponentName}
+                    {player1Name} vs {player2Name}
                   </p>
                   <SetScoreInput
                     currentScore={setScores[setIndex]}
                     onScoreSelect={(p1, p2) => handleSetScore(setIndex, p1, p2)}
                     allowSwap={true}
-                    player1Label={me?.username || 'You'}
-                    player2Label={opponentName}
+                    player1Label={player1Name}
+                    player2Label={player2Name}
                   />
                 </div>
                 <div className="flex gap-3">

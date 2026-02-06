@@ -23,15 +23,15 @@ const DEUCE_WINNING_SCORES = [
  * @param {Function} props.onScoreSelect - Callback when score is selected (p1, p2) => void
  * @param {Object} props.currentScore - Current score { p1, p2 }
  * @param {boolean} props.allowSwap - Show swap button (deprecated - now uses winner toggle)
- * @param {string} props.player1Label - Label for player 1 (default: "You")
- * @param {string} props.player2Label - Label for player 2 (default: "Opponent")
+ * @param {string} props.player1Label - Label for player 1 (default: "Player 1")
+ * @param {string} props.player2Label - Label for player 2 (default: "Player 2")
  */
 export default function SetScoreInput({
   onScoreSelect,
   currentScore,
   allowSwap = true,
-  player1Label = 'You',
-  player2Label = 'Opponent',
+  player1Label = 'Player 1',
+  player2Label = 'Player 2',
 }) {
   const [mode, setMode] = useState('presets'); // 'presets' | 'deuce' | 'manual'
   const [winner, setWinner] = useState('p1'); // 'p1' | 'p2' - who won this set

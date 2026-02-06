@@ -156,7 +156,7 @@ router.get('/', optionalAuth, validatePagination, async (req, res) => {
         // The old approach JOINed every roster entry × every match, creating huge intermediate sets
         let query = `
             SELECT
-                l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at, l.updated_at,
+                l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.allow_member_match_recording, l.created_at, l.updated_at,
                 u.username as created_by_username,
                 (SELECT COUNT(*) FROM league_roster lr2 WHERE lr2.league_id = l.id) as member_count,
                 (SELECT COUNT(*) FROM matches m2 WHERE m2.league_id = l.id AND m2.is_accepted = ?) as match_count,
@@ -390,7 +390,7 @@ router.get('/:id', optionalAuth, validateId, async (req, res) => {
         
         const league = await database.get(`
             SELECT
-                l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at,
+                l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.allow_member_match_recording, l.created_at,
                 u.username as created_by_username,
                 (SELECT COUNT(*) FROM league_roster lr2 WHERE lr2.league_id = l.id) as member_count,
                 (SELECT COUNT(*) FROM matches m2 WHERE m2.league_id = l.id AND m2.is_accepted = ?) as match_count
@@ -446,7 +446,7 @@ router.get('/:id', optionalAuth, validateId, async (req, res) => {
 router.put('/:id', authenticateToken, requireLeagueAdmin, validateId, async (req, res) => {
     try {
         const leagueId = parseInt(req.params.id);
-        const { name, description, is_public, season, elo_update_mode } = req.body;
+        const { name, description, is_public, season, elo_update_mode, allow_member_match_recording } = req.body;
 
         moderateText(
             { name, description, season, elo_update_mode },
@@ -496,7 +496,12 @@ router.put('/:id', authenticateToken, requireLeagueAdmin, validateId, async (req
             updates.push('elo_update_mode = ?');
             values.push(elo_update_mode);
         }
-        
+
+        if (allow_member_match_recording !== undefined) {
+            updates.push('allow_member_match_recording = ?');
+            values.push(!!allow_member_match_recording);
+        }
+
         if (updates.length === 0) {
             return res.status(400).json({ error: 'No valid fields to update' });
         }
@@ -512,8 +517,8 @@ router.put('/:id', authenticateToken, requireLeagueAdmin, validateId, async (req
         
         // Get updated league
         const updatedLeague = await database.get(`
-            SELECT 
-                l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.created_at, l.updated_at,
+            SELECT
+                l.id, l.name, l.description, l.is_public, l.season, l.elo_update_mode, l.allow_member_match_recording, l.created_at, l.updated_at,
                 u.username as created_by_username
             FROM leagues l
             JOIN users u ON l.created_by = u.id

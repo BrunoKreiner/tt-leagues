@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import SetScoreInput from '@/components/SetScoreInput';
 import { useTranslation } from 'react-i18next';
 import { getGameTypeById } from '@/constants/gameTypes';
 
@@ -60,7 +61,6 @@ export default function RecordMatchForm({
   const [loadingLeagues, setLoadingLeagues] = useState(true);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [adminMode, setAdminMode] = useState(false);
 
   const [eloPreview, setEloPreview] = useState(null);
   const [gameTypeValue, setGameTypeValue] = useState('best_of_3');
@@ -75,12 +75,6 @@ export default function RecordMatchForm({
     () => members.find((member) => member.user_id === me?.id),
     [members, me?.id]
   );
-
-  const player1Options = useMemo(() => members, [members]);
-  const player2Options = useMemo(() => {
-    if (adminMode) return members;
-    return members.filter((member) => member.user_id !== me?.id);
-  }, [adminMode, members, me?.id]);
 
   const form = useForm({
     resolver: zodResolver(schema),
@@ -97,6 +91,25 @@ export default function RecordMatchForm({
     },
     mode: 'onChange',
   });
+
+  // Check if user can select any player (admin or league setting enabled)
+  const canSelectAnyPlayer = useMemo(() => {
+    // allowAdminMatchForOthers=true means user is admin/league admin
+    if (allowAdminMatchForOthers) return true;
+
+    // Check league setting for regular members
+    const leagueId = form.getValues?.('league_id');
+    if (!leagueId) return false;
+
+    const leagueData = leagues.find((l) => l.id === leagueId);
+    return !!leagueData?.allow_member_match_recording;
+  }, [allowAdminMatchForOthers, leagues, form]);
+
+  const player1Options = useMemo(() => members, [members]);
+  const player2Options = useMemo(() => {
+    const player1 = form.getValues?.('player1_roster_id');
+    return members.filter((member) => member.roster_id !== player1);
+  }, [members, form]);
 
   // Set initial league_id if provided and load members
   useEffect(() => {
@@ -128,15 +141,27 @@ export default function RecordMatchForm({
     setGameTypeValue(form.getValues('game_type') || 'best_of_3');
   }, [form]);
 
+  // Initialize Player 1 to current user when not admin
   useEffect(() => {
-    if (!adminMode) {
-      form.setValue('player1_roster_id', undefined);
-      const currentOpponent = form.getValues('player2_roster_id');
-      if (currentOpponent && selfRoster?.roster_id && currentOpponent === selfRoster.roster_id) {
-        form.setValue('player2_roster_id', undefined);
-      }
+    if (!canSelectAnyPlayer && selfRoster?.roster_id) {
+      form.setValue('player1_roster_id', selfRoster.roster_id, { shouldValidate: true });
     }
-  }, [adminMode, form, selfRoster?.roster_id]);
+  }, [canSelectAnyPlayer, selfRoster?.roster_id, form]);
+
+  // Self-play prevention: clear player2 if same as player1
+  useEffect(() => {
+    const subscription = form.watch((values) => {
+      if (values.player1_roster_id && values.player2_roster_id &&
+          values.player1_roster_id === values.player2_roster_id) {
+        form.setValue('player2_roster_id', undefined);
+        form.setError('player2_roster_id', {
+          type: 'manual',
+          message: 'Player 1 and Player 2 must be different'
+        });
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
 
   // Local state: per-set points for each played set (auto totals)
   const [setScores, setSetScores] = useState([{ p1: 0, p2: 0 }, { p1: 0, p2: 0 }, { p1: 0, p2: 0 }]);
@@ -254,9 +279,9 @@ export default function RecordMatchForm({
           const { data } = await leaguesAPI.getMembers(leagueId);
           const arr = (data.members || data) || [];
           setMembers(arr);
-          const allowedOpponents = adminMode
-            ? arr
-            : arr.filter((m) => m.user_id !== me?.id);
+          // Clear player2 if they're no longer a valid option (e.g., same as player1)
+          const player1 = form.getValues('player1_roster_id');
+          const allowedOpponents = arr.filter((m) => m.roster_id !== player1);
           if (allowedOpponents.findIndex((m) => m.roster_id === values.player2_roster_id) === -1) {
             form.setValue('player2_roster_id', undefined);
           }
@@ -289,10 +314,6 @@ export default function RecordMatchForm({
           setEloPreview(null);
           return;
         }
-        if (adminMode && !player1_roster_id) {
-          setEloPreview(null);
-          return;
-        }
         try {
           const payload = {
             league_id,
@@ -302,7 +323,8 @@ export default function RecordMatchForm({
             player1_points_total: Number.isFinite(+player1_points_total) ? +player1_points_total : 0,
             player2_points_total: Number.isFinite(+player2_points_total) ? +player2_points_total : 0,
           };
-          if (adminMode) {
+          // Always include player1_roster_id if set
+          if (player1_roster_id) {
             payload.player1_roster_id = player1_roster_id;
           }
           const { data } = await matchesAPI.previewElo(payload);
@@ -313,23 +335,21 @@ export default function RecordMatchForm({
       }, 300);
     });
     return () => subscription.unsubscribe();
-  }, [adminMode, form]);
+  }, [form]);
 
   const onSubmit = async (values) => {
     try {
       setSubmitting(true);
-      if (adminMode) {
-        if (!values.player1_roster_id || !values.player2_roster_id) {
-          form.setError('player1_roster_id', { type: 'manual', message: 'Select Player 1' });
-          form.setError('player2_roster_id', { type: 'manual', message: 'Select Player 2' });
-          setSubmitting(false);
-          return;
-        }
-        if (values.player1_roster_id === values.player2_roster_id) {
-          form.setError('player2_roster_id', { type: 'manual', message: 'Players must be different' });
-          setSubmitting(false);
-          return;
-        }
+      // Validation: ensure both players are selected and different
+      if (!values.player2_roster_id) {
+        form.setError('player2_roster_id', { type: 'manual', message: 'Select Player 2' });
+        setSubmitting(false);
+        return;
+      }
+      if (values.player1_roster_id === values.player2_roster_id) {
+        form.setError('player2_roster_id', { type: 'manual', message: 'Player 1 and Player 2 must be different' });
+        setSubmitting(false);
+        return;
       }
       const payload = {
         league_id: values.league_id,
@@ -341,7 +361,8 @@ export default function RecordMatchForm({
         game_type: values.game_type,
         ...(values.played_at ? { played_at: values.played_at } : {}),
       };
-      if (adminMode) {
+      // Always include player1_roster_id if set
+      if (values.player1_roster_id) {
         payload.player1_roster_id = values.player1_roster_id;
       }
       const nonEmptySets = setScores
@@ -406,26 +427,17 @@ export default function RecordMatchForm({
           </div>
         )}
 
-        {allowAdminMatchForOthers && (
-          <div className="flex items-center justify-between rounded-md border border-gray-700 bg-gray-900/40 px-3 py-2">
-            <div>
-              <div className="text-sm text-gray-200">Record match for others</div>
-              <div className="text-xs text-gray-500">Select both players in the league</div>
-            </div>
-            <Switch checked={adminMode} onCheckedChange={setAdminMode} />
-          </div>
-        )}
-
-        {adminMode && (
-          <FormField
-            name="player1_roster_id"
-            control={form.control}
-            render={({ field }) => {
-              const leagueId = form.getValues('league_id');
-              return (
-                <FormItem>
-                  <FormLabel>Player 1</FormLabel>
-                  <FormControl>
+        {/* Player 1 - Conditionally locked or dropdown */}
+        <FormField
+          name="player1_roster_id"
+          control={form.control}
+          render={({ field }) => {
+            const leagueId = form.getValues('league_id');
+            return (
+              <FormItem>
+                <FormLabel>Player 1</FormLabel>
+                <FormControl>
+                  {canSelectAnyPlayer ? (
                     <Select
                       value={field.value?.toString()}
                       onValueChange={(v) => field.onChange(Number(v))}
@@ -456,15 +468,19 @@ export default function RecordMatchForm({
                         )}
                       </SelectContent>
                     </Select>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              );
-            }}
-          />
-        )}
+                  ) : (
+                    <div className="w-full px-3 py-2 flex items-center bg-gray-800/40 border border-gray-700 rounded-lg">
+                      {selfRoster?.display_name || me?.username || 'You'} {typeof selfRoster?.current_elo === 'number' ? `(ELO ${selfRoster.current_elo})` : ''}
+                    </div>
+                  )}
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            );
+          }}
+        />
 
-        {/* Opponent selector */}
+        {/* Player 2 selector */}
         <FormField
           name="player2_roster_id"
           control={form.control}
@@ -472,7 +488,7 @@ export default function RecordMatchForm({
             const leagueId = form.getValues('league_id');
             return (
               <FormItem>
-                <FormLabel>{adminMode ? 'Player 2' : t('recordMatch.opponentLabel')}</FormLabel>
+                <FormLabel>Player 2</FormLabel>
                 <FormControl>
                   <Select value={field.value?.toString()}
                           onValueChange={(v) => field.onChange(Number(v))}
@@ -486,7 +502,7 @@ export default function RecordMatchForm({
                               ? t('common.loading')
                               : (player2Options.length === 0
                                 ? t('recordMatch.noMembers')
-                                : (adminMode ? 'Select Player 2' : t('recordMatch.selectOpponent'))))
+                                : 'Select Player 2'))
                         }
                       />
                     </SelectTrigger>
@@ -505,9 +521,6 @@ export default function RecordMatchForm({
                     </SelectContent>
                   </Select>
                 </FormControl>
-                {!adminMode && (
-                  <FormDescription>{t('recordMatch.player1Note')}</FormDescription>
-                )}
                 <FormMessage />
               </FormItem>
             );
@@ -552,7 +565,7 @@ export default function RecordMatchForm({
             control={form.control}
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t('recordMatch.yourSetsWon')}</FormLabel>
+                <FormLabel>Player 1 Sets Won</FormLabel>
                 <FormControl>
                   <Input type="number" min={0} max={gameTypeMetadata.setsToWin} {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
                 </FormControl>
@@ -565,7 +578,7 @@ export default function RecordMatchForm({
             control={form.control}
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t('recordMatch.opponentSetsWon')}</FormLabel>
+                <FormLabel>Player 2 Sets Won</FormLabel>
                 <FormControl>
                   <Input type="number" min={0} max={gameTypeMetadata.setsToWin} {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
                 </FormControl>
@@ -575,51 +588,29 @@ export default function RecordMatchForm({
           />
         </div>
 
-        {/* Set Scores */}
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-muted-foreground">Sets:</span>
-            {setScores.map((s, idx) => (
-              <div key={idx} className="flex items-center gap-1 basis-full">
-                <span className="text-sm">{idx + 1}:</span>
-                <Input
-                  type="number"
-                  min={0}
-                  value={s.p1}
-                  onFocus={(e) => {
-                    if (e.target.value === '0') {
-                      e.target.select();
-                    }
+        {/* Set Scores - With Preset Buttons */}
+        <div className="space-y-4">
+          <div className="text-sm font-medium text-gray-300 mb-2">Set Scores</div>
+          {setScores.map((s, idx) => {
+            const player1 = form.getValues('player1_roster_id');
+            const player2 = form.getValues('player2_roster_id');
+            const player1Name = members.find(m => m.roster_id === player1)?.display_name || 'Player 1';
+            const player2Name = members.find(m => m.roster_id === player2)?.display_name || 'Player 2';
+
+            return (
+              <div key={idx} className="space-y-2">
+                <div className="text-xs text-gray-400">Set {idx + 1}</div>
+                <SetScoreInput
+                  currentScore={s}
+                  onScoreSelect={(p1, p2) => {
+                    setSetScores((arr) => arr.map((it, i) => (i === idx ? { p1, p2 } : it)));
                   }}
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    setSetScores((arr) => arr.map((it, i) => (i === idx ? { ...it, p1: Number.isFinite(v) ? v : 0 } : it)));
-                  }}
-                  className="w-16 h-10 px-2 text-sm"
-                  style={getSetClosenessStyle(s.p1, s.p2)}
-                  aria-label={`Your points in set ${idx + 1}`}
-                />
-                <span className="text-sm">:</span>
-                <Input
-                  type="number"
-                  min={0}
-                  value={s.p2}
-                  onFocus={(e) => {
-                    if (e.target.value === '0') {
-                      e.target.select();
-                    }
-                  }}
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    setSetScores((arr) => arr.map((it, i) => (i === idx ? { ...it, p2: Number.isFinite(v) ? v : 0 } : it)));
-                  }}
-                  className="w-16 h-10 px-2 text-sm"
-                  style={getSetClosenessStyle(s.p2, s.p1)}
-                  aria-label={`Opponent points in set ${idx + 1}`}
+                  player1Label={player1Name}
+                  player2Label={player2Name}
                 />
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
 
         {/* Points totals (auto) */}
