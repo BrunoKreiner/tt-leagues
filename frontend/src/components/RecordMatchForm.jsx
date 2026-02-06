@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import SetScoreInput from '@/components/SetScoreInput';
 import { useTranslation } from 'react-i18next';
 import { getGameTypeById } from '@/constants/gameTypes';
 
@@ -587,51 +588,29 @@ export default function RecordMatchForm({
           />
         </div>
 
-        {/* Set Scores */}
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-muted-foreground">Sets:</span>
-            {setScores.map((s, idx) => (
-              <div key={idx} className="flex items-center gap-1 basis-full">
-                <span className="text-sm">{idx + 1}:</span>
-                <Input
-                  type="number"
-                  min={0}
-                  value={s.p1}
-                  onFocus={(e) => {
-                    if (e.target.value === '0') {
-                      e.target.select();
-                    }
+        {/* Set Scores - With Preset Buttons */}
+        <div className="space-y-4">
+          <div className="text-sm font-medium text-gray-300 mb-2">Set Scores</div>
+          {setScores.map((s, idx) => {
+            const player1 = form.getValues('player1_roster_id');
+            const player2 = form.getValues('player2_roster_id');
+            const player1Name = members.find(m => m.roster_id === player1)?.display_name || 'Player 1';
+            const player2Name = members.find(m => m.roster_id === player2)?.display_name || 'Player 2';
+
+            return (
+              <div key={idx} className="space-y-2">
+                <div className="text-xs text-gray-400">Set {idx + 1}</div>
+                <SetScoreInput
+                  currentScore={s}
+                  onScoreSelect={(p1, p2) => {
+                    setSetScores((arr) => arr.map((it, i) => (i === idx ? { p1, p2 } : it)));
                   }}
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    setSetScores((arr) => arr.map((it, i) => (i === idx ? { ...it, p1: Number.isFinite(v) ? v : 0 } : it)));
-                  }}
-                  className="w-16 h-10 px-2 text-sm"
-                  style={getSetClosenessStyle(s.p1, s.p2)}
-                  aria-label={`Your points in set ${idx + 1}`}
-                />
-                <span className="text-sm">:</span>
-                <Input
-                  type="number"
-                  min={0}
-                  value={s.p2}
-                  onFocus={(e) => {
-                    if (e.target.value === '0') {
-                      e.target.select();
-                    }
-                  }}
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    setSetScores((arr) => arr.map((it, i) => (i === idx ? { ...it, p2: Number.isFinite(v) ? v : 0 } : it)));
-                  }}
-                  className="w-16 h-10 px-2 text-sm"
-                  style={getSetClosenessStyle(s.p2, s.p1)}
-                  aria-label={`Opponent points in set ${idx + 1}`}
+                  player1Label={player1Name}
+                  player2Label={player2Name}
                 />
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
 
         {/* Points totals (auto) */}
