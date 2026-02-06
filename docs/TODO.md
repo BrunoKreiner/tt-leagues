@@ -637,27 +637,65 @@ Based on the reference images showing modern dark-themed video game dashboards, 
 
 ---
 
-## 12) Future Planned Features (From Implementation Plans)
+## 12) Player 1 / Player 2 Match Recording Redesign
 
-### Player 1 / Player 2 Match Recording Redesign
-
-**Status**: NOT IMPLEMENTED (Planned)
+### Overall Status: ⚠️ PARTIALLY IMPLEMENTED (Backend + QuickMatch Complete, RecordMatchForm + League UI Pending)
 
 **Description**: Redesign match recording to use "Player 1" and "Player 2" terminology instead of "You" and "Opponent", with flexible permissions for recording matches between any two players.
 
-**Key Features**:
-- [ ] **Database Migration**: Add `allow_member_match_recording` column to `leagues` table
-- [ ] **Backend Permission Logic**: Update match creation to check league setting
-  - Site admins and league admins can always record matches for any two players
-  - Regular members can only do so if league setting is enabled
-  - Files: `backend/src/routes/matches.js`, `backend/src/routes/leagues.js`
-- [ ] **Frontend Components**:
-  - [ ] Update `SetScoreInput.jsx` default labels: "Player 1" / "Player 2" instead of "You" / "Opponent"
-  - [ ] Update `QuickMatchPage.jsx`: Add Player 1 selector with conditional locking
-  - [ ] Update `MobileQuickMatch.jsx`: Add Player 1 selector with conditional locking
-  - [ ] Update `RecordMatchForm.jsx`: Remove admin toggle, show conditional selectors
-  - [ ] Update all labels across forms: "Your Sets Won" → "Player 1 Sets Won", etc.
+### ✅ Completed Features:
+
+- [x] **Database Migration**: Add `allow_member_match_recording` column to `leagues` table
+  - ✅ SQLite schema updated (`backend/database/schema.sql`)
+  - ✅ PostgreSQL schema updated (`backend/database/schema.pg.sql`)
+  - ✅ Defaults to FALSE (backward compatible)
+
+- [x] **Backend Permission Logic**: Update match creation to check league setting
+  - ✅ Updated `POST /api/matches` permission check (`backend/src/routes/matches.js:152-177`)
+  - ✅ Updated `POST /api/matches/preview-elo` permission check (`backend/src/routes/matches.js:424-449`)
+  - ✅ Permission matrix implemented:
+    * Site admin: Always allowed
+    * League admin: Always allowed
+    * Regular member: Allowed only if `allow_member_match_recording=true`
+  - ✅ Updated `PUT /api/leagues/:id` to accept `allow_member_match_recording` field
+  - ✅ Updated `GET /api/leagues` to include field in response
+  - ✅ Updated `GET /api/leagues/:id` to include field in response
+
+- [x] **Frontend Components (QuickMatch)**:
+  - ✅ Update `SetScoreInput.jsx` default labels: "Player 1" / "Player 2" instead of "You" / "Opponent"
+  - ✅ Update `QuickMatchPage.jsx`: Add Player 1 selector with conditional locking
+    * Added `canSelectAnyPlayer` permission logic
+    * Player 1 locked to current user if not admin and setting disabled
+    * Player 1 dropdown unlocked for admins or when setting enabled
+    * Self-play prevention validation
+    * Updated all labels to "Player 1" / "Player 2"
+    * Updated payload to include `player1_roster_id`
+  - ✅ Update `MobileQuickMatch.jsx`: Add Player 1 selector with conditional locking
+    * Same changes as QuickMatchPage for mobile wizard
+    * Added league data fetching to get setting
+    * Updated Step 1 to show both player selectors
+
+### ⚠️ Pending Features:
+
+- [ ] **RecordMatchForm.jsx**: Remove admin toggle, show conditional selectors
+  - Files: `frontend/src/components/RecordMatchForm.jsx`
+  - Changes needed:
+    * Remove `adminMode` state and toggle (lines 63, 409-417)
+    * Add `canSelectAnyPlayer` permission logic based on league setting
+    * Always show Player 1 field (conditionally locked or dropdown)
+    * Update labels: "Your Sets Won" → "Player 1 Sets Won", etc.
+    * Add self-play prevention validation
+    * Initialize Player 1 to current user when locked
+  - Complexity: High - large form component with many dependencies
+
 - [ ] **League Settings UI**: Add toggle in admin settings for "Allow members to record matches between any two players"
+  - Files: `frontend/src/pages/LeagueDetailPage.jsx`
+  - Changes needed:
+    * Add state for `allowMemberMatching`
+    * Initialize from league data
+    * Add UI toggle in admin settings section
+    * Update payload in `handleUpdate` function
+  - Complexity: Medium - straightforward UI addition
 - [ ] **Permission Matrix**:
   - Site Admin: Can select any two players
   - League Admin: Can select any two players
@@ -689,3 +727,50 @@ Based on the reference images showing modern dark-themed video game dashboards, 
 **Priority**: Low - Desktop form currently works fine with manual inputs
 
 **See**: `/root/.claude/plans/kind-moseying-sphinx.md` (lines 348-374)
+
+---
+
+## 13) Implementation Status Summary
+
+### Recently Completed (Current Session):
+
+1. **Mobile Match Recording Documentation** (commit: `bed01a4`)
+   - Added comprehensive "Mobile Match Recording Redesign" section to TODO.md
+   - Documented all 6 implementation phases
+   - Added impact metrics and commit references
+
+2. **Player 1/Player 2 Backend** (commit: `79f5af1`)
+   - Database migrations for both SQLite and PostgreSQL
+   - Permission logic in matches.js (create + preview ELO)
+   - League endpoints updated to handle new setting
+
+3. **Player 1/Player 2 Frontend QuickMatch** (commit: `6197559`)
+   - SetScoreInput default labels updated
+   - QuickMatchPage with conditional Player 1 selector
+   - MobileQuickMatch with conditional Player 1 selector
+   - Permission matrix fully implemented
+
+### Next Steps (Future Sessions):
+
+1. **RecordMatchForm Updates** (High Priority)
+   - Remove admin toggle, add conditional selectors
+   - Update all labels to Player 1/Player 2
+   - Add self-play prevention
+
+2. **League Settings UI** (Medium Priority)
+   - Add toggle in league admin settings
+   - Wire up to backend
+
+3. **Optional Enhancements** (Low Priority)
+   - Integrate SetScoreInput into RecordMatchForm for desktop preset buttons
+
+### Testing Recommendations:
+
+When RecordMatchForm and League Settings UI are complete:
+- Test as site admin: Can select any two players
+- Test as league admin: Can select any two players
+- Test as member (setting OFF): Player 1 locked to self
+- Test as member (setting ON): Can select any two players
+- Verify self-play prevention works
+- Verify ELO calculations with new payload structure
+- Test across all match recording entry points
