@@ -41,6 +41,10 @@ CREATE TABLE IF NOT EXISTS leagues (
     FOREIGN KEY (created_by) REFERENCES users(id)
 );
 
+-- League settings for match recording permissions
+-- Note: This ALTER TABLE statement will fail silently if column already exists
+ALTER TABLE leagues ADD COLUMN allow_member_match_recording BOOLEAN DEFAULT FALSE;
+
 -- League members table (junction table for users and leagues)
 CREATE TABLE IF NOT EXISTS league_members (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
