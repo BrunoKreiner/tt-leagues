@@ -76,6 +76,22 @@ export default function RecordMatchForm({
     [members, me?.id]
   );
 
+  const form = useForm({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      league_id: initialLeagueId || undefined,
+      player1_roster_id: undefined,
+      player2_roster_id: undefined,
+      game_type: 'best_of_3',
+      player1_sets_won: 2,
+      player2_sets_won: 1,
+      player1_points_total: 0,
+      player2_points_total: 0,
+      played_at: '',
+    },
+    mode: 'onChange',
+  });
+
   // Check if user can select any player (admin or league setting enabled)
   const canSelectAnyPlayer = useMemo(() => {
     // allowAdminMatchForOthers=true means user is admin/league admin
@@ -94,22 +110,6 @@ export default function RecordMatchForm({
     const player1 = form.getValues?.('player1_roster_id');
     return members.filter((member) => member.roster_id !== player1);
   }, [members, form]);
-
-  const form = useForm({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      league_id: initialLeagueId || undefined,
-      player1_roster_id: undefined,
-      player2_roster_id: undefined,
-      game_type: 'best_of_3',
-      player1_sets_won: 2,
-      player2_sets_won: 1,
-      player1_points_total: 0,
-      player2_points_total: 0,
-      played_at: '',
-    },
-    mode: 'onChange',
-  });
 
   // Set initial league_id if provided and load members
   useEffect(() => {
