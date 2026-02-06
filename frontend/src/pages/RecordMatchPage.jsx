@@ -16,6 +16,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useTranslation } from 'react-i18next';
 import RecordMatchForm from '@/components/RecordMatchForm';
+import { getGameTypeById } from '@/constants/gameTypes';
 
 const GAME_TYPES = [
   { value: 'best_of_1', label: 'best_of_1', labelKey: 'recordMatch.gameTypeBestOf1' },
@@ -96,6 +97,9 @@ export default function RecordMatchPage() {
   const gameType = form.watch('game_type');
   const p1SetsWon = form.watch('player1_sets_won');
   const p2SetsWon = form.watch('player2_sets_won');
+
+  // Get game type metadata
+  const gameTypeMetadata = useMemo(() => getGameTypeById(gameType || 'best_of_3'), [gameType]);
 
   // Sync local state with form value
   useEffect(() => {
@@ -397,7 +401,7 @@ export default function RecordMatchPage() {
                     <FormItem>
                       <FormLabel>{t('recordMatch.yourSetsWon')}</FormLabel>
                       <FormControl>
-                        <Input type="number" min={0} max={4} {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
+                        <Input type="number" min={0} max={gameTypeMetadata.setsToWin} {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -410,7 +414,7 @@ export default function RecordMatchPage() {
                     <FormItem>
                       <FormLabel>{t('recordMatch.opponentSetsWon')}</FormLabel>
                       <FormControl>
-                        <Input type="number" min={0} max={4} {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
+                        <Input type="number" min={0} max={gameTypeMetadata.setsToWin} {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

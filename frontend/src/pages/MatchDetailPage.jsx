@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useTranslation } from 'react-i18next';
+import { getGameTypeById } from '@/constants/gameTypes';
 
 const GAME_TYPES = [
   { value: 'best_of_1', label: 'Best of 1' },
@@ -80,6 +81,9 @@ export default function MatchDetailPage() {
   const gameType = form.watch('game_type');
   const p1SetsWon = form.watch('player1_sets_won');
   const p2SetsWon = form.watch('player2_sets_won');
+
+  // Get game type metadata
+  const gameTypeMetadata = useMemo(() => getGameTypeById(gameType || 'best_of_3'), [gameType]);
 
   const maxSets = useMemo(() => MAX_SETS_BY_TYPE[gameType] ?? 3, [gameType]);
   const desiredSetCount = useMemo(() => {
@@ -365,7 +369,7 @@ export default function MatchDetailPage() {
                     <FormItem>
                       <FormLabel>{p1Name} sets won</FormLabel>
                       <FormControl>
-                        <Input type="number" min={0} max={4} {...field} onChange={(e) => field.onChange(Number(e.target.value))} disabled={!canEdit} />
+                        <Input type="number" min={0} max={gameTypeMetadata.setsToWin} {...field} onChange={(e) => field.onChange(Number(e.target.value))} disabled={!canEdit} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -378,7 +382,7 @@ export default function MatchDetailPage() {
                     <FormItem>
                       <FormLabel>{p2Name} sets won</FormLabel>
                       <FormControl>
-                        <Input type="number" min={0} max={4} {...field} onChange={(e) => field.onChange(Number(e.target.value))} disabled={!canEdit} />
+                        <Input type="number" min={0} max={gameTypeMetadata.setsToWin} {...field} onChange={(e) => field.onChange(Number(e.target.value))} disabled={!canEdit} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

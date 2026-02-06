@@ -51,7 +51,7 @@ export default function QuickMatchPage() {
 
   // Get current game type metadata
   const gameType = getGameTypeById(selectedGameType);
-  const totalSteps = 3 + gameType.setsToWin; // league + opponent + type + sets (minimum needed)
+  const totalSteps = 3 + gameType.maxSets + 1; // league + opponent + type + sets (up to maxSets) + review
 
   // Load leagues
   useEffect(() => {
