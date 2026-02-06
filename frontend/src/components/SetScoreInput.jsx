@@ -1,37 +1,28 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeftRight } from 'lucide-react';
+import { Trophy } from 'lucide-react';
 
-// Common table tennis scores
-const PRESET_SCORES = [
-  { p1: 11, p2: 9 },
-  { p1: 11, p2: 8 },
-  { p1: 11, p2: 7 },
-  { p1: 11, p2: 6 },
-  { p1: 11, p2: 5 },
-  { p1: 11, p2: 4 },
-  { p1: 11, p2: 3 },
-  { p1: 11, p2: 2 },
-  { p1: 11, p2: 1 },
-  { p1: 11, p2: 0 },
-];
+// Common table tennis winning scores (winner gets 11 points)
+const PRESET_WINNING_SCORES = [9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
 
-// Deuce scores (extended games)
-const DEUCE_SCORES = [
-  { p1: 12, p2: 10 },
-  { p1: 13, p2: 11 },
-  { p1: 14, p2: 12 },
-  { p1: 15, p2: 13 },
-  { p1: 16, p2: 14 },
+// Deuce scores (winner scores, loser scores)
+const DEUCE_WINNING_SCORES = [
+  { winner: 12, loser: 10 },
+  { winner: 13, loser: 11 },
+  { winner: 14, loser: 12 },
+  { winner: 15, loser: 13 },
+  { winner: 16, loser: 14 },
 ];
 
 /**
  * Mobile-friendly set score input with preset buttons
+ * Features "Who won?" toggle for clear winner selection
+ *
  * @param {Object} props
  * @param {Function} props.onScoreSelect - Callback when score is selected (p1, p2) => void
  * @param {Object} props.currentScore - Current score { p1, p2 }
- * @param {boolean} props.allowSwap - Show swap button
+ * @param {boolean} props.allowSwap - Show swap button (deprecated - now uses winner toggle)
  * @param {string} props.player1Label - Label for player 1 (default: "You")
  * @param {string} props.player2Label - Label for player 2 (default: "Opponent")
  */
@@ -43,11 +34,25 @@ export default function SetScoreInput({
   player2Label = 'Opponent',
 }) {
   const [mode, setMode] = useState('presets'); // 'presets' | 'deuce' | 'manual'
+  const [winner, setWinner] = useState('p1'); // 'p1' | 'p2' - who won this set
   const [manualP1, setManualP1] = useState('');
   const [manualP2, setManualP2] = useState('');
 
-  const handlePresetClick = (p1, p2) => {
-    onScoreSelect(p1, p2);
+  const handlePresetClick = (loserScore) => {
+    // Winner always gets 11, loser gets the selected score
+    if (winner === 'p1') {
+      onScoreSelect(11, loserScore);
+    } else {
+      onScoreSelect(loserScore, 11);
+    }
+  };
+
+  const handleDeuceClick = (winnerScore, loserScore) => {
+    if (winner === 'p1') {
+      onScoreSelect(winnerScore, loserScore);
+    } else {
+      onScoreSelect(loserScore, winnerScore);
+    }
   };
 
   const handleManualSubmit = () => {
@@ -62,38 +67,75 @@ export default function SetScoreInput({
     }
   };
 
-  const handleSwap = () => {
-    if (currentScore) {
-      onScoreSelect(currentScore.p2, currentScore.p1);
-    }
-  };
-
   return (
     <div className="space-y-4">
       {/* Current selection display */}
       {currentScore && (
         <div className="flex items-center justify-center gap-4 p-3 bg-gray-800/30 rounded-lg border border-gray-700">
           <span className="text-sm text-gray-400">{player1Label}:</span>
-          <span className="text-2xl font-bold text-green-400">{currentScore.p1}</span>
+          <span className={`text-2xl font-bold ${currentScore.p1 > currentScore.p2 ? 'text-green-400' : 'text-gray-400'}`}>
+            {currentScore.p1}
+          </span>
           <span className="text-xl text-gray-500">-</span>
-          <span className="text-2xl font-bold text-blue-400">{currentScore.p2}</span>
+          <span className={`text-2xl font-bold ${currentScore.p2 > currentScore.p1 ? 'text-blue-400' : 'text-gray-400'}`}>
+            {currentScore.p2}
+          </span>
           <span className="text-sm text-gray-400">:{player2Label}</span>
+        </div>
+      )}
+
+      {/* Winner toggle - only show in preset mode */}
+      {mode === 'presets' && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-300 block text-center">Who won this set?</label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setWinner('p1')}
+              className={`h-12 rounded-lg border-2 font-medium transition-all flex items-center justify-center gap-2 ${
+                winner === 'p1'
+                  ? 'border-green-500 bg-green-500/20 text-green-400'
+                  : 'border-gray-700 text-gray-400 hover:border-gray-600'
+              }`}
+            >
+              {winner === 'p1' && <Trophy className="h-4 w-4" />}
+              {player1Label}
+            </button>
+            <button
+              onClick={() => setWinner('p2')}
+              className={`h-12 rounded-lg border-2 font-medium transition-all flex items-center justify-center gap-2 ${
+                winner === 'p2'
+                  ? 'border-blue-500 bg-blue-500/20 text-blue-400'
+                  : 'border-gray-700 text-gray-400 hover:border-gray-600'
+              }`}
+            >
+              {winner === 'p2' && <Trophy className="h-4 w-4" />}
+              {player2Label}
+            </button>
+          </div>
         </div>
       )}
 
       {/* Preset scores */}
       {mode === 'presets' && (
         <div className="space-y-3">
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-            {PRESET_SCORES.map(({ p1, p2 }) => (
-              <button
-                key={`${p1}-${p2}`}
-                onClick={() => handlePresetClick(p1, p2)}
-                className="min-h-12 rounded-lg border-2 border-gray-700 hover:border-blue-500 hover:bg-blue-500/10 text-lg font-medium transition-all active:scale-95"
-              >
-                {p1}-{p2}
-              </button>
-            ))}
+          <div>
+            <p className="text-xs text-gray-400 mb-2 text-center">
+              Select loser's score ({winner === 'p1' ? player2Label : player1Label}):
+            </p>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+              {PRESET_WINNING_SCORES.map((loserScore) => {
+                const displayScore = winner === 'p1' ? `11-${loserScore}` : `${loserScore}-11`;
+                return (
+                  <button
+                    key={loserScore}
+                    onClick={() => handlePresetClick(loserScore)}
+                    className="min-h-12 rounded-lg border-2 border-gray-700 hover:border-blue-500 hover:bg-blue-500/10 text-lg font-medium transition-all active:scale-95"
+                  >
+                    {displayScore}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
@@ -110,16 +152,53 @@ export default function SetScoreInput({
       {/* Deuce scores */}
       {mode === 'deuce' && (
         <div className="space-y-3">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {DEUCE_SCORES.map(({ p1, p2 }) => (
+          {/* Winner toggle in deuce mode */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-300 block text-center">Who won this set?</label>
+            <div className="grid grid-cols-2 gap-2">
               <button
-                key={`${p1}-${p2}`}
-                onClick={() => handlePresetClick(p1, p2)}
-                className="min-h-12 rounded-lg border-2 border-gray-700 hover:border-blue-500 hover:bg-blue-500/10 text-lg font-medium transition-all active:scale-95"
+                onClick={() => setWinner('p1')}
+                className={`h-12 rounded-lg border-2 font-medium transition-all flex items-center justify-center gap-2 ${
+                  winner === 'p1'
+                    ? 'border-green-500 bg-green-500/20 text-green-400'
+                    : 'border-gray-700 text-gray-400 hover:border-gray-600'
+                }`}
               >
-                {p1}-{p2}
+                {winner === 'p1' && <Trophy className="h-4 w-4" />}
+                {player1Label}
               </button>
-            ))}
+              <button
+                onClick={() => setWinner('p2')}
+                className={`h-12 rounded-lg border-2 font-medium transition-all flex items-center justify-center gap-2 ${
+                  winner === 'p2'
+                    ? 'border-blue-500 bg-blue-500/20 text-blue-400'
+                    : 'border-gray-700 text-gray-400 hover:border-gray-600'
+                }`}
+              >
+                {winner === 'p2' && <Trophy className="h-4 w-4" />}
+                {player2Label}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs text-gray-400 mb-2 text-center">
+              Select deuce score:
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {DEUCE_WINNING_SCORES.map(({ winner: winScore, loser: loseScore }) => {
+                const displayScore = winner === 'p1' ? `${winScore}-${loseScore}` : `${loseScore}-${winScore}`;
+                return (
+                  <button
+                    key={`${winScore}-${loseScore}`}
+                    onClick={() => handleDeuceClick(winScore, loseScore)}
+                    className="min-h-12 rounded-lg border-2 border-gray-700 hover:border-blue-500 hover:bg-blue-500/10 text-lg font-medium transition-all active:scale-95"
+                  >
+                    {displayScore}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <Button variant="outline" size="lg" className="w-full" onClick={() => setMode('presets')}>
@@ -169,19 +248,6 @@ export default function SetScoreInput({
             </Button>
           </div>
         </div>
-      )}
-
-      {/* Swap button */}
-      {allowSwap && currentScore && mode === 'presets' && (
-        <Button
-          variant="ghost"
-          size="lg"
-          className="w-full"
-          onClick={handleSwap}
-        >
-          <ArrowLeftRight className="mr-2 h-4 w-4" />
-          Swap: {currentScore.p2}-{currentScore.p1}
-        </Button>
       )}
     </div>
   );
