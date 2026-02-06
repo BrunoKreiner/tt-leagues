@@ -10,12 +10,13 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { 
-  Home, 
-  Trophy, 
-  Swords, 
-  User, 
-  Settings, 
+import {
+  Home,
+  Trophy,
+  Swords,
+  Zap,
+  User,
+  Settings,
   LogOut,
   Bell,
   Shield,
@@ -45,6 +46,7 @@ const Layout = () => {
     { name: t('nav.dashboard'), href: '/app/dashboard', icon: Home },
     { name: t('nav.leagues'), href: '/app/leagues', icon: Trophy },
     { name: t('nav.matches'), href: '/app/matches', icon: Swords },
+    { name: t('nav.quickMatch'), href: '/app/quick-match', icon: Zap },
     ...(isAdmin ? [{ name: t('nav.admin'), href: '/app/admin', icon: Shield }] : []),
     {
       name: 'TTC Baden-Wettingen',

@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { format } from 'date-fns';
 import { leaguesAPI } from '@/services/api';
 import { useTranslation } from 'react-i18next';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+
+// Lazy load the chart components
+const RechartsComponents = lazy(() => import('./RechartsComponents'));
 
 const COLOR_PALETTE = [
   '#60a5fa',
@@ -233,48 +234,19 @@ const LeagueEloTimeline = ({ leagueId, players, playersStatus, playersError, elo
         ) : yDomain === null ? (
           <p className="text-sm text-red-400">{t('leagues.eloTimelineError')}</p>
         ) : (
-          <ChartContainer className="h-40 w-full aspect-[4/1]" config={chartConfig}>
-            <LineChart data={chartData} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis
-                dataKey="timestamp"
-                type="number"
-                domain={['dataMin', 'dataMax']}
-                tickFormatter={(value) => format(new Date(value), 'MMM d')}
-                tickLine={false}
-                axisLine={false}
-                minTickGap={24}
-              />
-              <YAxis
-                tickLine={false}
-                axisLine={false}
-                width={36}
-                tickFormatter={(value) => value.toString()}
-                domain={yDomain === null ? undefined : yDomain}
-              />
-              <ChartTooltip
-                cursor={{ strokeDasharray: '4 4' }}
-                content={<ChartTooltipContent labelKey="label" />}
-              />
-              <ChartLegend content={<ChartLegendContent />} />
-              {selectedSeries.map((entry) => {
-                const lineKey = `roster_${entry.roster_id}`;
-                const color = colorByRosterId.get(entry.roster_id);
-                return (
-                  <Line
-                    key={lineKey}
-                    dataKey={lineKey}
-                    type="monotone"
-                    stroke={color}
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={{ r: 3 }}
-                    connectNulls
-                  />
-                );
-              })}
-            </LineChart>
-          </ChartContainer>
+          <Suspense fallback={
+            <div className="flex items-center justify-center py-6">
+              <LoadingSpinner size="sm" />
+            </div>
+          }>
+            <RechartsComponents
+              chartData={chartData}
+              chartConfig={chartConfig}
+              yDomain={yDomain}
+              selectedSeries={selectedSeries}
+              colorByRosterId={colorByRosterId}
+            />
+          </Suspense>
         )}
       </CardContent>
     </Card>

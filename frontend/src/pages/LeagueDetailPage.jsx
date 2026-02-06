@@ -23,8 +23,10 @@ import LeagueEloTimeline from '@/components/LeagueEloTimeline';
 import MedalIcon from '@/components/MedalIcon';
 import { BadgeList } from '@/components/BadgeDisplay';
 import RecordMatchForm from '@/components/RecordMatchForm';
+import MobileQuickMatch from '@/components/MobileQuickMatch';
 import UserSearchSelect from '@/components/UserSearchSelect';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useTranslation } from 'react-i18next';
 import {
   Pagination,
@@ -94,6 +96,7 @@ const LeagueDetailPage = () => {
   const [joinRequestActionLoading, setJoinRequestActionLoading] = useState({});
   const [eloMode, setEloMode] = useState('immediate');
   const [showRecordMatch, setShowRecordMatch] = useState(false);
+  const [showQuickMatch, setShowQuickMatch] = useState(false);
 
   const [consolidating, setConsolidating] = useState(false);
 
@@ -1398,43 +1401,75 @@ const LeagueDetailPage = () => {
 
           {/* Record Match */}
           {isAuthenticated && userMembership ? (
-            <Card className="vg-card">
-              <Collapsible open={showRecordMatch} onOpenChange={setShowRecordMatch}>
-                <CollapsibleTrigger asChild>
-                  <CardHeader className="cursor-pointer hover:bg-gray-800/50 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="cyberpunk-subtitle flex items-center gap-2 text-lg">
-                        <Swords className="h-5 w-5 text-blue-400" />
-                        {t('recordMatch.title')}
-                      </CardTitle>
-                      {showRecordMatch ? (
-                        <ChevronUp className="h-5 w-5 text-gray-400" />
-                      ) : (
-                        <ChevronDown className="h-5 w-5 text-gray-400" />
-                      )}
-                    </div>
-                    <CardDescription className="text-gray-400">
-                      {t('recordMatch.subtitle')}
-                    </CardDescription>
+            <>
+              {/* Desktop: Collapsible with existing RecordMatchForm */}
+              <Card className="vg-card hidden md:block">
+                <Collapsible open={showRecordMatch} onOpenChange={setShowRecordMatch}>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-gray-800/50 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="cyberpunk-subtitle flex items-center gap-2 text-lg">
+                          <Swords className="h-5 w-5 text-blue-400" />
+                          {t('recordMatch.title')}
+                        </CardTitle>
+                        {showRecordMatch ? (
+                          <ChevronUp className="h-5 w-5 text-gray-400" />
+                        ) : (
+                          <ChevronDown className="h-5 w-5 text-gray-400" />
+                        )}
+                      </div>
+                      <CardDescription className="text-gray-400">
+                        {t('recordMatch.subtitle')}
+                      </CardDescription>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent>
+                      <RecordMatchForm
+                        initialLeagueId={parseInt(id)}
+                        hideLeagueSelector={true}
+                        leagueName={league.name}
+                        allowAdminMatchForOthers={canManageLeague}
+                        onSuccess={() => {
+                          setShowRecordMatch(false);
+                          fetchMatches();
+                          fetchLeaderboard(leaderboardPagination.page);
+                        }}
+                      />
+                    </CardContent>
+                  </CollapsibleContent>
+                </Collapsible>
+              </Card>
+
+              {/* Mobile: Sheet with MobileQuickMatch */}
+              <div className="md:hidden">
+                <Card className="vg-card">
+                  <CardHeader>
+                    <Button
+                      className="w-full h-14"
+                      size="lg"
+                      onClick={() => setShowQuickMatch(true)}
+                    >
+                      <Swords className="mr-2 h-5 w-5" />
+                      {t('recordMatch.title')}
+                    </Button>
                   </CardHeader>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <CardContent>
-                    <RecordMatchForm
+                </Card>
+                <Sheet open={showQuickMatch} onOpenChange={setShowQuickMatch}>
+                  <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
+                    <MobileQuickMatch
                       initialLeagueId={parseInt(id)}
-                      hideLeagueSelector={true}
-                      leagueName={league.name}
-                      allowAdminMatchForOthers={canManageLeague}
                       onSuccess={() => {
-                        setShowRecordMatch(false);
+                        setShowQuickMatch(false);
                         fetchMatches();
                         fetchLeaderboard(leaderboardPagination.page);
                       }}
+                      onCancel={() => setShowQuickMatch(false)}
                     />
-                  </CardContent>
-                </CollapsibleContent>
-              </Collapsible>
-            </Card>
+                  </SheetContent>
+                </Sheet>
+              </div>
+            </>
           ) : null}
         </div>
       </div>
@@ -1810,6 +1845,17 @@ const LeagueDetailPage = () => {
           </Card>
         </div>
       ) : null}
+
+      {/* Mobile FAB - Quick Match Button */}
+      {isAuthenticated && userMembership && (
+        <button
+          onClick={() => setShowQuickMatch(true)}
+          className="md:hidden fixed bottom-6 right-6 h-14 w-14 rounded-full bg-blue-500 hover:bg-blue-600 shadow-lg flex items-center justify-center z-50 transition-transform hover:scale-110 active:scale-95"
+          aria-label={t('recordMatch.title')}
+        >
+          <Swords className="h-6 w-6 text-white" />
+        </button>
+      )}
     </div>
   );
 };

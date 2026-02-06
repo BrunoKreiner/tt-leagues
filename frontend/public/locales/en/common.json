@@ -10,6 +10,7 @@
     "dashboard": "Dashboard",
     "leagues": "Leagues",
     "matches": "Matches",
+    "quickMatch": "Quick Match",
     "admin": "Manage",
     "notifications": "Notifications",
     "profile": "Profile",
@@ -453,6 +454,18 @@
     "submitMatch": "Submit Match",
     "matchRecordedSuccess": "Match recorded successfully",
     "failedToRecordMatch": "Failed to record match"
+  },
+  "quickMatch": {
+    "subtitle": "Record a match in 4 quick steps",
+    "selectLeague": "Select League",
+    "selectOpponent": "Select Opponent",
+    "finalScore": "Final Score",
+    "score": "Score",
+    "reviewAndSubmit": "Review & Submit",
+    "next": "Next",
+    "back": "Back",
+    "submit": "Submit Match",
+    "needDetailedScores": "Need to enter detailed set scores?"
   },
   "wiki": {
     "chapters": "Chapters",

@@ -14,6 +14,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useTranslation } from 'react-i18next';
+import { getGameTypeById } from '@/constants/gameTypes';
 
 const GAME_TYPES = [
   { value: 'best_of_1', label: 'best_of_1', labelKey: 'recordMatch.gameTypeBestOf1' },
@@ -144,6 +145,9 @@ export default function RecordMatchForm({
   const gameType = form.watch('game_type');
   const p1SetsWon = form.watch('player1_sets_won');
   const p2SetsWon = form.watch('player2_sets_won');
+
+  // Get game type metadata
+  const gameTypeMetadata = useMemo(() => getGameTypeById(gameType || 'best_of_3'), [gameType]);
 
   // Sync local state with form value
   useEffect(() => {
@@ -361,7 +365,7 @@ export default function RecordMatchForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         {/* League selector - hidden if hideLeagueSelector is true */}
         {!hideLeagueSelector && (
           <FormField
@@ -550,7 +554,7 @@ export default function RecordMatchForm({
               <FormItem>
                 <FormLabel>{t('recordMatch.yourSetsWon')}</FormLabel>
                 <FormControl>
-                  <Input type="number" min={0} max={4} {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
+                  <Input type="number" min={0} max={gameTypeMetadata.setsToWin} {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -563,7 +567,7 @@ export default function RecordMatchForm({
               <FormItem>
                 <FormLabel>{t('recordMatch.opponentSetsWon')}</FormLabel>
                 <FormControl>
-                  <Input type="number" min={0} max={4} {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
+                  <Input type="number" min={0} max={gameTypeMetadata.setsToWin} {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -582,11 +586,16 @@ export default function RecordMatchForm({
                   type="number"
                   min={0}
                   value={s.p1}
+                  onFocus={(e) => {
+                    if (e.target.value === '0') {
+                      e.target.select();
+                    }
+                  }}
                   onChange={(e) => {
                     const v = Number(e.target.value);
                     setSetScores((arr) => arr.map((it, i) => (i === idx ? { ...it, p1: Number.isFinite(v) ? v : 0 } : it)));
                   }}
-                  className="w-14 h-8 px-2 text-sm"
+                  className="w-16 h-10 px-2 text-sm"
                   style={getSetClosenessStyle(s.p1, s.p2)}
                   aria-label={`Your points in set ${idx + 1}`}
                 />
@@ -595,11 +604,16 @@ export default function RecordMatchForm({
                   type="number"
                   min={0}
                   value={s.p2}
+                  onFocus={(e) => {
+                    if (e.target.value === '0') {
+                      e.target.select();
+                    }
+                  }}
                   onChange={(e) => {
                     const v = Number(e.target.value);
                     setSetScores((arr) => arr.map((it, i) => (i === idx ? { ...it, p2: Number.isFinite(v) ? v : 0 } : it)));
                   }}
-                  className="w-14 h-8 px-2 text-sm"
+                  className="w-16 h-10 px-2 text-sm"
                   style={getSetClosenessStyle(s.p2, s.p1)}
                   aria-label={`Opponent points in set ${idx + 1}`}
                 />
