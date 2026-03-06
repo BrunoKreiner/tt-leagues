@@ -152,12 +152,12 @@ const Layout = () => {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-gray-800/60 bg-gradient-to-r from-gray-900/95 via-gray-900/98 to-gray-900/95 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b velocity-border-glow bg-gradient-to-r from-velocity-dark/95 via-velocity-dark/98 to-velocity-dark/95 backdrop-blur-xl">
         <div className="flex h-16 items-center px-4 md:px-6">
           {/* Logo */}
           <Link to="/app/dashboard" className="flex items-center space-x-2 group">
-            <img src="/img/logo.png" alt="Logo" className="h-8 w-8 group-hover:scale-105 transition-transform" />
-            <span className="cyberpunk-title text-lg bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">{t('app.title')}</span>
+            <img src="/img/logo.png" alt="Logo" className="h-8 w-8 group-hover:scale-110 transition-transform" />
+            <span className="cyberpunk-title text-lg bg-gradient-to-r from-velocity-cyan to-velocity-accent-purple bg-clip-text text-transparent velocity-glow">{t('app.title')}</span>
           </Link>
 
           {/* Navigation */}
@@ -172,9 +172,9 @@ const Layout = () => {
                 <Link
                   key={item.href}
                   to={item.href}
-                  className={`cyberpunk-text flex items-center space-x-2 text-sm font-medium transition-all duration-200 hover:text-blue-400 hover:scale-105 ${
-                    isActive 
-                      ? 'text-blue-400' 
+                  className={`cyberpunk-text flex items-center space-x-2 text-sm font-medium transition-all duration-200 hover:text-velocity-cyan hover:scale-105 ${
+                    isActive
+                      ? 'text-velocity-cyan'
                       : 'text-gray-400'
                   }`}
                 >
@@ -200,9 +200,9 @@ const Layout = () => {
                   {i18n.language === 'de' ? 'DE' : 'EN'}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700">
-                <DropdownMenuItem onClick={() => i18n.changeLanguage('en')} className="text-gray-200 hover:bg-gray-700">{t('language.english')}</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => i18n.changeLanguage('de')} className="text-gray-200 hover:bg-gray-700">{t('language.german')}</DropdownMenuItem>
+              <DropdownMenuContent align="end" className="bg-velocity-card border-velocity-border">
+                <DropdownMenuItem onClick={() => i18n.changeLanguage('en')} className="text-gray-200 hover:bg-velocity-border/50">{t('language.english')}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => i18n.changeLanguage('de')} className="text-gray-200 hover:bg-velocity-border/50">{t('language.german')}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             {isAuthenticated ? (
@@ -219,8 +219,8 @@ const Layout = () => {
                       )}
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-96 bg-gray-900 border-2 border-gray-700 shadow-xl" align="end" forceMount>
-                    <div className="px-4 py-3 flex items-center justify-between border-b border-gray-700">
+                  <DropdownMenuContent className="w-96 bg-velocity-card border-2 border-velocity-border shadow-xl shadow-velocity-cyan/10" align="end" forceMount>
+                    <div className="px-4 py-3 flex items-center justify-between border-b border-velocity-border">
                       <span className="text-sm font-semibold text-gray-200">{t('notifications.title')}</span>
                       <Button variant="ghost" size="sm" onClick={markAllAsRead} disabled={notifLoading || unreadCount === 0} className="h-7 px-2 text-xs">
                         {t('actions.markAllRead')}
@@ -233,10 +233,10 @@ const Layout = () => {
                         <div className="p-6 text-center text-sm text-gray-400">{t('notifications.none')}</div>
                       ) : (
                         notifications.map((n) => (
-                          <div key={n.id} className={`px-4 py-3 border-b border-gray-800 last:border-b-0 hover:bg-gray-800/50 transition-colors ${!n.is_read ? 'bg-gray-800/30' : ''}`}>
+                          <div key={n.id} className={`px-4 py-3 border-b border-velocity-border/30 last:border-b-0 hover:bg-velocity-cyan/5 transition-colors ${!n.is_read ? 'bg-velocity-cyan/10' : ''}`}>
                             <div className="flex items-start gap-3">
                               {/* Icon */}
-                              <div className={`mt-0.5 flex-shrink-0 ${n.type === 'league_invite' ? 'text-blue-400' : 'text-gray-400'}`}>
+                              <div className={`mt-0.5 flex-shrink-0 ${n.type === 'league_invite' ? 'text-velocity-cyan' : 'text-gray-400'}`}>
                                 {n.type === 'league_invite' ? (
                                   <UserPlus className="h-4 w-4" />
                                 ) : (
@@ -309,8 +309,8 @@ const Layout = () => {
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 bg-gray-800 border-gray-700" align="end" forceMount>
-                    <DropdownMenuItem asChild className="text-gray-200 hover:bg-gray-700 p-2 cursor-pointer">
+                  <DropdownMenuContent className="w-56 bg-velocity-card border-velocity-border" align="end" forceMount>
+                    <DropdownMenuItem asChild className="text-gray-200 hover:bg-velocity-border/50 p-2 cursor-pointer">
                       <Link to="/app/profile" className="flex items-center justify-start gap-2 w-full">
                         <Avatar className="h-10 w-10" key={user?.avatar_url}>
                           {user?.avatar_url && (
@@ -328,21 +328,21 @@ const Layout = () => {
                         </div>
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild className="text-gray-200 hover:bg-gray-700">
+                    <DropdownMenuSeparator className="bg-velocity-border/30" />
+                    <DropdownMenuItem asChild className="text-gray-200 hover:bg-velocity-border/50">
                       <Link to="/app/profile" className="flex items-center">
                         <User className="mr-2 h-4 w-4" />
                         <span>{t('nav.profile')}</span>
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild className="text-gray-200 hover:bg-gray-700">
+                    <DropdownMenuItem asChild className="text-gray-200 hover:bg-velocity-border/50">
                       <Link to="/app/settings" className="flex items-center">
                         <Settings className="mr-2 h-4 w-4" />
                         <span>{t('nav.settings')}</span>
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator className="bg-gray-700" />
-                    <DropdownMenuItem onClick={handleLogout} className="text-red-400 hover:bg-gray-700">
+                    <DropdownMenuSeparator className="bg-velocity-border/30" />
+                    <DropdownMenuItem onClick={handleLogout} className="text-red-400 hover:bg-red-500/10">
                       <LogOut className="mr-2 h-4 w-4" />
                       <span>{t('nav.logout')}</span>
                     </DropdownMenuItem>

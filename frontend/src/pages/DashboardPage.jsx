@@ -180,14 +180,14 @@ const DashboardPage = () => {
   return (
     <div className="space-y-10 animate-fade-in max-w-7xl mx-auto">
       {/* Header: Username */}
-      <div className="flex items-center justify-center gap-4 flex-wrap py-6 bg-gray-800/20 rounded-xl border border-gray-700/30">
-        <h1 className="cyberpunk-title text-3xl sm:text-4xl bg-gradient-to-r from-blue-400 via-purple-400 to-blue-400 bg-clip-text text-transparent">
+      <div className="flex items-center justify-center gap-4 flex-wrap py-8 velocity-card rounded-xl velocity-border-glow">
+        <h1 className="cyberpunk-title text-4xl sm:text-5xl font-black bg-gradient-to-r from-velocity-cyan via-velocity-accent-purple to-velocity-gold bg-clip-text text-transparent">
           {user?.first_name || user?.username}
         </h1>
-        <Link to="/app/profile" className="text-gray-400 hover:text-blue-400 transition-colors">
+        <Link to="/app/profile" className="text-gray-400 hover:text-velocity-cyan transition-colors">
           <User className="h-5 w-5" />
         </Link>
-        <Button asChild variant="outline" size="sm" className="border-gray-700 hover:border-blue-500/50 hover:bg-blue-500/10">
+        <Button asChild variant="outline" size="sm" className="border-velocity-cyan/50 hover:border-velocity-cyan hover:bg-velocity-cyan/10 text-velocity-cyan font-semibold">
           <Link to="/app/profile">
             {t('cta.viewProfile')}
           </Link>
@@ -196,7 +196,7 @@ const DashboardPage = () => {
 
       {/* Section 1: Timeline Statistics */}
       <div className="space-y-6">
-        <h2 className="cyberpunk-title text-2xl bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+        <h2 className="cyberpunk-title text-3xl font-bold bg-gradient-to-r from-velocity-accent-purple to-velocity-gold bg-clip-text text-transparent">
           Performance Overview
         </h2>
         <TimelineStats userId={user?.id} />
@@ -205,10 +205,10 @@ const DashboardPage = () => {
       {/* Section 2: Recent Matches */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="cyberpunk-title text-2xl bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+          <h2 className="cyberpunk-title text-3xl font-bold bg-gradient-to-r from-velocity-cyan to-velocity-accent-purple bg-clip-text text-transparent">
             Recent Matches
           </h2>
-          <Link to="/app/matches" className="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1">
+          <Link to="/app/matches" className="text-sm text-velocity-cyan hover:text-velocity-gold font-semibold transition-colors flex items-center gap-1">
             View all <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
@@ -256,20 +256,20 @@ const DashboardPage = () => {
                   return (
                     <div
                       key={match.id}
-                      className="flex flex-col items-center min-w-fit px-4 py-3 bg-gray-800/30 rounded-lg border border-gray-700/50 hover:border-gray-600/50 hover:bg-gray-800/50 transition-all"
+                      className="flex flex-col items-center min-w-fit px-5 py-4 velocity-card hover:border-velocity-cyan transition-all"
                     >
                       {/* Players and Score Line */}
                       <div className="flex items-center gap-2 text-sm whitespace-nowrap">
                         {match.player1_username ? (
                           <Link
                             to={`/app/profile/${match.player1_username}`}
-                            className="text-blue-400 hover:text-blue-300 font-medium"
+                            className="text-velocity-cyan hover:text-velocity-gold font-semibold"
                             onClick={(e) => e.stopPropagation()}
                           >
                             {match.player1_display_name || match.player1_username}
                           </Link>
                         ) : (
-                          <span className="text-blue-400 font-medium">{match.player1_display_name || 'Player 1'}</span>
+                          <span className="text-velocity-cyan font-semibold">{match.player1_display_name || 'Player 1'}</span>
                         )}
                         <span className={`font-bold text-lg ${player1Won ? 'text-green-400' : 'text-gray-300'}`}>{match.player1_sets_won}</span>
                         <span className="text-gray-500 font-bold">-</span>
@@ -277,13 +277,13 @@ const DashboardPage = () => {
                         {match.player2_username ? (
                           <Link
                             to={`/app/profile/${match.player2_username}`}
-                            className="text-blue-400 hover:text-blue-300 font-medium"
+                            className="text-velocity-cyan hover:text-velocity-gold font-semibold"
                             onClick={(e) => e.stopPropagation()}
                           >
                             {match.player2_display_name || match.player2_username}
                           </Link>
                         ) : (
-                          <span className="text-blue-400 font-medium">{match.player2_display_name || 'Player 2'}</span>
+                          <span className="text-velocity-cyan font-semibold">{match.player2_display_name || 'Player 2'}</span>
                         )}
                       </div>
                       
@@ -347,10 +347,10 @@ const DashboardPage = () => {
       {/* Section 3: Leaderboards (ref triggers lazy-load via IntersectionObserver) */}
       <div ref={leaderboardSectionRef} className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="cyberpunk-title text-2xl bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Leaderboards</h2>
+          <h2 className="cyberpunk-title text-3xl font-bold bg-gradient-to-r from-velocity-accent-purple to-velocity-gold bg-clip-text text-transparent">Leaderboards</h2>
           <Link
             to="/app/leagues"
-            className="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
+            className="text-sm text-velocity-cyan hover:text-velocity-gold font-semibold transition-colors flex items-center gap-1"
           >
             Browse all leagues <ArrowRight className="h-3 w-3" />
           </Link>
@@ -367,15 +367,15 @@ const DashboardPage = () => {
           {userLeagues.map((league) => (
             <Card
               key={league.id}
-              className="vg-card cursor-pointer hover:scale-[1.02] transition-all bg-gray-800/30 border-gray-700/50 hover:border-gray-600/50 hover:shadow-lg hover:shadow-blue-500/10"
+              className="vg-card cursor-pointer hover:scale-[1.02] transition-all hover:shadow-lg hover:shadow-velocity-cyan/30"
               onClick={() => navigate(`/app/leagues/${league.id}`)}
             >
               <CardHeader className="compact-card-header">
-                <CardTitle className="cyberpunk-subtitle flex items-center gap-2 text-lg">
-                  <Trophy className="h-5 w-5 text-yellow-400" />
+                <CardTitle className="cyberpunk-subtitle flex items-center gap-2 text-lg text-velocity-cyan">
+                  <Trophy className="h-5 w-5 text-velocity-gold" />
                   {league.name}
                 </CardTitle>
-                <CardDescription className="text-gray-400">
+                <CardDescription className="text-gray-300">
                   {league.member_count} members • {league.match_count} matches
                 </CardDescription>
               </CardHeader>
@@ -423,16 +423,16 @@ const DashboardPage = () => {
                               )}
                             </div>
                             {player.username ? (
-                              <Link 
-                                to={`/app/profile/${player.username}`} 
-                                className="text-sm font-medium text-blue-400 hover:text-blue-300"
+                              <Link
+                                to={`/app/profile/${player.username}`}
+                                className="text-sm font-semibold text-velocity-cyan hover:text-velocity-gold"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 {player.display_name || player.username}
                               </Link>
                             ) : (
                               <span
-                                className="text-sm font-medium text-blue-400"
+                                className="text-sm font-semibold text-velocity-cyan"
                                 title="No user assigned"
                               >
                                 {player.display_name || 'No user assigned'}
@@ -459,7 +459,7 @@ const DashboardPage = () => {
                             ) : (
                               <span className="text-xs text-gray-500">—</span>
                             )}
-                            <span className="text-sm text-gray-400 tabular-nums shrink-0 w-10 text-right">{player.current_elo}</span>
+                            <span className="text-sm font-bold text-velocity-gold tabular-nums shrink-0 w-10 text-right">{player.current_elo}</span>
                           </div>
                         </div>
                       ))}
