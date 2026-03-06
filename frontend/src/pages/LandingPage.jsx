@@ -159,31 +159,31 @@ const LandingPage = () => {
   return (
     <div className="min-h-screen">
       {/* Nav */}
-      <header className="sticky top-0 z-40 border-b border-gray-800/60 bg-gradient-to-r from-gray-900/95 via-gray-900/98 to-gray-900/95 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b velocity-border-glow" style={{background: 'linear-gradient(to right, rgba(10, 14, 39, 0.95), rgba(5, 7, 15, 0.98), rgba(10, 14, 39, 0.95))'}}>
         <div className="max-w-5xl mx-auto px-4">
           <div className="flex justify-between items-center h-16">
             <Link to="/" className="flex items-center space-x-2 group">
-              <img src="/img/logo.png" alt="Logo" className="h-8 w-8 group-hover:scale-105 transition-transform" />
-              <span className="cyberpunk-title text-lg bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              <img src="/img/logo.png" alt="Logo" className="h-8 w-8 group-hover:scale-110 transition-transform" />
+              <span className="cyberpunk-title text-lg bg-clip-text text-transparent velocity-glow" style={{backgroundImage: 'linear-gradient(to right, #00d9ff, #a78bfa)'}}>
                 {t('app.title')}
               </span>
             </Link>
             <div className="flex items-center gap-3">
               {/* Desktop: Wiki link and auth buttons */}
               <div className="hidden md:flex items-center gap-3">
-                <Button variant="ghost" size="sm" asChild className="text-gray-400 hover:text-white">
+                <Button variant="ghost" size="sm" asChild className="text-gray-400 transition-colors" style={{color: 'rgba(0, 217, 255, 0.6)'}}>
                   <Link to="/wiki/ttc-baden-wettingen" className="flex items-center gap-2">
                     <BookOpen className="h-4 w-4" />
                     <span className="inline-flex items-start gap-1">
                       <span>TTC Baden-Wettingen</span>
-                      <sup className="text-[10px] font-semibold text-blue-400 inline-block -skew-y-3">wiki</sup>
+                      <sup className="text-[10px] font-semibold inline-block -skew-y-3" style={{color: '#00d9ff'}}>wiki</sup>
                     </span>
                   </Link>
                 </Button>
-                <Button variant="ghost" size="sm" asChild className="text-gray-400 hover:text-white">
+                <Button variant="ghost" size="sm" asChild className="text-gray-400 transition-colors" style={{color: 'rgba(0, 217, 255, 0.6)'}}>
                   <Link to="/login">Log in</Link>
                 </Button>
-                <Button size="sm" asChild className="bg-blue-600 hover:bg-blue-500">
+                <Button size="sm" asChild className="velocity-card text-black font-bold hover:shadow-lg" style={{backgroundImage: 'linear-gradient(135deg, #00d9ff, #a78bfa)', boxShadow: '0 0 20px rgba(0, 217, 255, 0.3)'}}>
                   <Link to="/register">Get started</Link>
                 </Button>
               </div>
@@ -209,59 +209,75 @@ const LandingPage = () => {
       </header>
 
       {/* Main Content */}
-      <main className="py-12 px-4">
-        <div className="max-w-5xl mx-auto space-y-10">
-          
+      <main className="relative py-12 px-4">
+        {/* Background effects */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-20 left-1/4 w-72 h-72 rounded-full opacity-20" style={{background: 'radial-gradient(circle, #00d9ff 0%, transparent 70%)'}} />
+          <div className="absolute bottom-40 right-1/4 w-96 h-96 rounded-full opacity-10" style={{background: 'radial-gradient(circle, #a78bfa 0%, transparent 70%)'}} />
+        </div>
+
+        <div className="max-w-5xl mx-auto space-y-10 relative z-10">
+
           {/* Hero */}
-          <section className="text-center space-y-4">
-            <h1 className="cyberpunk-title text-3xl sm:text-4xl bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-              League & ELO Tracking
-            </h1>
-            <Button asChild size="lg" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500">
-              <Link to="/register">Get started</Link>
+          <section className="text-center space-y-8 py-12">
+            <div className="space-y-4 animate-float-up">
+              <h1 className="cyberpunk-title text-5xl sm:text-6xl font-black">
+                <span className="bg-clip-text text-transparent inline-block" style={{backgroundImage: 'linear-gradient(to right, #00d9ff, #a78bfa, #ffd700)'}}>
+                  League & ELO Tracking
+                </span>
+              </h1>
+              <p className="text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed">
+                Track competitive play. Analyze performance. Dominate the leaderboards.
+              </p>
+            </div>
+            <Button asChild size="lg" className="mx-auto velocity-card text-black font-bold hover:shadow-lg" style={{backgroundImage: 'linear-gradient(135deg, #00d9ff, #a78bfa)', boxShadow: '0 0 30px rgba(0, 217, 255, 0.3)'}}>
+              <Link to="/register">Get started →</Link>
             </Button>
           </section>
 
           {/* Features List */}
           <section className="max-w-2xl mx-auto">
-            <ul className="space-y-2">
+            <h2 className="text-2xl font-bold text-center mb-6 text-gray-100">What You Get</h2>
+            <ul className="space-y-3">
               {features.map((feature, i) => (
-                <li 
+                <li
                   key={i}
-                  className="flex items-center gap-3 py-2 px-4 rounded-lg border-l-2 border-blue-500/60 bg-gray-900/40 hover:bg-gray-800/50 transition-colors"
+                  className="flex items-center gap-3 py-3 px-5 rounded-lg border-l-4 border-velocity-cyan/70 velocity-card hover:border-velocity-cyan hover:scale-105 transition-all"
+                  style={{animationDelay: `${i * 50}ms`}}
                 >
-                  <ChevronRight className="h-4 w-4 text-blue-400 flex-shrink-0" />
-                  <span className="text-gray-200">{feature}</span>
+                  <ChevronRight className="h-5 w-5 flex-shrink-0" style={{color: '#00d9ff'}} />
+                  <span className="text-gray-100 font-medium">{feature}</span>
                 </li>
               ))}
             </ul>
           </section>
 
           {/* Coming Soon + Free */}
-          <section className="py-5 border-t border-b border-gray-800/50">
+          <section className="py-8 border-t border-b border-velocity-border/50 velocity-card rounded-lg">
             <div className="max-w-2xl mx-auto text-center">
-              <div className="flex items-center justify-center gap-2 mb-3">
-                <Sparkles className="h-4 w-4 text-purple-300" />
-                <span className="text-sm font-semibold text-gray-200">Coming soon</span>
+              <div className="flex items-center justify-center gap-2 mb-6">
+                <Sparkles className="h-5 w-5" style={{color: '#ffd700'}} />
+                <span className="text-sm font-semibold" style={{color: '#ffd700'}}>Coming soon</span>
               </div>
-              <ul className="space-y-2">
+              <ul className="space-y-3">
                 {comingSoon.map((item) => (
                   <li
                     key={item}
-                    className="flex items-center gap-3 py-2 px-4 rounded-lg border-l-2 border-purple-500/50 bg-gray-900/40 hover:bg-gray-800/50 transition-colors text-left"
+                    className="flex items-center gap-3 py-3 px-5 rounded-lg border-l-4 velocity-card hover:scale-105 transition-all text-left"
+                    style={{borderColor: 'rgba(255, 215, 0, 0.5)'}}
                   >
-                    <ChevronRight className="h-4 w-4 text-purple-300 flex-shrink-0" />
-                    <span className="text-gray-200">{item}</span>
+                    <ChevronRight className="h-5 w-5 flex-shrink-0" style={{color: '#ffd700'}} />
+                    <span className="text-gray-100 font-medium">{item}</span>
                   </li>
                 ))}
               </ul>
-              <div className="mt-3 text-xs text-gray-500">Free to use · No ads</div>
+              <div className="mt-6 text-sm font-semibold" style={{color: '#00d9ff'}}>Free to use · No ads</div>
             </div>
           </section>
 
           {/* Public Leagues with Leaderboards */}
-          <section ref={leaderboardSectionRef}>
-            <h2 className="cyberpunk-title text-lg text-gray-300 mb-4">Public Leagues</h2>
+          <section ref={leaderboardSectionRef} className="relative">
+            <h2 className="cyberpunk-title text-3xl font-bold mb-8 text-gray-100">Public Leagues</h2>
             
             {loading ? (
               <div className="flex items-center justify-center py-8">
@@ -271,16 +287,16 @@ const LandingPage = () => {
               <p className="text-sm text-red-400 text-center py-6">{error}</p>
             ) : publicLeagues.length > 0 ? (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {publicLeagues.slice(0, 2).map((league) => (
-                  <Card key={league.id} className="vg-card">
+                {publicLeagues.slice(0, 2).map((league, idx) => (
+                  <Card key={league.id} className="vg-card hover:shadow-lg hover:shadow-velocity-cyan/30 transition-all" style={{animationDelay: `${idx * 100}ms`}}>
                     <CardHeader className="space-y-1">
                       <div className="flex items-center justify-between gap-2">
                         <Link to={`/league/${league.id}`} className="min-w-0">
-                          <CardTitle className="cyberpunk-subtitle text-xl truncate text-blue-400 hover:text-blue-300 transition-colors">
+                          <CardTitle className="cyberpunk-subtitle text-xl truncate transition-colors" style={{color: '#00d9ff'}}>
                             {league.name}
                           </CardTitle>
                         </Link>
-                        <Badge variant="secondary" className="ml-2 flex items-center gap-1 shrink-0">
+                        <Badge variant="secondary" className="ml-2 flex items-center gap-1 shrink-0 border" style={{backgroundColor: 'rgba(0, 217, 255, 0.2)', color: '#00d9ff', borderColor: 'rgba(0, 217, 255, 0.5)'}}>
                           <Globe className="h-3.5 w-3.5" />
                           Public
                         </Badge>
@@ -334,17 +350,17 @@ const LandingPage = () => {
                         <div className="overflow-x-auto">
                           <table className="w-full text-sm">
                             <thead>
-                              <tr className="text-left text-gray-400 border-b border-gray-700">
-                                <th className="px-2 py-2 font-medium w-16 text-center">Rank</th>
-                                <th className="px-2 py-2 font-medium">Player</th>
-                                <th className="px-2 py-2 font-medium">ELO</th>
-                                <th className="px-2 py-2 font-medium">Trend</th>
-                                <th className="px-2 py-2 font-medium text-right">W/L</th>
+                              <tr className="text-left border-b" style={{color: 'rgba(0, 217, 255, 0.7)', borderColor: '#1a2847'}}>
+                                <th className="px-2 py-3 font-semibold w-16 text-center">Rank</th>
+                                <th className="px-2 py-3 font-semibold">Player</th>
+                                <th className="px-2 py-3 font-semibold">ELO</th>
+                                <th className="px-2 py-3 font-semibold">Trend</th>
+                                <th className="px-2 py-3 font-semibold text-right">W/L</th>
                               </tr>
                             </thead>
                             <tbody>
                               {leaderboardData.map((p, idx) => (
-                                <tr key={p.roster_id || idx} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                                <tr key={p.roster_id || idx} className="border-b transition-colors hover:bg-[rgba(0,217,255,0.05)]" style={{borderColor: 'rgba(26, 40, 71, 0.3)'}}>
                                   <td className="px-2 py-3 align-middle">
                                     <div className="w-10 flex items-center justify-center">
                                       {p.rank <= 3 ? (
@@ -357,17 +373,18 @@ const LandingPage = () => {
                                   <td className="px-2 py-3 align-middle">
                                     <div className="flex items-center gap-2 min-w-0">
                                       {p.avatar_url ? (
-                                        <img 
-                                          src={p.avatar_url} 
-                                          alt="" 
-                                          className="w-6 h-6 rounded-full object-cover border border-gray-700"
+                                        <img
+                                          src={p.avatar_url}
+                                          alt=""
+                                          className="w-6 h-6 rounded-full object-cover border"
+                                          style={{borderColor: 'rgba(0, 217, 255, 0.5)'}}
                                         />
                                       ) : (
-                                        <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-xs text-gray-400">
+                                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{background: 'linear-gradient(to bottom right, #00d9ff, #a78bfa)', color: '#0a0e27'}}>
                                           {(p.display_name || p.username || 'P').charAt(0).toUpperCase()}
                                         </div>
                                       )}
-                                      <span className="text-blue-400 font-medium truncate">
+                                      <span className="font-semibold truncate" style={{color: '#00d9ff'}}>
                                         {p.display_name || p.username || 'Player'}
                                       </span>
                                       {p.badges && p.badges.length > 0 && (
@@ -381,7 +398,7 @@ const LandingPage = () => {
                                       )}
                                     </div>
                                   </td>
-                                  <td className="px-2 py-3 text-gray-200 font-medium tabular-nums align-middle">
+                                  <td className="px-2 py-3 font-bold tabular-nums align-middle" style={{color: '#ffd700'}}>
                                     {p.current_elo}
                                   </td>
                                   <td className="px-2 py-3 align-middle">
@@ -403,9 +420,10 @@ const LandingPage = () => {
                         </div>
                         );
                       })()}
-                      <Link 
+                      <Link
                         to={`/league/${league.id}`}
-                        className="block text-center text-sm text-blue-400 hover:text-blue-300 mt-3 py-2 border-t border-gray-800/50"
+                        className="block text-center text-sm font-semibold mt-3 py-3 border-t transition-colors"
+                        style={{color: '#00d9ff', borderColor: 'rgba(26, 40, 71, 0.3)'}}
                       >
                         View full leaderboard →
                       </Link>
@@ -419,19 +437,19 @@ const LandingPage = () => {
 
             {/* Additional leagues list */}
             {publicLeagues.length > 2 && (
-              <div className="mt-6 space-y-1">
-                <h3 className="text-sm text-gray-500 mb-2">More leagues</h3>
+              <div className="mt-8 space-y-2">
+                <h3 className="text-sm font-bold mb-3 uppercase tracking-wide" style={{color: 'rgba(255, 215, 0, 0.8)'}}>More Leagues</h3>
                 {publicLeagues.slice(2).map((league) => (
-                  <Link 
+                  <Link
                     key={league.id}
                     to={`/league/${league.id}`}
-                    className="flex items-center justify-between py-2 px-3 rounded hover:bg-gray-800/30 transition-colors group"
+                    className="flex items-center justify-between py-3 px-4 rounded-lg velocity-card transition-all group"
                   >
-                    <div className="flex items-center gap-2">
-                      <Trophy className="h-4 w-4 text-yellow-500/60" />
-                      <span className="text-gray-300 group-hover:text-gray-100">{league.name}</span>
+                    <div className="flex items-center gap-3">
+                      <Trophy className="h-5 w-5 transition-colors group-hover:scale-110" style={{color: 'rgba(255, 215, 0, 0.7)'}} />
+                      <span className="text-gray-200 group-hover:scale-105 transition-transform font-medium">{league.name}</span>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                    <div className="flex items-center gap-4 text-sm text-gray-400 group-hover:text-gray-300">
                       <span>{league.member_count || 0} members</span>
                       <span>{league.match_count || 0} matches</span>
                     </div>
