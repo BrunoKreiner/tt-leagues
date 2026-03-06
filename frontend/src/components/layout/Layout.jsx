@@ -152,12 +152,12 @@ const Layout = () => {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-gray-800/60 bg-gradient-to-r from-gray-900/95 via-gray-900/98 to-gray-900/95 backdrop-blur-xl">
-        <div className="flex h-16 items-center px-4 md:px-6">
+      <header className="sticky top-0 z-40 border-b border-gray-800/40 bg-gradient-to-r from-gray-900/90 via-[#0e1119]/95 to-gray-900/90 backdrop-blur-2xl">
+        <div className="flex h-14 items-center px-4 md:px-6 max-w-7xl mx-auto">
           {/* Logo */}
           <Link to="/app/dashboard" className="flex items-center space-x-2 group">
             <img src="/img/logo.png" alt="Logo" className="h-8 w-8 group-hover:scale-105 transition-transform" />
-            <span className="cyberpunk-title text-lg bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">{t('app.title')}</span>
+            <span className="cyberpunk-title text-base bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">{t('app.title')}</span>
           </Link>
 
           {/* Navigation */}
@@ -365,7 +365,7 @@ const Layout = () => {
 
       {/* Main content */}
       <main className="flex-1">
-        <div className="container mx-auto px-4 py-6 md:px-6">
+        <div className="container mx-auto px-4 py-8 md:px-6 max-w-6xl">
           <Outlet />
         </div>
       </main>
