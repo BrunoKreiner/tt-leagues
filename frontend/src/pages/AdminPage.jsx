@@ -120,6 +120,7 @@ const AdminPage = () => {
   const [migrationRunning, setMigrationRunning] = useState(false);
   const [snapshotMigrationRunning, setSnapshotMigrationRunning] = useState(false);
   const [joinRequestMigrationRunning, setJoinRequestMigrationRunning] = useState(false);
+  const [acceptingAllLeagueId, setAcceptingAllLeagueId] = useState(null);
 
   const runRosterParticipationMigration = async () => {
     try {
@@ -594,6 +595,21 @@ const AdminPage = () => {
     }
   };
 
+  const acceptAllForLeague = async (leagueId, leagueName) => {
+    if (!window.confirm(t('admin.confirmAcceptAll', { league: leagueName }))) return;
+    try {
+      setAcceptingAllLeagueId(leagueId);
+      const { data } = await matchesAPI.acceptAllByLeague(leagueId);
+      toast.success(data.message || t('admin.acceptAllSuccess'));
+      fetchPending({ page });
+    } catch (e) {
+      const msg = e.response?.data?.error || t('admin.acceptAllError');
+      toast.error(msg);
+    } finally {
+      setAcceptingAllLeagueId(null);
+    }
+  };
+
   const onSubmit = async (values) => {
     try {
       setSubmitting(true);
@@ -922,6 +938,33 @@ const AdminPage = () => {
           ) : pending.length === 0 ? (
             <div className="text-sm text-muted-foreground">{t('admin.noPending')}</div>
           ) : (
+            <>
+            {(() => {
+              const leagueMap = new Map();
+              pending.forEach((m) => {
+                if (!leagueMap.has(m.league_id)) {
+                  leagueMap.set(m.league_id, { name: m.league_name, count: 0 });
+                }
+                leagueMap.get(m.league_id).count++;
+              });
+              return (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {Array.from(leagueMap.entries()).map(([leagueId, info]) => (
+                    <Button
+                      key={leagueId}
+                      size="sm"
+                      variant="secondary"
+                      disabled={acceptingAllLeagueId === leagueId}
+                      onClick={() => acceptAllForLeague(leagueId, info.name)}
+                    >
+                      {acceptingAllLeagueId === leagueId
+                        ? `${t('actions.accepting')}...`
+                        : `${t('actions.acceptAll')} — ${info.name} (${info.count})`}
+                    </Button>
+                  ))}
+                </div>
+              );
+            })()}
             <div className="overflow-x-auto rounded-md border">
               <table className="min-w-full text-sm">
                 <thead className="bg-muted/40 text-muted-foreground">
@@ -955,6 +998,7 @@ const AdminPage = () => {
                 </tbody>
               </table>
             </div>
+            </>
           )}
 
           <div className="mt-4">

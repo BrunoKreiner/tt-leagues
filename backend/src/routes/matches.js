@@ -861,6 +861,137 @@ router.post('/:id/accept', authenticateToken, validateId, async (req, res) => {
 });
 
 /**
+ * Accept all pending matches for a league (league admin or system admin)
+ * POST /api/matches/leagues/:leagueId/accept-all
+ */
+router.post('/leagues/:leagueId/accept-all', authenticateToken, async (req, res) => {
+    try {
+        const leagueId = parseInt(req.params.leagueId);
+
+        // Authorization: system admin or league admin
+        if (!req.user.is_admin) {
+            const adminRow = await database.get(
+                'SELECT is_admin FROM league_roster WHERE league_id = ? AND user_id = ?',
+                [leagueId, req.user.id]
+            );
+            if (!adminRow || !adminRow.is_admin) {
+                return res.status(403).json({ error: 'League admin access required' });
+            }
+        }
+
+        // Get all pending matches for this league
+        const pendingMatches = await database.all(
+            `SELECT id, league_id, player1_id, player2_id, is_accepted,
+                    player1_roster_id, player2_roster_id, winner_roster_id,
+                    player1_elo_before, player2_elo_before,
+                    player1_elo_after, player2_elo_after
+             FROM matches
+             WHERE league_id = ? AND is_accepted = ?
+             ORDER BY created_at ASC`,
+            [leagueId, false]
+        );
+
+        if (pendingMatches.length === 0) {
+            return res.json({ message: 'No pending matches to accept', accepted: 0 });
+        }
+
+        const league = await database.get('SELECT name, elo_update_mode FROM leagues WHERE id = ?', [leagueId]);
+        const mode = league && league.elo_update_mode ? league.elo_update_mode : 'immediate';
+
+        let accepted = 0;
+        const errors = [];
+
+        for (const match of pendingMatches) {
+            try {
+                if (mode === 'immediate') {
+                    await database.withTransaction(async (tx) => {
+                        await tx.run(
+                            'UPDATE matches SET is_accepted = ?, accepted_by = ?, accepted_at = CURRENT_TIMESTAMP, elo_applied = ?, elo_applied_at = CURRENT_TIMESTAMP WHERE id = ?',
+                            [true, req.user.id, true, match.id]
+                        );
+
+                        await tx.run(
+                            'UPDATE league_roster SET current_elo = ? WHERE league_id = ? AND id = ?',
+                            [match.player1_elo_after, match.league_id, match.player1_roster_id]
+                        );
+
+                        await tx.run(
+                            'UPDATE league_roster SET current_elo = ? WHERE league_id = ? AND id = ?',
+                            [match.player2_elo_after, match.league_id, match.player2_roster_id]
+                        );
+
+                        const player1EloChange = match.player1_elo_after - match.player1_elo_before;
+                        const player2EloChange = match.player2_elo_after - match.player2_elo_before;
+
+                        const p1User = await tx.get('SELECT user_id FROM league_roster WHERE id = ?', [match.player1_roster_id]);
+                        const p2User = await tx.get('SELECT user_id FROM league_roster WHERE id = ?', [match.player2_roster_id]);
+
+                        await tx.run(
+                            'INSERT INTO elo_history (user_id, league_id, roster_id, match_id, elo_before, elo_after, elo_change, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+                            [p1User?.user_id || null, match.league_id, match.player1_roster_id, match.id, match.player1_elo_before, match.player1_elo_after, player1EloChange]
+                        );
+
+                        await tx.run(
+                            'INSERT INTO elo_history (user_id, league_id, roster_id, match_id, elo_before, elo_after, elo_change, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+                            [p2User?.user_id || null, match.league_id, match.player2_roster_id, match.id, match.player2_elo_before, match.player2_elo_after, player2EloChange]
+                        );
+
+                        if (p1User?.user_id) {
+                            await tx.run(
+                                'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
+                                [p1User.user_id, 'match_accepted', 'Match Accepted', `Your match result in "${league.name}" has been accepted. ELO change: ${player1EloChange > 0 ? '+' : ''}${player1EloChange}`, match.id]
+                            );
+                        }
+
+                        if (p2User?.user_id) {
+                            await tx.run(
+                                'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
+                                [p2User.user_id, 'match_accepted', 'Match Accepted', `Your match result in "${league.name}" has been accepted. ELO change: ${player2EloChange > 0 ? '+' : ''}${player2EloChange}`, match.id]
+                            );
+                        }
+                    });
+                } else {
+                    await database.run(
+                        'UPDATE matches SET is_accepted = ?, accepted_by = ?, accepted_at = CURRENT_TIMESTAMP, elo_applied = ? WHERE id = ?',
+                        [true, req.user.id, false, match.id]
+                    );
+
+                    const p1User = await database.get('SELECT user_id FROM league_roster WHERE id = ?', [match.player1_roster_id]);
+                    const p2User = await database.get('SELECT user_id FROM league_roster WHERE id = ?', [match.player2_roster_id]);
+                    if (p1User?.user_id) {
+                        await database.run(
+                            'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
+                            [p1User.user_id, 'match_accepted_deferred', 'Match Accepted (Deferred ELO)', `Your match in "${league.name}" was accepted. ELO will be applied during ${mode} consolidation.`, match.id]
+                        );
+                    }
+                    if (p2User?.user_id) {
+                        await database.run(
+                            'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
+                            [p2User.user_id, 'match_accepted_deferred', 'Match Accepted (Deferred ELO)', `Your match in "${league.name}" was accepted. ELO will be applied during ${mode} consolidation.`, match.id]
+                        );
+                    }
+                }
+                accepted++;
+            } catch (err) {
+                console.error(`Failed to accept match ${match.id}:`, err);
+                errors.push({ matchId: match.id, error: err.message });
+            }
+        }
+
+        await markLeagueSnapshotDirty(leagueId);
+        res.json({
+            message: `Accepted ${accepted} of ${pendingMatches.length} matches`,
+            accepted,
+            total: pendingMatches.length,
+            errors: errors.length > 0 ? errors : undefined
+        });
+    } catch (error) {
+        console.error('Accept all matches error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
  * Consolidate deferred ELO updates for a league (league admin or system admin)
  * POST /api/leagues/:leagueId/consolidate?force=true
  */
@@ -1166,6 +1297,147 @@ router.post('/:id/reject', authenticateToken, validateId, async (req, res) => {
     } catch (error) {
         console.error('Reject match error:', error);
         res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Revert a match: undo ELO changes, delete elo_history entries,
+ * delete match_sets, delete the match, then recalculate any remaining
+ * consolidated matches in the same league.
+ * DELETE /api/matches/:id/revert
+ */
+router.delete('/:id/revert', authenticateToken, requireAdmin, validateId, async (req, res) => {
+    try {
+        const matchId = parseInt(req.params.id);
+
+        const match = await database.get(
+            `SELECT id, league_id, player1_roster_id, player2_roster_id,
+                    player1_elo_before, player2_elo_before,
+                    player1_elo_after, player2_elo_after,
+                    is_accepted, elo_applied
+             FROM matches WHERE id = ?`,
+            [matchId]
+        );
+
+        if (!match) {
+            return res.status(404).json({ error: 'Match not found' });
+        }
+
+        const leagueId = match.league_id;
+
+        // Find all other matches in this league that had ELO applied,
+        // so we can recalculate after removing the target match
+        const otherAppliedMatches = await database.all(
+            `SELECT id, player1_roster_id, player2_roster_id,
+                    player1_points_total, player2_points_total,
+                    player1_sets_won, player2_sets_won
+             FROM matches
+             WHERE league_id = ? AND id != ? AND elo_applied = ?
+             ORDER BY accepted_at ASC`,
+            [leagueId, matchId, true]
+        );
+
+        // Gather all roster IDs involved (target match + other applied matches)
+        const allRosterIds = Array.from(new Set([
+            match.player1_roster_id,
+            match.player2_roster_id,
+            ...otherAppliedMatches.flatMap(m => [m.player1_roster_id, m.player2_roster_id])
+        ]));
+
+        await database.withTransaction(async (tx) => {
+            // Step 1: Reset ALL involved roster members to base ELO (1200)
+            // We will recalculate from scratch for remaining matches
+            // First, get the earliest elo_before for each roster member from elo_history
+            for (const rosterId of allRosterIds) {
+                const earliest = await tx.get(
+                    `SELECT elo_before FROM elo_history
+                     WHERE league_id = ? AND roster_id = ?
+                     ORDER BY recorded_at ASC LIMIT 1`,
+                    [leagueId, rosterId]
+                );
+                const baseElo = earliest ? earliest.elo_before : 1200;
+                await tx.run(
+                    'UPDATE league_roster SET current_elo = ? WHERE league_id = ? AND id = ?',
+                    [baseElo, leagueId, rosterId]
+                );
+            }
+
+            // Step 2: Delete all elo_history for this league (we'll rebuild for remaining matches)
+            const allMatchIds = [matchId, ...otherAppliedMatches.map(m => m.id)];
+            const placeholders = allMatchIds.map(() => '?').join(', ');
+            await tx.run(
+                `DELETE FROM elo_history WHERE league_id = ? AND match_id IN (${placeholders})`,
+                [leagueId, ...allMatchIds]
+            );
+
+            // Step 3: Delete the target match's sets and the match itself
+            await tx.run('DELETE FROM match_sets WHERE match_id = ?', [matchId]);
+            await tx.run('DELETE FROM matches WHERE id = ?', [matchId]);
+
+            // Step 4: Recalculate ELO for remaining applied matches in order
+            if (otherAppliedMatches.length > 0) {
+                for (const m of otherAppliedMatches) {
+                    // Get current ELO from roster (accumulates as we process)
+                    const p1 = await tx.get(
+                        'SELECT current_elo, user_id FROM league_roster WHERE league_id = ? AND id = ?',
+                        [leagueId, m.player1_roster_id]
+                    );
+                    const p2 = await tx.get(
+                        'SELECT current_elo, user_id FROM league_roster WHERE league_id = ? AND id = ?',
+                        [leagueId, m.player2_roster_id]
+                    );
+
+                    const didP1Win = m.player1_sets_won > m.player2_sets_won;
+                    const eloResult = calculateNewElos(
+                        p1.current_elo, p2.current_elo,
+                        m.player1_points_total || 0, m.player2_points_total || 0,
+                        didP1Win, m.player1_sets_won, m.player2_sets_won
+                    );
+
+                    // Update match with recalculated ELO values
+                    await tx.run(
+                        `UPDATE matches SET
+                            player1_elo_before = ?, player2_elo_before = ?,
+                            player1_elo_after = ?, player2_elo_after = ?
+                         WHERE id = ?`,
+                        [p1.current_elo, p2.current_elo, eloResult.newRating1, eloResult.newRating2, m.id]
+                    );
+
+                    // Update roster ELOs
+                    await tx.run(
+                        'UPDATE league_roster SET current_elo = ? WHERE league_id = ? AND id = ?',
+                        [eloResult.newRating1, leagueId, m.player1_roster_id]
+                    );
+                    await tx.run(
+                        'UPDATE league_roster SET current_elo = ? WHERE league_id = ? AND id = ?',
+                        [eloResult.newRating2, leagueId, m.player2_roster_id]
+                    );
+
+                    // Re-insert elo_history entries
+                    const p1Delta = eloResult.newRating1 - p1.current_elo;
+                    const p2Delta = eloResult.newRating2 - p2.current_elo;
+                    await tx.run(
+                        'INSERT INTO elo_history (user_id, league_id, roster_id, match_id, elo_before, elo_after, elo_change, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+                        [p1.user_id || null, leagueId, m.player1_roster_id, m.id, p1.current_elo, eloResult.newRating1, p1Delta]
+                    );
+                    await tx.run(
+                        'INSERT INTO elo_history (user_id, league_id, roster_id, match_id, elo_before, elo_after, elo_change, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+                        [p2.user_id || null, leagueId, m.player2_roster_id, m.id, p2.current_elo, eloResult.newRating2, p2Delta]
+                    );
+                }
+            }
+        });
+
+        await markLeagueSnapshotDirty(leagueId);
+
+        res.json({
+            message: `Match ${matchId} reverted and deleted. ${otherAppliedMatches.length} remaining matches recalculated.`,
+            deleted_match_id: matchId,
+            recalculated_matches: otherAppliedMatches.length
+        });
+    } catch (error) {
+        console.error('Revert match error:', error);
+        res.status(500).json({ error: 'Internal server error', details: error.message });
     }
 });
 

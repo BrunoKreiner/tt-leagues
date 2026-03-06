@@ -195,6 +195,7 @@ export const matchesAPI = {
   reject: (id, reason) => api.post(`/matches/${id}/reject`, { reason }),
   getPending: (params, options) => cachedGet('/matches/pending', { params }, options),
   previewElo: (matchData) => api.post('/matches/preview-elo', matchData),
+  acceptAllByLeague: (leagueId) => api.post(`/matches/leagues/${leagueId}/accept-all`),
   consolidateLeague: (leagueId) => api.post(`/matches/leagues/${leagueId}/consolidate`),
   debugConsolidation: (leagueId, options) => cachedGet(`/matches/debug/consolidation/${leagueId}`, {}, options),
 };
