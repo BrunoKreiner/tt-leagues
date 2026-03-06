@@ -11,7 +11,7 @@ import LoadingSpinner from './components/ui/LoadingSpinner';
 // Lazy load all page components
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
-const LandingPage = lazy(() => import('./pages/LandingPageNew'));
+const LandingPage = lazy(() => import('./pages/LandingPageBeautiful'));
 const PublicLeaguePage = lazy(() => import('./pages/PublicLeaguePage'));
 const ContactPage = lazy(() => import('./pages/ContactPage'));
 const SupportTicketPage = lazy(() => import('./pages/SupportTicketPage'));
