@@ -1169,6 +1169,147 @@ router.post('/:id/reject', authenticateToken, validateId, async (req, res) => {
     }
 });
 
+/**
+ * Revert a match: undo ELO changes, delete elo_history entries,
+ * delete match_sets, delete the match, then recalculate any remaining
+ * consolidated matches in the same league.
+ * DELETE /api/matches/:id/revert
+ */
+router.delete('/:id/revert', authenticateToken, requireAdmin, validateId, async (req, res) => {
+    try {
+        const matchId = parseInt(req.params.id);
+
+        const match = await database.get(
+            `SELECT id, league_id, player1_roster_id, player2_roster_id,
+                    player1_elo_before, player2_elo_before,
+                    player1_elo_after, player2_elo_after,
+                    is_accepted, elo_applied
+             FROM matches WHERE id = ?`,
+            [matchId]
+        );
+
+        if (!match) {
+            return res.status(404).json({ error: 'Match not found' });
+        }
+
+        const leagueId = match.league_id;
+
+        // Find all other matches in this league that had ELO applied,
+        // so we can recalculate after removing the target match
+        const otherAppliedMatches = await database.all(
+            `SELECT id, player1_roster_id, player2_roster_id,
+                    player1_points_total, player2_points_total,
+                    player1_sets_won, player2_sets_won
+             FROM matches
+             WHERE league_id = ? AND id != ? AND elo_applied = ?
+             ORDER BY accepted_at ASC`,
+            [leagueId, matchId, true]
+        );
+
+        // Gather all roster IDs involved (target match + other applied matches)
+        const allRosterIds = Array.from(new Set([
+            match.player1_roster_id,
+            match.player2_roster_id,
+            ...otherAppliedMatches.flatMap(m => [m.player1_roster_id, m.player2_roster_id])
+        ]));
+
+        await database.withTransaction(async (tx) => {
+            // Step 1: Reset ALL involved roster members to base ELO (1200)
+            // We will recalculate from scratch for remaining matches
+            // First, get the earliest elo_before for each roster member from elo_history
+            for (const rosterId of allRosterIds) {
+                const earliest = await tx.get(
+                    `SELECT elo_before FROM elo_history
+                     WHERE league_id = ? AND roster_id = ?
+                     ORDER BY recorded_at ASC LIMIT 1`,
+                    [leagueId, rosterId]
+                );
+                const baseElo = earliest ? earliest.elo_before : 1200;
+                await tx.run(
+                    'UPDATE league_roster SET current_elo = ? WHERE league_id = ? AND id = ?',
+                    [baseElo, leagueId, rosterId]
+                );
+            }
+
+            // Step 2: Delete all elo_history for this league (we'll rebuild for remaining matches)
+            const allMatchIds = [matchId, ...otherAppliedMatches.map(m => m.id)];
+            const placeholders = allMatchIds.map(() => '?').join(', ');
+            await tx.run(
+                `DELETE FROM elo_history WHERE league_id = ? AND match_id IN (${placeholders})`,
+                [leagueId, ...allMatchIds]
+            );
+
+            // Step 3: Delete the target match's sets and the match itself
+            await tx.run('DELETE FROM match_sets WHERE match_id = ?', [matchId]);
+            await tx.run('DELETE FROM matches WHERE id = ?', [matchId]);
+
+            // Step 4: Recalculate ELO for remaining applied matches in order
+            if (otherAppliedMatches.length > 0) {
+                for (const m of otherAppliedMatches) {
+                    // Get current ELO from roster (accumulates as we process)
+                    const p1 = await tx.get(
+                        'SELECT current_elo, user_id FROM league_roster WHERE league_id = ? AND id = ?',
+                        [leagueId, m.player1_roster_id]
+                    );
+                    const p2 = await tx.get(
+                        'SELECT current_elo, user_id FROM league_roster WHERE league_id = ? AND id = ?',
+                        [leagueId, m.player2_roster_id]
+                    );
+
+                    const didP1Win = m.player1_sets_won > m.player2_sets_won;
+                    const eloResult = calculateNewElos(
+                        p1.current_elo, p2.current_elo,
+                        m.player1_points_total || 0, m.player2_points_total || 0,
+                        didP1Win, m.player1_sets_won, m.player2_sets_won
+                    );
+
+                    // Update match with recalculated ELO values
+                    await tx.run(
+                        `UPDATE matches SET
+                            player1_elo_before = ?, player2_elo_before = ?,
+                            player1_elo_after = ?, player2_elo_after = ?
+                         WHERE id = ?`,
+                        [p1.current_elo, p2.current_elo, eloResult.newRating1, eloResult.newRating2, m.id]
+                    );
+
+                    // Update roster ELOs
+                    await tx.run(
+                        'UPDATE league_roster SET current_elo = ? WHERE league_id = ? AND id = ?',
+                        [eloResult.newRating1, leagueId, m.player1_roster_id]
+                    );
+                    await tx.run(
+                        'UPDATE league_roster SET current_elo = ? WHERE league_id = ? AND id = ?',
+                        [eloResult.newRating2, leagueId, m.player2_roster_id]
+                    );
+
+                    // Re-insert elo_history entries
+                    const p1Delta = eloResult.newRating1 - p1.current_elo;
+                    const p2Delta = eloResult.newRating2 - p2.current_elo;
+                    await tx.run(
+                        'INSERT INTO elo_history (user_id, league_id, roster_id, match_id, elo_before, elo_after, elo_change, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+                        [p1.user_id || null, leagueId, m.player1_roster_id, m.id, p1.current_elo, eloResult.newRating1, p1Delta]
+                    );
+                    await tx.run(
+                        'INSERT INTO elo_history (user_id, league_id, roster_id, match_id, elo_before, elo_after, elo_change, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+                        [p2.user_id || null, leagueId, m.player2_roster_id, m.id, p2.current_elo, eloResult.newRating2, p2Delta]
+                    );
+                }
+            }
+        });
+
+        await markLeagueSnapshotDirty(leagueId);
+
+        res.json({
+            message: `Match ${matchId} reverted and deleted. ${otherAppliedMatches.length} remaining matches recalculated.`,
+            deleted_match_id: matchId,
+            recalculated_matches: otherAppliedMatches.length
+        });
+    } catch (error) {
+        console.error('Revert match error:', error);
+        res.status(500).json({ error: 'Internal server error', details: error.message });
+    }
+});
+
 // Cleanup: Removed duplicate route definitions for '/pending' and '/preview-elo'.
 
 module.exports = router;
