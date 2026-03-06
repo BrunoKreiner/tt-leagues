@@ -265,10 +265,6 @@
   .animate-rank-shift {
     animation: rank-shift 0.3s ease-out;
   }
-
-  .vg-card {
-    @apply velocity-card;
-  }
 }
 
 @layer utilities {
