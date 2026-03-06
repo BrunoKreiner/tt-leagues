@@ -221,14 +221,7 @@
   }
 }
 
-@layer utilities {
-  .line-clamp-2 {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
+@layer components {
   .velocity-card {
     background: linear-gradient(135deg, rgba(15, 22, 40, 0.6) 0%, rgba(10, 14, 39, 0.8) 100%);
     border: 1px solid rgba(0, 217, 255, 0.2);
@@ -257,14 +250,6 @@
     background: linear-gradient(135deg, #00d9ff 0%, #ffd700 100%);
   }
 
-  .text-velocity-cyan {
-    color: #00d9ff;
-  }
-
-  .text-velocity-gold {
-    color: #ffd700;
-  }
-
   .animate-float-up {
     animation: float-up 0.6s ease-out;
   }
@@ -283,5 +268,14 @@
 
   .vg-card {
     @apply velocity-card;
+  }
+}
+
+@layer utilities {
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 }
