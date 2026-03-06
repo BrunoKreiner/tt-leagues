@@ -861,6 +861,137 @@ router.post('/:id/accept', authenticateToken, validateId, async (req, res) => {
 });
 
 /**
+ * Accept all pending matches for a league (league admin or system admin)
+ * POST /api/matches/leagues/:leagueId/accept-all
+ */
+router.post('/leagues/:leagueId/accept-all', authenticateToken, async (req, res) => {
+    try {
+        const leagueId = parseInt(req.params.leagueId);
+
+        // Authorization: system admin or league admin
+        if (!req.user.is_admin) {
+            const adminRow = await database.get(
+                'SELECT is_admin FROM league_roster WHERE league_id = ? AND user_id = ?',
+                [leagueId, req.user.id]
+            );
+            if (!adminRow || !adminRow.is_admin) {
+                return res.status(403).json({ error: 'League admin access required' });
+            }
+        }
+
+        // Get all pending matches for this league
+        const pendingMatches = await database.all(
+            `SELECT id, league_id, player1_id, player2_id, is_accepted,
+                    player1_roster_id, player2_roster_id, winner_roster_id,
+                    player1_elo_before, player2_elo_before,
+                    player1_elo_after, player2_elo_after
+             FROM matches
+             WHERE league_id = ? AND is_accepted = ?
+             ORDER BY created_at ASC`,
+            [leagueId, false]
+        );
+
+        if (pendingMatches.length === 0) {
+            return res.json({ message: 'No pending matches to accept', accepted: 0 });
+        }
+
+        const league = await database.get('SELECT name, elo_update_mode FROM leagues WHERE id = ?', [leagueId]);
+        const mode = league && league.elo_update_mode ? league.elo_update_mode : 'immediate';
+
+        let accepted = 0;
+        const errors = [];
+
+        for (const match of pendingMatches) {
+            try {
+                if (mode === 'immediate') {
+                    await database.withTransaction(async (tx) => {
+                        await tx.run(
+                            'UPDATE matches SET is_accepted = ?, accepted_by = ?, accepted_at = CURRENT_TIMESTAMP, elo_applied = ?, elo_applied_at = CURRENT_TIMESTAMP WHERE id = ?',
+                            [true, req.user.id, true, match.id]
+                        );
+
+                        await tx.run(
+                            'UPDATE league_roster SET current_elo = ? WHERE league_id = ? AND id = ?',
+                            [match.player1_elo_after, match.league_id, match.player1_roster_id]
+                        );
+
+                        await tx.run(
+                            'UPDATE league_roster SET current_elo = ? WHERE league_id = ? AND id = ?',
+                            [match.player2_elo_after, match.league_id, match.player2_roster_id]
+                        );
+
+                        const player1EloChange = match.player1_elo_after - match.player1_elo_before;
+                        const player2EloChange = match.player2_elo_after - match.player2_elo_before;
+
+                        const p1User = await tx.get('SELECT user_id FROM league_roster WHERE id = ?', [match.player1_roster_id]);
+                        const p2User = await tx.get('SELECT user_id FROM league_roster WHERE id = ?', [match.player2_roster_id]);
+
+                        await tx.run(
+                            'INSERT INTO elo_history (user_id, league_id, roster_id, match_id, elo_before, elo_after, elo_change, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+                            [p1User?.user_id || null, match.league_id, match.player1_roster_id, match.id, match.player1_elo_before, match.player1_elo_after, player1EloChange]
+                        );
+
+                        await tx.run(
+                            'INSERT INTO elo_history (user_id, league_id, roster_id, match_id, elo_before, elo_after, elo_change, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+                            [p2User?.user_id || null, match.league_id, match.player2_roster_id, match.id, match.player2_elo_before, match.player2_elo_after, player2EloChange]
+                        );
+
+                        if (p1User?.user_id) {
+                            await tx.run(
+                                'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
+                                [p1User.user_id, 'match_accepted', 'Match Accepted', `Your match result in "${league.name}" has been accepted. ELO change: ${player1EloChange > 0 ? '+' : ''}${player1EloChange}`, match.id]
+                            );
+                        }
+
+                        if (p2User?.user_id) {
+                            await tx.run(
+                                'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
+                                [p2User.user_id, 'match_accepted', 'Match Accepted', `Your match result in "${league.name}" has been accepted. ELO change: ${player2EloChange > 0 ? '+' : ''}${player2EloChange}`, match.id]
+                            );
+                        }
+                    });
+                } else {
+                    await database.run(
+                        'UPDATE matches SET is_accepted = ?, accepted_by = ?, accepted_at = CURRENT_TIMESTAMP, elo_applied = ? WHERE id = ?',
+                        [true, req.user.id, false, match.id]
+                    );
+
+                    const p1User = await database.get('SELECT user_id FROM league_roster WHERE id = ?', [match.player1_roster_id]);
+                    const p2User = await database.get('SELECT user_id FROM league_roster WHERE id = ?', [match.player2_roster_id]);
+                    if (p1User?.user_id) {
+                        await database.run(
+                            'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
+                            [p1User.user_id, 'match_accepted_deferred', 'Match Accepted (Deferred ELO)', `Your match in "${league.name}" was accepted. ELO will be applied during ${mode} consolidation.`, match.id]
+                        );
+                    }
+                    if (p2User?.user_id) {
+                        await database.run(
+                            'INSERT INTO notifications (user_id, type, title, message, related_id) VALUES (?, ?, ?, ?, ?)',
+                            [p2User.user_id, 'match_accepted_deferred', 'Match Accepted (Deferred ELO)', `Your match in "${league.name}" was accepted. ELO will be applied during ${mode} consolidation.`, match.id]
+                        );
+                    }
+                }
+                accepted++;
+            } catch (err) {
+                console.error(`Failed to accept match ${match.id}:`, err);
+                errors.push({ matchId: match.id, error: err.message });
+            }
+        }
+
+        await markLeagueSnapshotDirty(leagueId);
+        res.json({
+            message: `Accepted ${accepted} of ${pendingMatches.length} matches`,
+            accepted,
+            total: pendingMatches.length,
+            errors: errors.length > 0 ? errors : undefined
+        });
+    } catch (error) {
+        console.error('Accept all matches error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
  * Consolidate deferred ELO updates for a league (league admin or system admin)
  * POST /api/leagues/:leagueId/consolidate?force=true
  */
