@@ -37,6 +37,9 @@ CREATE TABLE IF NOT EXISTS leagues (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- League settings for match recording permissions
+ALTER TABLE leagues ADD COLUMN IF NOT EXISTS allow_member_match_recording BOOLEAN DEFAULT FALSE;
+
 -- League members table (junction table for users and leagues)
 CREATE TABLE IF NOT EXISTS league_members (
     id SERIAL PRIMARY KEY,

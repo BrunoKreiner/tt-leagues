@@ -151,16 +151,35 @@ router.post('/', authenticateToken, validateMatchCreation, async (req, res) => {
 
         let player1Roster = null;
         if (player1_roster_id) {
+            // Check permission: site admin, league admin, or league setting enabled
             let isLeagueAdmin = false;
+            let allowMemberMatching = false;
+
             if (!req.user.is_admin) {
+                // Check if user is league admin
                 const adminRow = await database.get(
                     'SELECT is_admin FROM league_roster WHERE league_id = ? AND user_id = ?',
                     [league_id, req.user.id]
                 );
                 isLeagueAdmin = !!adminRow?.is_admin;
+
+                // If not admin, check league setting
+                if (!isLeagueAdmin) {
+                    const leagueRow = await database.get(
+                        'SELECT allow_member_match_recording FROM leagues WHERE id = ?',
+                        [league_id]
+                    );
+                    allowMemberMatching = !!leagueRow?.allow_member_match_recording;
+                }
             }
-            if (!req.user.is_admin && !isLeagueAdmin) {
-                return res.status(403).json({ error: 'League admin access required to record matches for others' });
+
+            // Permission: site admin OR league admin OR league setting enabled
+            const hasPermission = req.user.is_admin || isLeagueAdmin || allowMemberMatching;
+
+            if (!hasPermission) {
+                return res.status(403).json({
+                    error: 'Only admins or members with permission can record matches between any two players'
+                });
             }
             player1Roster = await getRosterById(league_id, player1_roster_id);
             if (!player1Roster) {
@@ -405,16 +424,35 @@ router.post('/preview-elo', authenticateToken, async (req, res) => {
         // Get current ELO ratings
         let player1Roster = null;
         if (player1_roster_id) {
+            // Check permission: site admin, league admin, or league setting enabled
             let isLeagueAdmin = false;
+            let allowMemberMatching = false;
+
             if (!req.user.is_admin) {
+                // Check if user is league admin
                 const adminRow = await database.get(
                     'SELECT is_admin FROM league_roster WHERE league_id = ? AND user_id = ?',
                     [league_id, req.user.id]
                 );
                 isLeagueAdmin = !!adminRow?.is_admin;
+
+                // If not admin, check league setting
+                if (!isLeagueAdmin) {
+                    const leagueRow = await database.get(
+                        'SELECT allow_member_match_recording FROM leagues WHERE id = ?',
+                        [league_id]
+                    );
+                    allowMemberMatching = !!leagueRow?.allow_member_match_recording;
+                }
             }
-            if (!req.user.is_admin && !isLeagueAdmin) {
-                return res.status(403).json({ error: 'League admin access required to preview matches for others' });
+
+            // Permission: site admin OR league admin OR league setting enabled
+            const hasPermission = req.user.is_admin || isLeagueAdmin || allowMemberMatching;
+
+            if (!hasPermission) {
+                return res.status(403).json({
+                    error: 'Only admins or members with permission can preview matches between any two players'
+                });
             }
             player1Roster = await getRosterById(league_id, player1_roster_id);
         } else {

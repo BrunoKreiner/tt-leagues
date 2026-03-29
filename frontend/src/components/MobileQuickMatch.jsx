@@ -26,15 +26,17 @@ export default function MobileQuickMatch({ initialLeagueId, onSuccess, onCancel 
   const { t } = useTranslation();
   const { user } = useAuth();
 
-  // Step state: 1 (opponent) → 2 (game type) → 3+ (set scores) → final (review)
+  // Step state: 1 (players) → 2 (game type) → 3+ (set scores) → final (review)
   const [step, setStep] = useState(1);
 
   // Form data
+  const [selectedPlayer1, setSelectedPlayer1] = useState(null);
   const [selectedOpponent, setSelectedOpponent] = useState(null);
   const [selectedGameType, setSelectedGameType] = useState('best_of_3');
   const [setScores, setSetScores] = useState([]); // [{ p1, p2 }, ...]
 
   // Loading states
+  const [league, setLeague] = useState(null);
   const [members, setMembers] = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -48,6 +50,20 @@ export default function MobileQuickMatch({ initialLeagueId, onSuccess, onCancel 
     }
   }, [user]);
 
+  // Find current user's roster entry
+  const selfRoster = useMemo(
+    () => members.find((m) => m.user_id === me?.id),
+    [members, me?.id]
+  );
+
+  // Check if user can select any player
+  const canSelectAnyPlayer = useMemo(() => {
+    if (me?.is_admin) return true;
+    const myRoster = members.find((m) => m.user_id === me?.id);
+    if (myRoster?.is_admin) return true;
+    return !!league?.allow_member_match_recording;
+  }, [me, members, league]);
+
   // Get current game type metadata
   const gameType = getGameTypeById(selectedGameType);
   const totalSteps = 2 + gameType.maxSets + 1; // opponent + type + sets + review
@@ -57,35 +73,49 @@ export default function MobileQuickMatch({ initialLeagueId, onSuccess, onCancel 
     return calculateWinner(setScores);
   }, [setScores]);
 
-  // Load league members
+  // Load league data and members
   useEffect(() => {
     if (!initialLeagueId) {
+      setLeague(null);
       setMembers([]);
       return;
     }
 
-    const loadMembers = async () => {
+    const loadLeagueAndMembers = async () => {
       try {
         setLoadingMembers(true);
-        const { data } = await leaguesAPI.getMembers(initialLeagueId);
-        const arr = (data.members || data) || [];
-        const filtered = arr.filter((m) => m.user_id !== me?.id);
-        setMembers(filtered);
+
+        // Load league details to get setting
+        const leagueRes = await leaguesAPI.getById(initialLeagueId);
+        setLeague(leagueRes.data);
+
+        // Load members
+        const membersRes = await leaguesAPI.getMembers(initialLeagueId);
+        const arr = (membersRes.data.members || membersRes.data) || [];
+        setMembers(arr); // Keep all members (not filtered)
       } catch (e) {
-        console.error('Failed to load members', e);
+        console.error('Failed to load league/members', e);
         toast.error(t('recordMatch.failedToLoadLeagueMembers'));
       } finally {
         setLoadingMembers(false);
       }
     };
-    loadMembers();
+    loadLeagueAndMembers();
   }, [initialLeagueId, me?.id, t]);
+
+  // Initialize Player 1 to current user when members load
+  useEffect(() => {
+    if (selfRoster?.roster_id && !selectedPlayer1) {
+      setSelectedPlayer1(selfRoster.roster_id);
+    }
+  }, [selfRoster?.roster_id, selectedPlayer1]);
 
   const handleSubmit = async () => {
     try {
       setSubmitting(true);
       const payload = {
         league_id: initialLeagueId,
+        player1_roster_id: selectedPlayer1,
         player2_roster_id: selectedOpponent,
         player1_sets_won: player1SetsWon,
         player2_sets_won: player2SetsWon,
@@ -131,7 +161,7 @@ export default function MobileQuickMatch({ initialLeagueId, onSuccess, onCancel 
   };
 
   const canProceed = () => {
-    if (step === 1) return selectedOpponent !== null;
+    if (step === 1) return selectedPlayer1 !== null && selectedOpponent !== null && selectedPlayer1 !== selectedOpponent;
     if (step === 2) return selectedGameType !== null;
     if (step >= 3 && step < totalSteps) {
       // On set entry steps, check if current set is entered
@@ -160,8 +190,9 @@ export default function MobileQuickMatch({ initialLeagueId, onSuccess, onCancel 
     }
   };
 
-  // Get opponent display name
-  const opponentName = members.find((m) => m.roster_id === selectedOpponent)?.display_name || '';
+  // Get player display names
+  const player1Name = members.find((m) => m.roster_id === selectedPlayer1)?.display_name || 'Player 1';
+  const player2Name = members.find((m) => m.roster_id === selectedOpponent)?.display_name || 'Player 2';
 
   return (
     <div className="px-4 py-6 mx-auto w-full max-w-2xl">
@@ -187,52 +218,82 @@ export default function MobileQuickMatch({ initialLeagueId, onSuccess, onCancel 
 
       <Card>
         <CardContent className="pt-6 space-y-6">
-          {/* STEP 1: Opponent Selection */}
+          {/* STEP 1: Player Selection */}
           {step === 1 && (
             <div className="space-y-4">
+              {/* Player 1 */}
               <div>
-                <h3 className="text-lg font-medium flex items-center gap-2 mb-4">
-                  <User className="h-5 w-5 text-blue-400" />
-                  {t('quickMatch.selectOpponent')}
+                <h3 className="text-base font-medium flex items-center gap-2 mb-2">
+                  <User className="h-4 w-4 text-blue-400" />
+                  Player 1
+                </h3>
+                {canSelectAnyPlayer ? (
+                  <Select
+                    value={selectedPlayer1?.toString()}
+                    onValueChange={(v) => setSelectedPlayer1(Number(v))}
+                    disabled={loadingMembers}
+                  >
+                    <SelectTrigger className="w-full h-12 text-base">
+                      <SelectValue placeholder={loadingMembers ? t('common.loading') : 'Select Player 1'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {members.map((m) => (
+                        <SelectItem key={m.roster_id} value={String(m.roster_id)} className="text-base py-2">
+                          {m.display_name} {typeof m.current_elo === 'number' ? `(${m.current_elo})` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="w-full h-12 px-3 flex items-center bg-gray-800/40 border border-gray-700 rounded-lg text-base">
+                    {selfRoster?.display_name || me?.username || 'You'} {typeof selfRoster?.current_elo === 'number' ? `(${selfRoster.current_elo})` : ''}
+                  </div>
+                )}
+              </div>
+
+              {/* Player 2 */}
+              <div>
+                <h3 className="text-base font-medium flex items-center gap-2 mb-2">
+                  <User className="h-4 w-4 text-green-400" />
+                  Player 2
                 </h3>
                 <Select
                   value={selectedOpponent?.toString()}
                   onValueChange={(v) => setSelectedOpponent(Number(v))}
                   disabled={loadingMembers}
                 >
-                  <SelectTrigger className="w-full h-14 text-lg">
-                    <SelectValue
-                      placeholder={
-                        loadingMembers ? t('common.loading') : t('recordMatch.selectOpponent')
-                      }
-                    />
+                  <SelectTrigger className="w-full h-12 text-base">
+                    <SelectValue placeholder={loadingMembers ? t('common.loading') : 'Select Player 2'} />
                   </SelectTrigger>
                   <SelectContent>
-                    {members.map((m) => (
-                      <SelectItem key={m.roster_id} value={String(m.roster_id)} className="text-lg py-3">
+                    {members.filter((m) => m.roster_id !== selectedPlayer1).map((m) => (
+                      <SelectItem key={m.roster_id} value={String(m.roster_id)} className="text-base py-2">
                         {m.display_name} {typeof m.current_elo === 'number' ? `(${m.current_elo})` : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+              {selectedPlayer1 === selectedOpponent && selectedOpponent && (
+                <p className="text-xs text-red-400">Player 1 and Player 2 must be different</p>
+              )}
               <div className="flex gap-3">
                 <Button
                   variant="outline"
                   size="lg"
-                  className="flex-1 h-14 text-lg"
+                  className="flex-1 h-12 text-base"
                   onClick={handleBack}
                 >
-                  <ArrowLeft className="mr-2 h-5 w-5" />
+                  <ArrowLeft className="mr-2 h-4 w-4" />
                   {t('quickMatch.back')}
                 </Button>
                 <Button
                   size="lg"
-                  className="flex-1 h-14 text-lg"
+                  className="flex-1 h-12 text-base"
                   disabled={!canProceed()}
                   onClick={handleNext}
                 >
-                  {t('quickMatch.next')} <ArrowRight className="ml-2 h-5 w-5" />
+                  {t('quickMatch.next')} <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -296,14 +357,14 @@ export default function MobileQuickMatch({ initialLeagueId, onSuccess, onCancel 
                     Set {setNumber} of {gameType.maxSets}
                   </h3>
                   <p className="text-sm text-muted-foreground mb-4">
-                    {me?.username || 'You'} vs {opponentName}
+                    {player1Name} vs {player2Name}
                   </p>
                   <SetScoreInput
                     currentScore={setScores[setIndex]}
                     onScoreSelect={(p1, p2) => handleSetScore(setIndex, p1, p2)}
                     allowSwap={true}
-                    player1Label={me?.username || 'You'}
-                    player2Label={opponentName}
+                    player1Label={player1Name}
+                    player2Label={player2Name}
                   />
                 </div>
                 <div className="flex gap-3">
@@ -336,8 +397,12 @@ export default function MobileQuickMatch({ initialLeagueId, onSuccess, onCancel 
 
               <div className="space-y-3 p-4 bg-gray-800/30 rounded-lg border border-gray-700">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">{t('recordMatch.opponentLabel')}:</span>
-                  <span className="font-medium">{opponentName}</span>
+                  <span className="text-muted-foreground">Player 1:</span>
+                  <span className="font-medium">{player1Name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Player 2:</span>
+                  <span className="font-medium">{player2Name}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t('matchDetail.gameType')}:</span>

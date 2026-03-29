@@ -95,6 +95,7 @@ const LeagueDetailPage = () => {
   const [joinRequestsError, setJoinRequestsError] = useState(null);
   const [joinRequestActionLoading, setJoinRequestActionLoading] = useState({});
   const [eloMode, setEloMode] = useState('immediate');
+  const [allowMemberMatching, setAllowMemberMatching] = useState(false);
   const [showRecordMatch, setShowRecordMatch] = useState(false);
   const [showQuickMatch, setShowQuickMatch] = useState(false);
 
@@ -215,6 +216,7 @@ const LeagueDetailPage = () => {
         season: league.season || '',
       });
       setEloMode(league.elo_update_mode || 'immediate');
+      setAllowMemberMatching(!!league.allow_member_match_recording);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [league]);
@@ -291,9 +293,10 @@ const LeagueDetailPage = () => {
       } else {
         setJoinRequest(null);
       }
-      // Update eloMode state to match the refreshed league data
+      // Update eloMode and allowMemberMatching to match the refreshed league data
       const newEloMode = leagueData.league.elo_update_mode || 'immediate';
       setEloMode(newEloMode);
+      setAllowMemberMatching(!!leagueData.league.allow_member_match_recording);
       const canManage = isAuthenticated && (isAdmin || leagueData.user_membership?.is_admin);
       const snapshotLeaderboard = Array.isArray(leagueData.leaderboard) ? leagueData.leaderboard : [];
       setLeaderboard(snapshotLeaderboard);
@@ -733,6 +736,7 @@ const LeagueDetailPage = () => {
         is_public: !!values.is_public,
         season: values.season?.trim() || undefined,
         elo_update_mode: eloMode,
+        allow_member_match_recording: allowMemberMatching,
       };
       await leaguesAPI.update(id, payload);
       toast.success(t('leagues.updated'));
@@ -1814,6 +1818,41 @@ const LeagueDetailPage = () => {
                   className="w-full"
                 >
                   {updateLoading ? 'Updating...' : 'Update ELO Mode'}
+                </Button>
+              </div>
+
+              {/* Match Recording Permissions */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-gray-300">Match Recording Permissions</h4>
+                <div className="flex items-center justify-between rounded-md border border-gray-700 bg-gray-900/40 px-3 py-3">
+                  <div className="flex-1">
+                    <div className="text-sm text-gray-200">Allow members to record matches for others</div>
+                    <div className="text-xs text-gray-500 mt-1">When enabled, all league members can record matches between any two players</div>
+                  </div>
+                  <Switch
+                    checked={allowMemberMatching}
+                    onCheckedChange={setAllowMemberMatching}
+                    className="ml-4"
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  disabled={updateLoading}
+                  onClick={async () => {
+                    try {
+                      setUpdateLoading(true);
+                      await leaguesAPI.update(id, { allow_member_match_recording: allowMemberMatching });
+                      toast.success('Match recording permissions updated');
+                      await refreshLeagueData();
+                    } catch (e) {
+                      toast.error(e?.response?.data?.error || 'Failed to update permissions');
+                    } finally {
+                      setUpdateLoading(false);
+                    }
+                  }}
+                  className="w-full"
+                >
+                  {updateLoading ? 'Updating...' : 'Update Permissions'}
                 </Button>
               </div>
 
