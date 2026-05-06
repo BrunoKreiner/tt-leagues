@@ -4,10 +4,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff } from 'lucide-react';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import Brand from '@/components/layout/Brand';
 import SiteFooter from '@/components/layout/SiteFooter';
 import { useTranslation } from 'react-i18next';
 
@@ -20,7 +20,7 @@ const RegisterPage = () => {
     first_name: '',
     last_name: '',
     email: '',
-    website: '', // Honeypot field
+    website: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -28,109 +28,103 @@ const RegisterPage = () => {
   const { register, loading, error } = useAuth();
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-    
-    // Clear validation error for this field
+    setFormData({ ...formData, [e.target.name]: e.target.value });
     if (validationErrors[e.target.name]) {
-      setValidationErrors({
-        ...validationErrors,
-        [e.target.name]: '',
-      });
+      setValidationErrors({ ...validationErrors, [e.target.name]: '' });
     }
   };
 
   const validateForm = () => {
     const errors = {};
-
-    if (formData.username.length < 3) {
-      errors.username = 'Username must be at least 3 characters long';
-    }
-
-    if (formData.password.length < 6) {
-      errors.password = 'Password must be at least 6 characters long';
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      errors.confirmPassword = 'Passwords do not match';
-    }
-
-    if (!formData.first_name.trim()) {
-      errors.first_name = 'First name is required';
-    }
-
-    if (!formData.last_name.trim()) {
-      errors.last_name = 'Last name is required';
-    }
-
-    if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
-      errors.email = 'Please enter a valid email address';
-    }
-
+    if (formData.username.length < 3) errors.username = t('auth.validation.usernameMin');
+    if (formData.password.length < 6) errors.password = t('auth.validation.passwordMin');
+    if (formData.password !== formData.confirmPassword) errors.confirmPassword = t('auth.validation.passwordMismatch');
+    if (!formData.first_name.trim()) errors.first_name = t('auth.validation.firstNameRequired');
+    if (!formData.last_name.trim()) errors.last_name = t('auth.validation.lastNameRequired');
+    if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) errors.email = t('auth.validation.emailInvalid');
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Check honeypot field
-    if (formData.website) {
-      // Bot detected - silently fail
-      return;
-    }
-    
-    if (!validateForm()) {
-      return;
-    }
-
-    const registrationData = { ...formData };
-    delete registrationData.confirmPassword;
-    delete registrationData.website; // Remove honeypot field
-    if (!registrationData.email) {
-      delete registrationData.email; // omit empty email so BE treats it as truly optional
-    }
-    
-    await register(registrationData);
+    if (formData.website) return;
+    if (!validateForm()) return;
+    const data = { ...formData };
+    delete data.confirmPassword;
+    delete data.website;
+    if (!data.email) delete data.email;
+    await register(data);
   };
 
-
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-950 via-gray-900 to-gray-800">
-      <header className="border-b border-gray-800/60 bg-gradient-to-r from-gray-900/95 via-gray-900/98 to-gray-900/95 backdrop-blur-xl">
-        <div className="max-w-5xl mx-auto px-4">
+    <div className="min-h-screen flex flex-col">
+      <header
+        className="backdrop-blur-md"
+        style={{ background: 'oklch(0.17 0.008 60 / 0.78)', borderBottom: '1px solid var(--line-soft)' }}
+      >
+        <div className="max-w-[1140px] mx-auto px-6 md:px-12">
           <div className="flex justify-between items-center h-16">
-            <Link to="/" className="flex items-center space-x-2 group">
-              <img src="/img/logo.png" alt="Logo" className="h-8 w-8 group-hover:scale-105 transition-transform" />
-              <span className="cyberpunk-title text-lg bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                {t('app.title')}
-              </span>
-            </Link>
-            <Button variant="ghost" size="sm" asChild className="text-gray-400 hover:text-white">
-              <Link to="/login">Log in</Link>
+            <Brand />
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/login">{t('auth.logIn')}</Link>
             </Button>
           </div>
         </div>
       </header>
 
-      <div className="flex-1 flex items-center justify-center px-4 py-10">
-        <Card className="w-full max-w-md vg-card no-hover">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl text-blue-300">Register</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="first_name" className="text-gray-300">First Name</Label>
+      <div className="flex-1 grid md:grid-cols-2">
+        <div
+          className="relative px-6 md:px-16 py-14 md:py-20 flex flex-col justify-between gap-12"
+          style={{ borderRight: '1px solid var(--line-soft)' }}
+        >
+          <div>
+            <div className="eyebrow dotted">{t('auth.register.eyebrow')}</div>
+            <h1
+              className="display mt-4"
+              style={{
+                fontSize: 'clamp(40px, 5.4vw, 56px)',
+                lineHeight: '1.02',
+                letterSpacing: '-0.03em',
+              }}
+            >
+              {t('auth.register.titleLine1pre')}{' '}
+              <span style={{ color: 'var(--accent)' }}>1200</span>.
+              <br />
+              <em style={{ fontStyle: 'italic', color: 'var(--accent)' }}>{t('auth.register.titleLine2')}</em>
+            </h1>
+            <p className="text-[16px] leading-[1.5] text-[var(--fg-2)] max-w-[420px] mt-5">
+              {t('auth.register.lede')}
+            </p>
+          </div>
+          <div className="font-mono text-[11px] text-[var(--fg-3)] tracking-[0.1em] uppercase">
+            {t('auth.register.statline')}
+          </div>
+        </div>
+
+        <div className="px-6 md:px-16 py-14 md:py-20 flex items-center justify-center">
+          <form onSubmit={handleSubmit} className="w-full max-w-[420px]">
+            <h2 className="text-[26px] font-bold tracking-tight mb-1.5">{t('auth.register.formTitle')}</h2>
+            <p className="text-[14px] text-[var(--fg-3)] mb-7">
+              {t('auth.register.formSub')}{' '}
+              <Link to="/login" className="text-[var(--accent)] hover:underline">
+                {t('auth.logIn')}
+              </Link>
+              .
+            </p>
+
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="space-y-3.5">
+              <div className="grid grid-cols-2 gap-3.5">
+                <div className="space-y-1.5">
+                  <Label htmlFor="first_name" className="tt-field-label">
+                    {t('auth.register.firstName')}
+                  </Label>
                   <Input
                     id="first_name"
                     name="first_name"
@@ -138,15 +132,18 @@ const RegisterPage = () => {
                     value={formData.first_name}
                     onChange={handleChange}
                     required
-                    placeholder="John"
+                    className="tt-field-input"
+                    placeholder="Lina"
+                    autoComplete="given-name"
                   />
                   {validationErrors.first_name && (
-                    <p className="text-sm text-red-600">{validationErrors.first_name}</p>
+                    <p className="text-xs text-[var(--bad)]">{validationErrors.first_name}</p>
                   )}
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="last_name" className="text-gray-300">Last Name</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="last_name" className="tt-field-label">
+                    {t('auth.register.lastName')}
+                  </Label>
                   <Input
                     id="last_name"
                     name="last_name"
@@ -154,16 +151,20 @@ const RegisterPage = () => {
                     value={formData.last_name}
                     onChange={handleChange}
                     required
-                    placeholder="Doe"
+                    className="tt-field-input"
+                    placeholder="Vogel"
+                    autoComplete="family-name"
                   />
                   {validationErrors.last_name && (
-                    <p className="text-sm text-red-600">{validationErrors.last_name}</p>
+                    <p className="text-xs text-[var(--bad)]">{validationErrors.last_name}</p>
                   )}
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="username" className="text-gray-300">Username</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="username" className="tt-field-label">
+                  {t('auth.register.handle')}
+                </Label>
                 <Input
                   id="username"
                   name="username"
@@ -171,30 +172,38 @@ const RegisterPage = () => {
                   value={formData.username}
                   onChange={handleChange}
                   required
-                  placeholder="player123"
+                  className="tt-field-input"
+                  placeholder="forehand_friend"
+                  autoComplete="username"
                 />
                 {validationErrors.username && (
-                  <p className="text-sm text-red-600">{validationErrors.username}</p>
+                  <p className="text-xs text-[var(--bad)]">{validationErrors.username}</p>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-300">Email (optional)</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="email" className="tt-field-label">
+                  {t('auth.register.email')}
+                </Label>
                 <Input
                   id="email"
                   name="email"
                   type="email"
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="john@example.com"
+                  className="tt-field-input"
+                  placeholder="you@club.com"
+                  autoComplete="email"
                 />
                 {validationErrors.email && (
-                  <p className="text-sm text-red-600">{validationErrors.email}</p>
+                  <p className="text-xs text-[var(--bad)]">{validationErrors.email}</p>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-gray-300">Password</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="password" className="tt-field-label">
+                  {t('auth.register.password')}
+                </Label>
                 <div className="relative">
                   <Input
                     id="password"
@@ -203,29 +212,30 @@ const RegisterPage = () => {
                     value={formData.password}
                     onChange={handleChange}
                     required
-                    placeholder="••••••••"
+                    className="tt-field-input pr-10"
+                    placeholder={t('auth.register.passwordPlaceholder')}
+                    autoComplete="new-password"
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
                     onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
                   >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
                 </div>
                 {validationErrors.password && (
-                  <p className="text-sm text-red-600">{validationErrors.password}</p>
+                  <p className="text-xs text-[var(--bad)]">{validationErrors.password}</p>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-gray-300">Confirm Password</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="confirmPassword" className="tt-field-label">
+                  {t('auth.register.confirmPassword')}
+                </Label>
                 <div className="relative">
                   <Input
                     id="confirmPassword"
@@ -234,62 +244,57 @@ const RegisterPage = () => {
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     required
+                    className="tt-field-input pr-10"
                     placeholder="••••••••"
+                    autoComplete="new-password"
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    tabIndex={-1}
                   >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
                 </div>
                 {validationErrors.confirmPassword && (
-                  <p className="text-sm text-red-600">{validationErrors.confirmPassword}</p>
+                  <p className="text-xs text-[var(--bad)]">{validationErrors.confirmPassword}</p>
                 )}
               </div>
-
-              {/* Honeypot field - hidden from users */}
-              <div style={{ position: 'absolute', left: '-9999px', opacity: 0, pointerEvents: 'none' }}>
-                <Label htmlFor="website">Website (leave blank)</Label>
-                <Input
-                  id="website"
-                  name="website"
-                  type="text"
-                  value={formData.website || ''}
-                  onChange={handleChange}
-                  tabIndex={-1}
-                  autoComplete="off"
-                />
-              </div>
-
-
-              <Button type="submit" className="w-full hover:scale-100 hover:shadow-sm" disabled={loading}>
-                {loading ? (
-                  <>
-                    <LoadingSpinner size="sm" className="mr-2" />
-                    Registering...
-                  </>
-                ) : (
-                  'Register'
-                )}
-              </Button>
-            </form>
-
-            <div className="mt-6 text-center text-sm">
-              <span className="text-gray-400">Already have an account? </span>
-              <Link to="/login" className="text-blue-400 hover:text-blue-300 underline">
-                Sign in
-              </Link>
             </div>
-          </CardContent>
-        </Card>
+
+            {/* Honeypot */}
+            <div style={{ position: 'absolute', left: '-9999px', opacity: 0, pointerEvents: 'none' }}>
+              <Label htmlFor="website">Website (leave blank)</Label>
+              <Input
+                id="website"
+                name="website"
+                type="text"
+                value={formData.website || ''}
+                onChange={handleChange}
+                tabIndex={-1}
+                autoComplete="off"
+              />
+            </div>
+
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-[var(--accent)] text-[var(--accent-ink)] hover:bg-[var(--accent-2)] rounded-full font-bold py-6 text-[15px] tt-btn-primary mt-7"
+            >
+              {loading ? (
+                <>
+                  <LoadingSpinner size="sm" className="mr-2" />
+                  {t('auth.register.creating')}
+                </>
+              ) : (
+                t('auth.register.submit')
+              )}
+            </Button>
+          </form>
+        </div>
       </div>
       <SiteFooter />
     </div>
@@ -297,4 +302,3 @@ const RegisterPage = () => {
 };
 
 export default RegisterPage;
-

@@ -3,12 +3,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
   Home,
@@ -21,7 +21,8 @@ import {
   Bell,
   Shield,
   UserPlus,
-  BookOpen
+  BookOpen,
+  Plus,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -30,6 +31,7 @@ import MobileMenu from './MobileMenu';
 import HamburgerButton from './HamburgerButton';
 import { useTranslation } from 'react-i18next';
 import SiteFooter from '@/components/layout/SiteFooter';
+import Brand from '@/components/layout/Brand';
 
 const Layout = () => {
   const { user, logout, isAuthenticated, isAdmin } = useAuth();
@@ -53,7 +55,7 @@ const Layout = () => {
       label: (
         <span className="inline-flex items-start gap-1">
           <span>TTC Baden-Wettingen</span>
-          <sup className="text-[10px] font-semibold text-blue-400 inline-block -skew-y-3">wiki</sup>
+          <sup className="text-[10px] font-semibold text-[var(--accent)] inline-block -skew-y-3">wiki</sup>
         </span>
       ),
       href: '/wiki/ttc-baden-wettingen',
@@ -74,9 +76,13 @@ const Layout = () => {
     setMobileMenuOpen(false);
   }, []);
 
-  const getUserInitials = (user) => {
-    if (!user) return 'U';
-    return `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase() || user.username?.[0]?.toUpperCase() || 'U';
+  const getUserInitials = (u) => {
+    if (!u) return 'U';
+    return (
+      `${u.first_name?.[0] || ''}${u.last_name?.[0] || ''}`.toUpperCase() ||
+      u.username?.[0]?.toUpperCase() ||
+      'U'
+    );
   };
 
   const fetchNotifications = async () => {
@@ -86,7 +92,6 @@ const Layout = () => {
       setNotifications(res.data?.notifications || []);
       setUnreadCount(res.data?.unread_count || 0);
     } catch (e) {
-      // soft fail
       console.error('Failed to load notifications', e);
     } finally {
       setNotifLoading(false);
@@ -99,11 +104,19 @@ const Layout = () => {
       setUnreadCount(0);
       return;
     }
-    // initial fetch on layout mount
     fetchNotifications();
-    // optional: poll every 60s
     const intervalId = setInterval(fetchNotifications, 60000);
     return () => clearInterval(intervalId);
+  }, [isAuthenticated]);
+
+  // Reserve room for the mobile bottom tab bar when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      document.body.classList.add('has-tabbar');
+    } else {
+      document.body.classList.remove('has-tabbar');
+    }
+    return () => document.body.classList.remove('has-tabbar');
   }, [isAuthenticated]);
 
   const markAsRead = async (id) => {
@@ -127,16 +140,16 @@ const Layout = () => {
   const handleAcceptInvite = async (n) => {
     const leagueId = n.related_id;
     if (!leagueId) {
-             toast.error(t('notifications.missingLeague'));
+      toast.error(t('notifications.missingLeague'));
       return;
     }
     try {
       setAcceptLoading((s) => ({ ...s, [n.id]: true }));
       const res = await leaguesAPI.join(leagueId);
-             toast.success(res.data?.message || t('notifications.joinedLeague'));
+      toast.success(res.data?.message || t('notifications.joinedLeague'));
       await markAsRead(n.id);
     } catch (err) {
-             const msg = err.response?.data?.error || t('notifications.acceptError');
+      const msg = err.response?.data?.error || t('notifications.acceptError');
       toast.error(msg);
     } finally {
       setAcceptLoading((s) => ({ ...s, [n.id]: false }));
@@ -144,235 +157,308 @@ const Layout = () => {
   };
 
   const handleDenyInvite = async (n) => {
-    // No decline endpoint yet; soft-deny by marking notification as read
     await markAsRead(n.id);
-         toast.success(t('notifications.inviteHandled'));
+    toast.success(t('notifications.inviteHandled'));
   };
 
+  const isActive = (href) =>
+    location.pathname === href || (href !== '/' && location.pathname.startsWith(href));
+
   return (
-    <div className="min-h-screen">
-      {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-gray-800/60 bg-gradient-to-r from-gray-900/95 via-gray-900/98 to-gray-900/95 backdrop-blur-xl">
-        <div className="flex h-16 items-center px-4 md:px-6">
-          {/* Logo */}
-          <Link to="/app/dashboard" className="flex items-center space-x-2 group">
-            <img src="/img/logo.png" alt="Logo" className="h-8 w-8 group-hover:scale-105 transition-transform" />
-            <span className="cyberpunk-title text-lg bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">{t('app.title')}</span>
-          </Link>
+    <div className="min-h-screen flex flex-col">
+      {/* HEADER */}
+      <header
+        className="sticky top-0 z-40 border-b backdrop-blur-md"
+        style={{
+          background: 'oklch(0.17 0.008 60 / 0.78)',
+          borderColor: 'var(--line-soft)',
+        }}
+      >
+        <div className="max-w-[1140px] mx-auto px-6 md:px-12">
+          <div className="flex items-center gap-7 h-16">
+            <Brand to={isAuthenticated ? '/app/dashboard' : '/'} />
 
-          {/* Navigation */}
-          <nav className="hidden md:flex items-center space-x-4 lg:space-x-6 mx-6">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.href || 
-                             (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
-              const label = item.label ?? item.name;
-              
-              return (
-                <Link
-                  key={item.href}
-                  to={item.href}
-                  className={`cyberpunk-text flex items-center space-x-2 text-sm font-medium transition-all duration-200 hover:text-blue-400 hover:scale-105 ${
-                    isActive 
-                      ? 'text-blue-400' 
-                      : 'text-gray-400'
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  <span className="hidden sm:inline-block">{label}</span>
-                </Link>
-              );
-            })}
-          </nav>
+            {/* Desktop nav */}
+            <nav className="hidden md:flex items-center gap-6 text-[14px] text-[var(--fg-2)]">
+              {navigation.map((item) => {
+                const active = isActive(item.href);
+                const label = item.label ?? item.name;
+                return (
+                  <Link
+                    key={item.href}
+                    to={item.href}
+                    className={`relative py-1.5 transition-colors hover:text-[var(--fg)] ${
+                      active ? 'text-[var(--fg)]' : ''
+                    }`}
+                  >
+                    {label}
+                    {active && (
+                      <span
+                        className="absolute left-0 right-0 -bottom-[21px] h-px bg-[var(--accent)] origin-left"
+                        style={{ animation: 'tt-underline-grow .4s cubic-bezier(.34,1.56,.64,1) .1s both' }}
+                      />
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
 
-          {/* Spacer pushes right-side content (incl. hamburger on mobile) */}
-          <div className="flex-1" />
+            <div className="ml-auto flex items-center gap-2">
+              <HamburgerButton isOpen={mobileMenuOpen} onClick={toggleMobileMenu} />
 
-          {/* Mobile Menu Button */}
-          <HamburgerButton isOpen={mobileMenuOpen} onClick={toggleMobileMenu} />
-
-          {/* Right side */}
-          <div className="hidden md:flex items-center space-x-4">
-            {/* Language switcher */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  {i18n.language === 'de' ? 'DE' : 'EN'}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700">
-                <DropdownMenuItem onClick={() => i18n.changeLanguage('en')} className="text-gray-200 hover:bg-gray-700">{t('language.english')}</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => i18n.changeLanguage('de')} className="text-gray-200 hover:bg-gray-700">{t('language.german')}</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {isAuthenticated ? (
-              <>
-                {/* Notifications */}
+              <div className="hidden md:flex items-center gap-2">
+                {/* Language switcher */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="relative" onClick={fetchNotifications}>
-                      <Bell className="h-4 w-4" />
-                      {unreadCount > 0 && (
-                        <span className="absolute -top-1 -right-1 min-w-[1rem] h-4 px-1 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center">
-                          {unreadCount}
-                        </span>
-                      )}
+                    <Button variant="ghost" size="sm" className="font-mono text-[11px] tracking-wider uppercase">
+                      {i18n.language === 'de' ? 'DE' : 'EN'}
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-96 bg-gray-900 border-2 border-gray-700 shadow-xl" align="end" forceMount>
-                    <div className="px-4 py-3 flex items-center justify-between border-b border-gray-700">
-                      <span className="text-sm font-semibold text-gray-200">{t('notifications.title')}</span>
-                      <Button variant="ghost" size="sm" onClick={markAllAsRead} disabled={notifLoading || unreadCount === 0} className="h-7 px-2 text-xs">
-                        {t('actions.markAllRead')}
-                      </Button>
-                    </div>
-                    <div className="max-h-96 overflow-y-auto">
-                      {notifLoading ? (
-                        <div className="p-6 text-center text-sm text-gray-400">{t('common.loading')}</div>
-                      ) : notifications.length === 0 ? (
-                        <div className="p-6 text-center text-sm text-gray-400">{t('notifications.none')}</div>
-                      ) : (
-                        notifications.map((n) => (
-                          <div key={n.id} className={`px-4 py-3 border-b border-gray-800 last:border-b-0 hover:bg-gray-800/50 transition-colors ${!n.is_read ? 'bg-gray-800/30' : ''}`}>
-                            <div className="flex items-start gap-3">
-                              {/* Icon */}
-                              <div className={`mt-0.5 flex-shrink-0 ${n.type === 'league_invite' ? 'text-blue-400' : 'text-gray-400'}`}>
-                                {n.type === 'league_invite' ? (
-                                  <UserPlus className="h-4 w-4" />
-                                ) : (
-                                  <Bell className="h-4 w-4" />
-                                )}
-                              </div>
-                              {/* Content */}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="flex-1 min-w-0">
-                                    <div className={`text-sm mb-1 ${!n.is_read ? 'font-semibold text-gray-100' : 'font-medium text-gray-300'}`}>{n.title}</div>
-                                    <div className="text-xs text-gray-400 mb-1.5 leading-relaxed">{n.message}</div>
-                                    {n.created_at && (
-                                      <div className="text-[10px] text-gray-500">
-                                        {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
-                                      </div>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => i18n.changeLanguage('en')}>
+                      {t('language.english')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => i18n.changeLanguage('de')}>
+                      {t('language.german')}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {isAuthenticated ? (
+                  <>
+                    <Button
+                      asChild
+                      size="sm"
+                      className="bg-[var(--accent)] text-[var(--accent-ink)] hover:bg-[var(--accent-2)] font-bold rounded-full"
+                    >
+                      <Link to="/app/quick-match" className="inline-flex items-center gap-1.5">
+                        <Plus className="h-3.5 w-3.5" /> {t('cta.recordMatch')}
+                      </Link>
+                    </Button>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="relative h-9 w-9 p-0"
+                          onClick={fetchNotifications}
+                          aria-label={t('notifications.title')}
+                        >
+                          <Bell className="h-4 w-4" />
+                          {unreadCount > 0 && (
+                            <span
+                              className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-[var(--accent)] text-[var(--accent-ink)] rounded-full text-[10px] font-bold flex items-center justify-center"
+                            >
+                              {unreadCount}
+                            </span>
+                          )}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        className="w-96"
+                        align="end"
+                        forceMount
+                      >
+                        <div className="px-4 py-3 flex items-center justify-between border-b border-[var(--line-soft)]">
+                          <span className="eyebrow dotted">{t('notifications.title')}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={markAllAsRead}
+                            disabled={notifLoading || unreadCount === 0}
+                            className="h-7 px-2 text-xs"
+                          >
+                            {t('actions.markAllRead')}
+                          </Button>
+                        </div>
+                        <div className="max-h-96 overflow-y-auto">
+                          {notifLoading ? (
+                            <div className="p-6 text-center text-sm text-[var(--fg-3)]">{t('common.loading')}</div>
+                          ) : notifications.length === 0 ? (
+                            <div className="p-6 text-center text-sm text-[var(--fg-3)]">{t('notifications.none')}</div>
+                          ) : (
+                            notifications.map((n) => (
+                              <div
+                                key={n.id}
+                                className={`px-4 py-3 border-b border-[var(--line-soft)] last:border-b-0 hover:bg-[var(--bg-3)]/40 transition-colors ${
+                                  !n.is_read ? 'bg-[var(--bg-3)]/20' : ''
+                                }`}
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div
+                                    className={`mt-0.5 flex-shrink-0 ${
+                                      n.type === 'league_invite' ? 'text-[var(--accent)]' : 'text-[var(--fg-3)]'
+                                    }`}
+                                  >
+                                    {n.type === 'league_invite' ? (
+                                      <UserPlus className="h-4 w-4" />
+                                    ) : (
+                                      <Bell className="h-4 w-4" />
                                     )}
                                   </div>
-                                  {!n.is_read && (
-                                    <Button variant="ghost" size="sm" onClick={() => markAsRead(n.id)} className="h-7 px-2 text-xs flex-shrink-0">{t('actions.read')}</Button>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            {n.type === 'league_invite' && (
-                              <div className="mt-2 space-y-2">
-                                {!n.is_read ? (
-                                  <div className="flex items-center gap-2">
-                                    <Button size="sm" onClick={() => handleAcceptInvite(n)} disabled={!!acceptLoading[n.id]}>
-                                      {acceptLoading[n.id] ? t('status.joining') : t('actions.accept')}
-                                    </Button>
-                                                                     <Button size="sm" variant="outline" onClick={() => handleDenyInvite(n)}>
-                                       {t('actions.reject')}
-                                     </Button>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <div className={`text-sm mb-1 ${!n.is_read ? 'font-semibold' : 'font-medium text-[var(--fg-2)]'}`}>
+                                          {n.title}
+                                        </div>
+                                        <div className="text-xs text-[var(--fg-3)] mb-1.5 leading-relaxed">{n.message}</div>
+                                        {n.created_at && (
+                                          <div className="text-[10px] text-[var(--fg-4)] font-mono">
+                                            {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                                          </div>
+                                        )}
+                                      </div>
+                                      {!n.is_read && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => markAsRead(n.id)}
+                                          className="h-7 px-2 text-xs flex-shrink-0"
+                                        >
+                                          {t('actions.read')}
+                                        </Button>
+                                      )}
+                                    </div>
                                   </div>
-                                ) : (
-                                                                 <div className="text-xs text-muted-foreground">{t('notifications.inviteHandled')}</div>
-                                )}
-                                {n.related_id && (
-                                                                 <Link to={`/app/leagues/${n.related_id}`} className="text-xs text-primary underline">
-                                     {t('matchDetail.viewLeague')}
-                                   </Link>
+                                </div>
+                                {n.type === 'league_invite' && (
+                                  <div className="mt-2 space-y-2">
+                                    {!n.is_read ? (
+                                      <div className="flex items-center gap-2">
+                                        <Button size="sm" onClick={() => handleAcceptInvite(n)} disabled={!!acceptLoading[n.id]}>
+                                          {acceptLoading[n.id] ? t('status.joining') : t('actions.accept')}
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => handleDenyInvite(n)}>
+                                          {t('actions.reject')}
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <div className="text-xs text-[var(--fg-3)]">{t('notifications.inviteHandled')}</div>
+                                    )}
+                                    {n.related_id && (
+                                      <Link
+                                        to={`/app/leagues/${n.related_id}`}
+                                        className="text-xs text-[var(--accent)] underline"
+                                      >
+                                        {t('matchDetail.viewLeague')}
+                                      </Link>
+                                    )}
+                                  </div>
                                 )}
                               </div>
-                            )}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                    <DropdownMenuSeparator />
-                    <div className="p-2">
-                      <Link to="/app/notifications" className="w-full inline-flex items-center justify-center text-sm underline text-primary">
-                        {t('nav.notifications')}
-                      </Link>
-                    </div>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                {/* User menu */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-8 w-8 rounded-full cursor-pointer">
-                      <Avatar className="h-8 w-8" key={user?.avatar_url}>
-                        {user?.avatar_url && (
-                          <AvatarImage src={user.avatar_url} alt="Profile" />
-                        )}
-                        <AvatarFallback className="text-xs bg-gray-700 text-gray-200">
-                          {getUserInitials(user)}
-                        </AvatarFallback>
-                      </Avatar>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 bg-gray-800 border-gray-700" align="end" forceMount>
-                    <DropdownMenuItem asChild className="text-gray-200 hover:bg-gray-700 p-2 cursor-pointer">
-                      <Link to="/app/profile" className="flex items-center justify-start gap-2 w-full">
-                        <Avatar className="h-10 w-10" key={user?.avatar_url}>
-                          {user?.avatar_url && (
-                            <AvatarImage src={user.avatar_url} alt="Profile" />
+                            ))
                           )}
-                          <AvatarFallback className="text-sm bg-gray-700 text-gray-200">
-                            {getUserInitials(user)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col space-y-1 leading-none">
-                          <p className="font-medium">{user?.first_name} {user?.last_name}</p>
-                          <p className="w-[200px] truncate text-sm text-gray-400">
-                            @{user?.username}
-                          </p>
                         </div>
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild className="text-gray-200 hover:bg-gray-700">
-                      <Link to="/app/profile" className="flex items-center">
-                        <User className="mr-2 h-4 w-4" />
-                        <span>{t('nav.profile')}</span>
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild className="text-gray-200 hover:bg-gray-700">
-                      <Link to="/app/settings" className="flex items-center">
-                        <Settings className="mr-2 h-4 w-4" />
-                        <span>{t('nav.settings')}</span>
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator className="bg-gray-700" />
-                    <DropdownMenuItem onClick={handleLogout} className="text-red-400 hover:bg-gray-700">
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>{t('nav.logout')}</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
-            ) : (
-              <>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/login">Log in</Link>
-                </Button>
-                <Button size="sm" asChild>
-                  <Link to="/register">Sign up</Link>
-                </Button>
-              </>
-            )}
+                        <DropdownMenuSeparator />
+                        <div className="p-2">
+                          <Link
+                            to="/app/notifications"
+                            className="w-full inline-flex items-center justify-center text-sm underline text-[var(--accent)]"
+                          >
+                            {t('nav.notifications')}
+                          </Link>
+                        </div>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0 cursor-pointer">
+                          <Avatar className="h-8 w-8 border border-[var(--line)]" key={user?.avatar_url}>
+                            {user?.avatar_url && <AvatarImage src={user.avatar_url} alt="Profile" />}
+                            <AvatarFallback className="text-xs bg-[var(--bg-3)] text-[var(--fg)]">
+                              {getUserInitials(user)}
+                            </AvatarFallback>
+                          </Avatar>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-56" align="end" forceMount>
+                        <DropdownMenuItem asChild className="p-2 cursor-pointer">
+                          <Link to="/app/profile" className="flex items-center justify-start gap-2 w-full">
+                            <Avatar className="h-10 w-10" key={user?.avatar_url}>
+                              {user?.avatar_url && <AvatarImage src={user.avatar_url} alt="Profile" />}
+                              <AvatarFallback className="text-sm bg-[var(--bg-3)] text-[var(--fg)]">
+                                {getUserInitials(user)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col leading-tight">
+                              <p className="font-medium text-sm">
+                                {user?.first_name} {user?.last_name}
+                              </p>
+                              <p className="text-xs text-[var(--fg-3)] font-mono truncate w-[160px]">@{user?.username}</p>
+                            </div>
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                          <Link to="/app/profile" className="flex items-center">
+                            <User className="mr-2 h-4 w-4" />
+                            <span>{t('nav.profile')}</span>
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link to="/app/settings" className="flex items-center">
+                            <Settings className="mr-2 h-4 w-4" />
+                            <span>{t('nav.settings')}</span>
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={handleLogout} className="text-[var(--bad)]">
+                          <LogOut className="mr-2 h-4 w-4" />
+                          <span>{t('nav.logout')}</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link to="/login">{t('auth.logIn')}</Link>
+                    </Button>
+                    <Button
+                      asChild
+                      size="sm"
+                      className="bg-[var(--accent)] text-[var(--accent-ink)] hover:bg-[var(--accent-2)] font-bold rounded-full"
+                    >
+                      <Link to="/register">{t('auth.getStarted')}</Link>
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Main content */}
       <main className="flex-1">
-        <div className="container mx-auto px-4 py-6 md:px-6">
-          <Outlet />
-        </div>
+        <Outlet />
       </main>
 
       <SiteFooter />
 
-      {/* Mobile Menu */}
+      {/* Mobile bottom tab bar (signed-in only) */}
+      {isAuthenticated && (
+        <nav className="tt-tabbar" aria-label="Bottom navigation">
+          <Link to="/app/dashboard" className={isActive('/app/dashboard') ? 'active' : ''}>
+            <Home className="ic" /> <span>{t('nav.dashboard')}</span>
+          </Link>
+          <Link to="/app/leagues" className={isActive('/app/leagues') ? 'active' : ''}>
+            <Trophy className="ic" /> <span>{t('nav.leagues')}</span>
+          </Link>
+          <Link to="/app/quick-match" className="fab" aria-label={t('cta.recordMatch')}>
+            <Plus className="ic" /> <span>{t('cta.recordMatch')}</span>
+          </Link>
+          <Link to="/app/matches" className={isActive('/app/matches') ? 'active' : ''}>
+            <Swords className="ic" /> <span>{t('nav.matches')}</span>
+          </Link>
+          <Link to="/app/profile" className={isActive('/app/profile') ? 'active' : ''}>
+            <User className="ic" /> <span>{t('nav.profile')}</span>
+          </Link>
+        </nav>
+      )}
+
       <MobileMenu
         isOpen={mobileMenuOpen}
         onClose={closeMobileMenu}
@@ -395,4 +481,3 @@ const Layout = () => {
 };
 
 export default Layout;
-
