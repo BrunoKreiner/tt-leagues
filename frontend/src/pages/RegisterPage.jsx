@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff } from 'lucide-react';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
-import Brand from '@/components/layout/Brand';
+import PublicHeader from '@/components/layout/PublicHeader';
 import SiteFooter from '@/components/layout/SiteFooter';
+import { BrandMark } from '@/components/layout/Brand';
 import { useTranslation } from 'react-i18next';
 
 const RegisterPage = () => {
@@ -59,47 +60,40 @@ const RegisterPage = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header
-        className="backdrop-blur-md"
-        style={{ background: 'oklch(0.17 0.008 60 / 0.78)', borderBottom: '1px solid var(--line-soft)' }}
-      >
-        <div className="max-w-[1140px] mx-auto px-6 md:px-12">
-          <div className="flex justify-between items-center h-16">
-            <Brand />
-            <Button asChild variant="ghost" size="sm">
-              <Link to="/login">{t('auth.logIn')}</Link>
-            </Button>
-          </div>
-        </div>
-      </header>
+      <PublicHeader />
 
       <div className="flex-1 grid md:grid-cols-2">
         <div
-          className="relative px-6 md:px-16 py-14 md:py-20 flex flex-col justify-between gap-12"
+          className="relative px-6 md:px-16 py-14 md:py-20 flex flex-col items-center justify-center gap-8 text-center"
           style={{ borderRight: '1px solid var(--line-soft)' }}
         >
-          <div>
-            <div className="eyebrow dotted">{t('auth.register.eyebrow')}</div>
+          <div className="flex items-center gap-4">
+            <span className="inline-flex items-center justify-center text-white shrink-0">
+              <BrandMark size={64} />
+            </span>
             <h1
-              className="display mt-4"
+              className="font-sans font-bold leading-[0.95]"
               style={{
-                fontSize: 'clamp(40px, 5.4vw, 56px)',
-                lineHeight: '1.02',
-                letterSpacing: '-0.03em',
+                fontSize: 'clamp(44px, 5.6vw, 72px)',
+                letterSpacing: '-0.04em',
+                color: '#ffffff',
               }}
             >
-              {t('auth.register.titleLine1pre')}{' '}
-              <span style={{ color: 'var(--accent)' }}>1200</span>.
-              <br />
-              <em style={{ fontStyle: 'italic', color: 'var(--accent)' }}>{t('auth.register.titleLine2')}</em>
+              leagues<span style={{ color: 'var(--accent)' }}>.lol</span>
             </h1>
-            <p className="text-[16px] leading-[1.5] text-[var(--fg-2)] max-w-[420px] mt-5">
-              {t('auth.register.lede')}
-            </p>
           </div>
-          <div className="font-mono text-[11px] text-[var(--fg-3)] tracking-[0.1em] uppercase">
-            {t('auth.register.statline')}
-          </div>
+          <p
+            className="display"
+            style={{
+              fontSize: 'clamp(20px, 2.4vw, 28px)',
+              fontStyle: 'italic',
+              fontWeight: 500,
+              letterSpacing: '-0.02em',
+              color: 'var(--fg-2)',
+            }}
+          >
+            {t('auth.register.tagline')}
+          </p>
         </div>
 
         <div className="px-6 md:px-16 py-14 md:py-20 flex items-center justify-center">

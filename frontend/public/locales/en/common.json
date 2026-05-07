@@ -538,11 +538,7 @@
     "logIn": "Log in",
     "getStarted": "Get started",
     "login": {
-      "eyebrow": "Welcome back",
-      "titleLine1": "Settle it",
-      "titleLine2": "on the ladder.",
-      "lede": "Your ELO doesn't lie. Log in to see where you stand this week.",
-      "statline": "Online · matches logged daily",
+      "tagline": "Welcome back.",
       "formTitle": "Log in",
       "formSub": "Or",
       "createAccount": "create an account",
@@ -553,11 +549,7 @@
       "forgotPassword": "Forgot password?"
     },
     "register": {
-      "eyebrow": "New player",
-      "titleLine1pre": "Start at",
-      "titleLine2": "Climb from there.",
-      "lede": "Pick a handle, join a league, log your first match. We'll do the math.",
-      "statline": "Free · No card · Open source",
+      "tagline": "Start for Free · Open source",
       "formTitle": "Create account",
       "formSub": "Already playing?",
       "firstName": "First name",
@@ -594,6 +586,9 @@
     "stats": {
       "activePlayers": "Active players",
       "activePlayersSub": "across {{count}} leagues",
+      "activePlayersSubShort": "tracking their elo",
+      "leagues": "Leagues",
+      "leaguesSub": "running on the platform",
       "matchesLogged": "Matches logged",
       "matchesLoggedSub": "since launch"
     },
@@ -613,7 +608,7 @@
       "empty": "No public leagues yet."
     },
     "cta": {
-      "button": "Start counting the wins."
+      "button": "Start counting your wins."
     },
     "footer": {
       "tagline": "An open-source league app for table tennis clubs, offices, and basements.",

@@ -1,14 +1,14 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Menu, X } from 'lucide-react';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { leaguesAPI, statsAPI } from '../services/api';
 import EloSparkline from '@/components/EloSparkline';
 import Sparkline from '@/components/Sparkline';
-import HeroMotif from '@/components/HeroMotif';
+import SpinningBall from '@/components/SpinningBall';
 import EloMarquee from '@/components/EloMarquee';
-import Brand, { BrandMark } from '@/components/layout/Brand';
+import { BrandMark } from '@/components/layout/Brand';
+import PublicHeader from '@/components/layout/PublicHeader';
 import SiteFooter from '@/components/layout/SiteFooter';
 import { useTranslation } from 'react-i18next';
 
@@ -61,36 +61,25 @@ const TICKER_ENTRIES = [
 
 const LandingPage = () => {
   const { t } = useTranslation();
-  const location = useLocation();
   const [publicLeagues, setPublicLeagues] = useState([]);
   const [leagueLeaderboards, setLeagueLeaderboards] = useState({});
   const [loading, setLoading] = useState(true);
   const [_error, setError] = useState(null);
   const [leaderboardStatus, setLeaderboardStatus] = useState({});
   const [shouldLoadLeaderboards, setShouldLoadLeaderboards] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [platformStats, setPlatformStats] = useState(null);
   const leaderboardSectionRef = useRef(null);
 
-  const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
-
+  // Hash-scroll: when arriving at /#how or /#public from another page, scroll there.
   useEffect(() => {
-    closeMobileMenu();
-  }, [location.pathname, closeMobileMenu]);
-
-  useEffect(() => {
-    const onEscape = (e) => {
-      if (e.key === 'Escape' && mobileMenuOpen) closeMobileMenu();
-    };
-    if (mobileMenuOpen) {
-      document.addEventListener('keydown', onEscape);
-      document.body.style.overflow = 'hidden';
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const id = window.location.hash.slice(1);
+      // Defer one frame so the target sections have rendered
+      requestAnimationFrame(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
     }
-    return () => {
-      document.removeEventListener('keydown', onEscape);
-      document.body.style.overflow = 'unset';
-    };
-  }, [mobileMenuOpen, closeMobileMenu]);
+  }, []);
 
   const featuredLeagues = useMemo(() => publicLeagues.slice(0, 1), [publicLeagues]);
 
@@ -174,74 +163,23 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* HEADER */}
-      <header
-        className="sticky top-0 z-40 backdrop-blur-md"
-        style={{
-          background: 'oklch(0.17 0.008 60 / 0.78)',
-          borderBottom: '1px solid var(--line-soft)',
-        }}
-      >
-        <div className="max-w-[1140px] mx-auto px-6 md:px-12">
-          <div className="flex items-center gap-7 h-16">
-            <Brand />
-            <nav className="hidden md:flex items-center gap-6 text-[14px] text-[var(--fg-2)]">
-              <a
-                onClick={() => document.getElementById('how')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                className="cursor-pointer hover:text-[var(--fg)] transition-colors"
-              >
-                {t('landing.nav.howItWorks')}
-              </a>
-              <a
-                onClick={() => document.getElementById('public')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                className="cursor-pointer hover:text-[var(--fg)] transition-colors"
-              >
-                {t('landing.nav.publicLeagues')}
-              </a>
-              <Link to="/wiki/ttc-baden-wettingen" className="hover:text-[var(--fg)] transition-colors inline-flex items-center gap-1">
-                <BookOpen className="h-4 w-4" />
-                <span className="inline-flex items-start gap-1">
-                  <span>TTC BW</span>
-                  <sup className="text-[10px] font-semibold text-[var(--accent)]">wiki</sup>
-                </span>
-              </Link>
-            </nav>
-            <div className="ml-auto flex items-center gap-2">
-              <div className="hidden md:flex items-center gap-2">
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/login">{t('auth.logIn')}</Link>
-                </Button>
-                <Button
-                  asChild
-                  size="sm"
-                  className="bg-[var(--accent)] text-[var(--accent-ink)] hover:bg-[var(--accent-2)] font-bold rounded-full"
-                >
-                  <Link to="/register">{t('auth.getStarted')}</Link>
-                </Button>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setMobileMenuOpen((v) => !v)}
-                className="md:hidden h-10 w-10 p-0 flex items-center justify-center"
-                aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
-                aria-expanded={mobileMenuOpen}
-              >
-                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <PublicHeader />
 
       <main className="flex-1">
-        {/* HERO */}
-        <section className="relative isolate overflow-hidden py-20 md:py-24 lg:py-28">
-          <div className="relative z-10 max-w-[1140px] mx-auto px-6 md:px-12">
+        {/* HERO — fills viewport (minus nav) so the ticker sits right at the fold */}
+        <section
+          className="relative isolate overflow-hidden flex items-center"
+          style={{
+            minHeight: 'calc(100vh - 64px)',
+            paddingTop: 'clamp(24px, 4vh, 56px)',
+            paddingBottom: 'clamp(24px, 4vh, 56px)',
+          }}
+        >
+          <div className="relative z-10 max-w-[1140px] mx-auto px-6 md:px-12 w-full">
             <div className="grid gap-10 lg:gap-16 items-end" style={{ gridTemplateColumns: 'minmax(0,1.15fr) minmax(0,1fr)' }}>
               <div>
-                <div className="flex items-center gap-4">
-                  <span className="inline-flex items-center justify-center text-[var(--fg)] shrink-0">
+                <div className="relative z-[2] flex items-center gap-4">
+                  <span className="inline-flex items-center justify-center text-white shrink-0">
                     <BrandMark size={72} />
                   </span>
                   <h1
@@ -249,6 +187,7 @@ const LandingPage = () => {
                     style={{
                       fontSize: 'clamp(40px, 5.2vw, 76px)',
                       letterSpacing: '-0.04em',
+                      color: '#ffffff',
                     }}
                   >
                     leagues<span style={{ color: 'var(--accent)' }}>.lol</span>
@@ -293,39 +232,93 @@ const LandingPage = () => {
               </div>
 
               <div className="relative flex flex-col gap-3.5">
-                {/* Blob now sits behind the motif so it tracks the column instead of the viewport */}
+                {/* Blob sits behind the ball so it tracks the column instead of the viewport */}
                 <div
                   aria-hidden="true"
                   className="hero-blob"
                   style={{
                     left: '50%',
-                    top: '32%',
-                    width: 560,
-                    height: 560,
+                    top: '40%',
+                    width: 520,
+                    height: 520,
+                    zIndex: 0,
                   }}
                 />
                 <div className="relative z-[1]">
-                  <HeroMotif />
+                  <SpinningBall />
                 </div>
-                <div className="relative z-[1] grid grid-cols-2 gap-3.5">
+
+                {/* Platform live counters — 3 compact cards directly under the ball */}
+                <div className="relative z-[1] grid grid-cols-3 gap-2.5 mt-5">
                   <div
-                    className="tt-card p-5 flex flex-col gap-1.5"
-                    style={{ borderColor: 'oklch(0.70 0.20 38 / 0.35)' }}
+                    className="tt-card relative overflow-hidden p-3.5"
+                    style={{
+                      borderRadius: 'var(--r-md)',
+                      borderColor: 'oklch(0.70 0.20 38 / 0.35)',
+                    }}
                   >
-                    <span className="eyebrow">{t('landing.stats.activePlayers')}</span>
-                    <span className="num text-[44px]" style={{ color: 'var(--accent)' }}>
+                    <span
+                      aria-hidden="true"
+                      className="absolute top-0 left-0 right-0 h-[2px]"
+                      style={{
+                        background: 'var(--accent)',
+                        borderRadius: 'var(--r-md) var(--r-md) 0 0',
+                      }}
+                    />
+                    <div className="eyebrow" style={{ fontSize: 9.5 }}>
+                      {t('landing.stats.activePlayers')}
+                    </div>
+                    <div
+                      className="num mt-1.5"
+                      style={{
+                        fontSize: 'clamp(22px, 2.4vw, 30px)',
+                        color: 'var(--accent)',
+                        lineHeight: 1,
+                      }}
+                    >
                       {compact(platformStats?.active_players)}
-                    </span>
-                    <span className="text-[13px] text-[var(--fg-3)]">
-                      {t('landing.stats.activePlayersSub', { count: platformStats?.leagues ?? 0 })}
-                    </span>
+                    </div>
+                    <div className="text-[11px] text-[var(--fg-3)] mt-1.5 leading-tight">
+                      {t('landing.stats.activePlayersSubShort')}
+                    </div>
                   </div>
-                  <div className="tt-card p-5 flex flex-col gap-1.5">
-                    <span className="eyebrow">{t('landing.stats.matchesLogged')}</span>
-                    <span className="num text-[44px]">
+
+                  <div className="tt-card p-3.5" style={{ borderRadius: 'var(--r-md)' }}>
+                    <div className="eyebrow" style={{ fontSize: 9.5 }}>
+                      {t('landing.stats.leagues')}
+                    </div>
+                    <div
+                      className="num mt-1.5"
+                      style={{
+                        fontSize: 'clamp(22px, 2.4vw, 30px)',
+                        color: 'var(--fg)',
+                        lineHeight: 1,
+                      }}
+                    >
+                      {compact(platformStats?.leagues)}
+                    </div>
+                    <div className="text-[11px] text-[var(--fg-3)] mt-1.5 leading-tight">
+                      {t('landing.stats.leaguesSub')}
+                    </div>
+                  </div>
+
+                  <div className="tt-card p-3.5" style={{ borderRadius: 'var(--r-md)' }}>
+                    <div className="eyebrow" style={{ fontSize: 9.5 }}>
+                      {t('landing.stats.matchesLogged')}
+                    </div>
+                    <div
+                      className="num mt-1.5"
+                      style={{
+                        fontSize: 'clamp(22px, 2.4vw, 30px)',
+                        color: 'var(--fg)',
+                        lineHeight: 1,
+                      }}
+                    >
                       {compact(platformStats?.matches)}
-                    </span>
-                    <span className="text-[13px] text-[var(--fg-3)]">{t('landing.stats.matchesLoggedSub')}</span>
+                    </div>
+                    <div className="text-[11px] text-[var(--fg-3)] mt-1.5 leading-tight">
+                      {t('landing.stats.matchesLoggedSub')}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -338,23 +331,84 @@ const LandingPage = () => {
           <div className="tt-ticker-track">
             {[0, 1].map((k) => (
               <span key={k} className="contents">
-                {TICKER_ENTRIES.map((e, i) => (
-                  <span key={`${k}-${i}`} className="inline-flex items-center gap-3 align-middle">
-                    <span>
-                      <b>{e.winner}</b> def. <b>{e.loser}</b>{' '}
-                      <i>{e.score}</i>{' '}
-                      <i>+{e.delta} ELO</i>
+                {TICKER_ENTRIES.map((e, i) => {
+                  const palette = [
+                    'var(--p-orange)',
+                    'var(--p-cyan)',
+                    'var(--p-magenta)',
+                    'var(--p-lime)',
+                    'var(--p-amber)',
+                  ];
+                  return (
+                    <span
+                      key={`${k}-${i}`}
+                      className="inline-flex items-center gap-2.5 align-middle"
+                      style={{ fontFamily: '"Inter Tight", sans-serif', fontSize: 14 }}
+                    >
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          display: 'inline-block',
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          background: palette[i % palette.length],
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span style={{ fontWeight: 600, color: 'var(--fg)' }}>{e.winner}</span>
+                      <span
+                        style={{
+                          fontFamily: '"Fraunces", ui-serif, Georgia, serif',
+                          fontStyle: 'italic',
+                          color: 'var(--accent)',
+                          fontWeight: 500,
+                          fontSize: 15,
+                        }}
+                      >
+                        vs.
+                      </span>
+                      <span style={{ color: 'var(--fg-2)' }}>{e.loser}</span>
+                      <span
+                        style={{
+                          fontFamily: '"JetBrains Mono", monospace',
+                          fontSize: 12,
+                          color: 'var(--fg-2)',
+                          letterSpacing: '0.02em',
+                        }}
+                      >
+                        {e.score}
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: '"JetBrains Mono", monospace',
+                          fontSize: 12,
+                          color: 'var(--good)',
+                          fontWeight: 600,
+                        }}
+                      >
+                        +{e.delta}
+                      </span>
+                      <Sparkline
+                        data={e.trend}
+                        w={50}
+                        h={14}
+                        stroke="auto"
+                        strokeWidth={1.4}
+                      />
+                      <span
+                        style={{
+                          color: 'var(--fg-3)',
+                          fontSize: 12,
+                          fontFamily: '"JetBrains Mono", monospace',
+                          letterSpacing: '0.02em',
+                        }}
+                      >
+                        · {e.league}
+                      </span>
                     </span>
-                    <Sparkline
-                      data={e.trend}
-                      w={50}
-                      h={14}
-                      stroke="auto"
-                      strokeWidth={1.4}
-                    />
-                    <span className="text-[var(--fg-3)]">·  {e.league}</span>
-                  </span>
-                ))}
+                  );
+                })}
               </span>
             ))}
           </div>
@@ -362,29 +416,76 @@ const LandingPage = () => {
 
         <EloMarquee />
 
-
         {/* HOW IT WORKS */}
         <section id="how" className="pb-20 md:pb-24">
           <div className="max-w-[1140px] mx-auto px-6 md:px-12">
             <h2 className="display text-[clamp(32px,4.4vw,48px)] leading-[1.02] mb-10">
               {t('landing.how.title')}
             </h2>
-            <ol className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
+            <ol className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 md:gap-6">
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <li
                   key={i}
-                  className="pt-4 border-t-2 transition-colors hover:border-t-[var(--accent)]"
-                  style={{ borderColor: 'var(--line-soft)' }}
+                  className="how-card group relative p-5 md:p-6 cursor-default"
+                  style={{
+                    background: 'var(--bg-2)',
+                    border: '1.5px solid var(--line-soft)',
+                    borderRadius: 'var(--r-lg)',
+                    transition: 'transform 220ms cubic-bezier(.34,1.56,.64,1), border-color 180ms ease, box-shadow 220ms ease',
+                  }}
                 >
-                  <div className="font-mono text-[12px] tracking-[0.1em] text-[var(--accent)]">
-                    {String(i).padStart(2, '0')}
+                  {/* Top accent rail — slides in from left on hover */}
+                  <span
+                    aria-hidden="true"
+                    className="how-card-rail"
+                    style={{
+                      position: 'absolute',
+                      top: -1,
+                      left: -1,
+                      right: -1,
+                      height: 2,
+                      background: 'var(--accent)',
+                      borderRadius: '2px 2px 0 0',
+                      transformOrigin: 'left',
+                      transform: 'scaleX(0)',
+                      transition: 'transform 320ms cubic-bezier(.34,1.56,.64,1)',
+                    }}
+                  />
+                  <div className="font-mono text-[11px] tracking-[0.16em] uppercase text-[var(--accent)] transition-colors">
+                    Step {String(i).padStart(2, '0')}
                   </div>
-                  <h4 className="text-[16px] md:text-[17px] font-semibold mt-1.5 leading-[1.3]">
+                  <h4
+                    className="text-[16px] md:text-[17px] font-semibold mt-2 leading-[1.35]"
+                    style={{ fontFamily: '"Inter Tight", sans-serif', letterSpacing: '-0.01em' }}
+                  >
                     {t(`landing.how.step${i}.title`)}
                   </h4>
                 </li>
               ))}
             </ol>
+            <style>{`
+              .how-card { will-change: transform; }
+              .how-card:hover, .how-card:focus-visible {
+                transform: translateY(-3px);
+                border-color: var(--accent) !important;
+                box-shadow: 0 14px 32px -18px oklch(0.70 0.20 38 / 0.55), 0 0 0 1px oklch(0.70 0.20 38 / 0.15);
+              }
+              .how-card:hover .how-card-rail,
+              .how-card:focus-visible .how-card-rail {
+                transform: scaleX(1);
+              }
+              .how-card:active {
+                transform: translateY(-1px) scale(0.99);
+              }
+              @media (hover: none) {
+                /* On touch devices, the press itself is the feedback */
+                .how-card:active {
+                  border-color: var(--accent) !important;
+                  transform: scale(0.985);
+                }
+                .how-card:active .how-card-rail { transform: scaleX(1); }
+              }
+            `}</style>
           </div>
         </section>
 
@@ -458,104 +559,116 @@ const LandingPage = () => {
           </div>
         </section>
 
-        {/* CTA — single editorial button, no separating hairline */}
+        {/* CTA — editorial card-link with bobbing accent arrow */}
         <section className="pb-24 md:pb-28 relative">
           <div className="max-w-[1140px] mx-auto px-6 md:px-12 flex justify-center">
-            <Button
-              asChild
-              className="bg-[var(--accent)] text-[var(--accent-ink)] hover:bg-[var(--accent-2)] rounded-full px-12 py-8 tt-btn-primary"
+            <Link
+              to="/register"
+              className="cta-card group relative inline-flex items-center justify-between gap-8 px-8 md:px-12 py-7 md:py-8 no-underline"
+              style={{
+                background: 'var(--bg-2)',
+                border: '1.5px solid var(--line-soft)',
+                borderRadius: 'var(--r-xl)',
+                color: '#ffffff',
+                minWidth: 'min(640px, 92vw)',
+                transition: 'transform 240ms cubic-bezier(.34,1.56,.64,1), border-color 200ms ease, box-shadow 240ms ease',
+                overflow: 'hidden',
+              }}
             >
-              <Link
-                to="/register"
+              {/* Top accent rail (slides in on hover) */}
+              <span
+                aria-hidden="true"
+                className="cta-rail"
+                style={{
+                  position: 'absolute',
+                  top: -1,
+                  left: -1,
+                  right: -1,
+                  height: 2,
+                  background: 'var(--accent)',
+                  borderRadius: 'var(--r-xl) var(--r-xl) 0 0',
+                  transformOrigin: 'left',
+                  transform: 'scaleX(0)',
+                  transition: 'transform 360ms cubic-bezier(.34,1.56,.64,1)',
+                }}
+              />
+              <span
+                className="cta-text"
                 style={{
                   fontFamily: '"Fraunces", ui-serif, Georgia, serif',
                   fontStyle: 'italic',
                   fontWeight: 600,
-                  fontSize: 'clamp(22px, 3vw, 32px)',
+                  fontSize: 'clamp(22px, 3.2vw, 36px)',
                   letterSpacing: '-0.02em',
-                  lineHeight: 1,
+                  lineHeight: 1.05,
+                  color: '#ffffff',
                 }}
               >
                 {t('landing.cta.button')}
-              </Link>
-            </Button>
+              </span>
+              <span
+                aria-hidden="true"
+                className="cta-arrow inline-flex items-center justify-center shrink-0"
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '50%',
+                  background: 'oklch(0.70 0.20 38 / 0.12)',
+                  color: 'var(--accent)',
+                  fontFamily: '"Inter Tight", sans-serif',
+                  fontSize: 22,
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  transition: 'background 200ms ease',
+                }}
+              >
+                <span className="cta-arrow-glyph">→</span>
+              </span>
+            </Link>
           </div>
         </section>
+        <style>{`
+          .cta-card { will-change: transform; }
+          .cta-card:hover, .cta-card:focus-visible {
+            transform: translateY(-2px);
+            border-color: var(--accent) !important;
+            box-shadow:
+              0 22px 40px -22px oklch(0.70 0.20 38 / 0.55),
+              0 0 0 1px oklch(0.70 0.20 38 / 0.18);
+          }
+          .cta-card:active { transform: translateY(-1px) scale(0.995); }
+          .cta-card:hover .cta-arrow { background: var(--accent) !important; color: var(--accent-ink) !important; }
+          .cta-card:hover .cta-rail { transform: scaleX(1); }
+
+          /* The arrow gently bobs on its own — the "this is a link" tell */
+          .cta-arrow-glyph {
+            display: inline-block;
+            animation: tt-cta-bob 2.4s ease-in-out infinite;
+          }
+          .cta-card:hover .cta-arrow-glyph { animation: tt-cta-snap 520ms cubic-bezier(.34,1.56,.64,1); }
+          @keyframes tt-cta-bob {
+            0%, 100% { transform: translateX(0); }
+            50%      { transform: translateX(4px); }
+          }
+          @keyframes tt-cta-snap {
+            0%   { transform: translateX(0); }
+            55%  { transform: translateX(10px); }
+            100% { transform: translateX(2px); }
+          }
+
+          /* Soft underline that grows under the editorial text on hover */
+          .cta-text { background-image: linear-gradient(var(--accent), var(--accent)); background-position: 0 100%; background-repeat: no-repeat; background-size: 0 1.5px; transition: background-size 320ms ease; padding-bottom: 4px; }
+          .cta-card:hover .cta-text { background-size: 100% 1.5px; }
+
+          @media (hover: none) {
+            .cta-card:active { border-color: var(--accent) !important; }
+            .cta-card:active .cta-rail { transform: scaleX(1); }
+            .cta-card:active .cta-arrow { background: var(--accent) !important; color: var(--accent-ink) !important; }
+          }
+        `}</style>
       </main>
 
       <SiteFooter />
-
-      {/* Mobile menu drawer */}
-      <div
-        className={`fixed inset-0 z-40 transition-opacity duration-300 ${
-          mobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
-        style={{ background: 'oklch(0.10 0.005 50 / 0.6)', backdropFilter: 'blur(4px)' }}
-        onClick={closeMobileMenu}
-        aria-hidden="true"
-      />
-      <aside
-        className={`fixed right-0 top-0 bottom-0 z-50 flex flex-col transition-transform duration-300 ease-out ${
-          mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
-        style={{
-          width: 'min(82vw, 340px)',
-          background: 'var(--bg-2)',
-          borderLeft: '1px solid var(--line-soft)',
-          boxShadow: '-20px 0 60px -10px oklch(0.10 0 0 / 0.5)',
-        }}
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: 'var(--line-soft)' }}>
-          <span className="eyebrow dotted">Menu</span>
-          <Button variant="ghost" size="sm" onClick={closeMobileMenu} className="h-9 w-9 rounded-full p-0 border" style={{ background: 'var(--bg-3)', borderColor: 'var(--line)' }} aria-label="Close menu">
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <nav className="flex-1 overflow-y-auto py-3">
-          <a
-            onClick={() => {
-              closeMobileMenu();
-              document.getElementById('how')?.scrollIntoView({ behavior: 'smooth' });
-            }}
-            className="flex items-center gap-3.5 px-6 py-3.5 text-[15px] hover:bg-[var(--bg-3)]/50 cursor-pointer min-h-[44px]"
-          >
-            {t('landing.nav.howItWorks')}
-          </a>
-          <a
-            onClick={() => {
-              closeMobileMenu();
-              document.getElementById('public')?.scrollIntoView({ behavior: 'smooth' });
-            }}
-            className="flex items-center gap-3.5 px-6 py-3.5 text-[15px] hover:bg-[var(--bg-3)]/50 cursor-pointer min-h-[44px]"
-          >
-            {t('landing.nav.publicLeagues')}
-          </a>
-          <Link
-            to="/wiki/ttc-baden-wettingen"
-            onClick={closeMobileMenu}
-            className="flex items-center gap-3.5 px-6 py-3.5 text-[15px] hover:bg-[var(--bg-3)]/50 min-h-[44px]"
-          >
-            <BookOpen className="h-4 w-4" />
-            <span className="inline-flex items-start gap-1">
-              <span>TTC Baden-Wettingen</span>
-              <sup className="text-[10px] font-semibold text-[var(--accent)]">wiki</sup>
-            </span>
-          </Link>
-        </nav>
-        <div className="px-6 py-5 border-t flex flex-col gap-2" style={{ borderColor: 'var(--line-soft)' }}>
-          <Button
-            asChild
-            className="w-full bg-[var(--accent)] text-[var(--accent-ink)] hover:bg-[var(--accent-2)] font-bold rounded-full"
-          >
-            <Link to="/register" onClick={closeMobileMenu}>{t('auth.getStarted')}</Link>
-          </Button>
-          <Button asChild variant="outline" className="w-full rounded-full">
-            <Link to="/login" onClick={closeMobileMenu}>{t('auth.logIn')}</Link>
-          </Button>
-        </div>
-      </aside>
     </div>
   );
 };

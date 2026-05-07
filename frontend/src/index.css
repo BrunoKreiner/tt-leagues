@@ -127,6 +127,12 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     margin: 0;
+    /* Faint big-tile architectural grid */
+    background:
+      linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px) 0 0 / 280px 280px,
+      linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px) 0 0 / 280px 280px,
+      var(--bg);
+    background-attachment: fixed;
   }
 
   ::selection {

@@ -537,11 +537,7 @@
     "logIn": "Anmelden",
     "getStarted": "Loslegen",
     "login": {
-      "eyebrow": "Willkommen zurück",
-      "titleLine1": "Klär's",
-      "titleLine2": "an der Tafel.",
-      "lede": "Deine ELO lügt nicht. Melde dich an, um zu sehen, wo du diese Woche stehst.",
-      "statline": "Online · täglich neue Spiele",
+      "tagline": "Willkommen zurück.",
       "formTitle": "Anmelden",
       "formSub": "Oder",
       "createAccount": "Konto erstellen",
@@ -552,11 +548,7 @@
       "forgotPassword": "Passwort vergessen?"
     },
     "register": {
-      "eyebrow": "Neuer Spieler",
-      "titleLine1pre": "Starte bei",
-      "titleLine2": "Klettre von dort.",
-      "lede": "Wähle ein Handle, tritt einer Liga bei, trage dein erstes Spiel ein. Den Rest erledigen wir.",
-      "statline": "Kostenlos · keine Karte · Open Source",
+      "tagline": "Kostenlos starten · Open Source",
       "formTitle": "Konto erstellen",
       "formSub": "Schon dabei?",
       "firstName": "Vorname",
@@ -593,6 +585,9 @@
     "stats": {
       "activePlayers": "Aktive Spieler",
       "activePlayersSub": "in {{count}} Ligen",
+      "activePlayersSubShort": "verfolgen ihre Elo",
+      "leagues": "Ligen",
+      "leaguesSub": "auf der Plattform",
       "matchesLogged": "Spiele eingetragen",
       "matchesLoggedSub": "seit dem Start"
     },
@@ -612,7 +607,7 @@
       "empty": "Noch keine öffentlichen Ligen."
     },
     "cta": {
-      "button": "Fang an, die Siege zu zählen."
+      "button": "Fang an, deine Siege zu zählen."
     },
     "footer": {
       "tagline": "Open-Source-Liga-App für Tischtennisclubs, Büros und Keller.",
