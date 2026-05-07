@@ -307,12 +307,12 @@ const DashboardPage = () => {
           ].map((row, i) => (
             <div
               key={i}
-              className="px-5 py-3.5 flex justify-between items-baseline border-b last:border-b-0"
+              className="px-5 py-3.5 grid grid-cols-[1fr_auto_minmax(5.5rem,auto)] gap-x-3 items-baseline border-b last:border-b-0"
               style={{ borderColor: 'var(--line-soft)' }}
             >
               <span className="font-mono text-[11px] text-[var(--fg-3)] tracking-[0.08em] uppercase">{row.k}</span>
               <span
-                className="font-bold tabular-nums"
+                className="font-bold tabular-nums text-right"
                 style={{
                   fontFamily: '"Inter Tight", sans-serif',
                   fontSize: 24,
@@ -320,8 +320,8 @@ const DashboardPage = () => {
                 }}
               >
                 {row.v}
-                <small className="ml-1 font-normal font-mono text-[11px] text-[var(--fg-3)]">{row.suf}</small>
               </span>
+              <small className="font-normal font-mono text-[11px] text-[var(--fg-3)] text-left">{row.suf}</small>
             </div>
           ))}
         </div>

@@ -90,6 +90,9 @@ const MobileMenu = ({
           background: 'var(--bg-2)',
           borderLeft: '1px solid var(--line-soft)',
           boxShadow: '-20px 0 60px -10px oklch(0.10 0 0 / 0.5)',
+          paddingBottom: isAuthenticated
+            ? 'calc(80px + env(safe-area-inset-bottom, 0px))'
+            : undefined,
         }}
         role="dialog"
         aria-modal="true"
