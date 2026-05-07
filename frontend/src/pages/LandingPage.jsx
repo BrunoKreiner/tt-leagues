@@ -1,524 +1,784 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Trophy, Users, ChevronRight, ListChecks, Calendar, Globe, Sparkles, BookOpen, Menu, X } from 'lucide-react';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
-import { leaguesAPI } from '../services/api';
-import MedalIcon from '@/components/MedalIcon';
+import { leaguesAPI, statsAPI } from '../services/api';
 import EloSparkline from '@/components/EloSparkline';
-import { BadgeList } from '@/components/BadgeDisplay';
-import { useTranslation } from 'react-i18next';
+import Sparkline from '@/components/Sparkline';
+import SpinningBall from '@/components/SpinningBall';
+import EloMarquee from '@/components/EloMarquee';
+import { BrandMark } from '@/components/layout/Brand';
+import PublicHeader from '@/components/layout/PublicHeader';
 import SiteFooter from '@/components/layout/SiteFooter';
+import { useTranslation } from 'react-i18next';
+
+// Decorative ELO history for the features section sparkline
+const PREVIEW_ELO_HISTORY = [
+  1620, 1635, 1612, 1648, 1668, 1654, 1672, 1690, 1705, 1688,
+  1701, 1722, 1735, 1718, 1741, 1758, 1742, 1730, 1747, 1748,
+];
+
+// Seedable PRNG for stable per-entry sparklines
+const seededRand = (seed) => {
+  let s = seed;
+  return () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+};
+const buildTrend = (seed, direction = 1) => {
+  const rand = seededRand(seed);
+  const n = 8;
+  const arr = [];
+  let v = 1500 + Math.floor(rand() * 200);
+  arr.push(v);
+  for (let i = 1; i < n; i++) {
+    const drift = direction * (4 + Math.floor(rand() * 6));
+    const noise = (rand() - 0.5) * 16;
+    v = Math.round(v + drift + noise);
+    arr.push(v);
+  }
+  return arr;
+};
+
+// Compact number format (1234 → "1.2k", 31000 → "31k")
+const compact = (n) => {
+  if (n == null || Number.isNaN(n)) return '—';
+  if (n < 1000) return String(n);
+  if (n < 10000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  if (n < 1000000) return Math.round(n / 1000) + 'k';
+  return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+};
+
+// Mocked live-match ticker entries — each gets its own little sparkline.
+const TICKER_ENTRIES = [
+  { winner: 'Nicolas', loser: 'Xavier', score: '3–1', delta: 18, league: 'TTC Baden-Wettingen', trend: buildTrend(11, 1) },
+  { winner: 'Lina', loser: 'Emil', score: '3–0', delta: 12, league: 'Friday Night Office', trend: buildTrend(22, 1) },
+  { winner: 'Alessandro', loser: 'Mathias', score: '3–2', delta: 9, league: 'Zürich Open', trend: buildTrend(33, 1) },
+  { winner: 'Yuyue', loser: 'Priya', score: '3–1', delta: 11, league: 'TTC Baden-Wettingen', trend: buildTrend(44, -1) },
+  { winner: 'Shri', loser: 'Giovanni', score: '3–2', delta: 14, league: 'Friday Night Office', trend: buildTrend(55, 1) },
+];
 
 const LandingPage = () => {
   const { t } = useTranslation();
-  const location = useLocation();
   const [publicLeagues, setPublicLeagues] = useState([]);
   const [leagueLeaderboards, setLeagueLeaderboards] = useState({});
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [_error, setError] = useState(null);
   const [leaderboardStatus, setLeaderboardStatus] = useState({});
   const [shouldLoadLeaderboards, setShouldLoadLeaderboards] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [platformStats, setPlatformStats] = useState(null);
   const leaderboardSectionRef = useRef(null);
 
-  const toggleMobileMenu = useCallback(() => {
-    setMobileMenuOpen((open) => !open);
-  }, []);
-
-  const closeMobileMenu = useCallback(() => {
-    setMobileMenuOpen(false);
-  }, []);
-
-  // Close menu on route change
+  // Hash-scroll: when arriving at /#how or /#public from another page, scroll there.
   useEffect(() => {
-    closeMobileMenu();
-  }, [location.pathname, closeMobileMenu]);
-
-  // Handle escape key and body scroll
-  useEffect(() => {
-    const handleEscape = (e) => {
-      if (e.key === 'Escape' && mobileMenuOpen) {
-        closeMobileMenu();
-      }
-    };
-
-    if (mobileMenuOpen) {
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const id = window.location.hash.slice(1);
+      // Defer one frame so the target sections have rendered
+      requestAnimationFrame(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
     }
+  }, []);
 
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
-    };
-  }, [mobileMenuOpen, closeMobileMenu]);
-
-  const leaderboardLeagues = useMemo(() => publicLeagues.slice(0, 2), [publicLeagues]);
+  const featuredLeagues = useMemo(() => publicLeagues.slice(0, 1), [publicLeagues]);
 
   useEffect(() => {
     const node = leaderboardSectionRef.current;
     if (!node) return;
-
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
+        if (entries.some((e) => e.isIntersecting)) {
           setShouldLoadLeaderboards(true);
           observer.disconnect();
         }
       },
       { rootMargin: '200px' }
     );
-
     observer.observe(node);
-
-    return () => {
-      observer.disconnect();
-    };
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
-    const fetchPublicLeagues = async () => {
+    const fetch = async () => {
       try {
         setLoading(true);
         setError(null);
         const response = await leaguesAPI.getAll({ limit: 4 }, { ttlMs: 15000 });
-        const leagueData = response.data?.leagues;
-        const leagues = Array.isArray(leagueData)
-          ? leagueData.filter((league) => league.is_public)
-          : [];
+        const data = response.data?.leagues;
+        const leagues = Array.isArray(data) ? data.filter((l) => l.is_public) : [];
         setPublicLeagues(leagues);
-        
-      } catch (error) {
-        console.error('Failed to fetch public leagues:', error);
-        const apiMessage = error?.response?.data?.error;
-        setError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : 'Failed to fetch public leagues');
+      } catch (err) {
+        console.error('Failed to fetch public leagues:', err);
+        setError('Failed to fetch public leagues');
       } finally {
         setLoading(false);
       }
     };
+    fetch();
+  }, []);
 
-    fetchPublicLeagues();
+  useEffect(() => {
+    statsAPI
+      .getPublic({ ttlMs: 60000 })
+      .then((res) => setPlatformStats(res.data))
+      .catch((err) => {
+        console.error('Failed to load platform stats:', err);
+        setPlatformStats(null);
+      });
   }, []);
 
   useEffect(() => {
     if (!shouldLoadLeaderboards) return;
-    if (leaderboardLeagues.length === 0) {
-      setLeagueLeaderboards({});
-      setLeaderboardStatus({});
-      return;
-    }
-
-    const loadLeaderboards = async () => {
-      const loadingStatus = {};
-      leaderboardLeagues.forEach((league) => {
-        loadingStatus[league.id] = { status: 'loading' };
+    if (featuredLeagues.length === 0) return;
+    const load = async () => {
+      const loadingState = {};
+      featuredLeagues.forEach((l) => {
+        loadingState[l.id] = { status: 'loading' };
       });
-      setLeaderboardStatus((prev) => ({ ...prev, ...loadingStatus }));
-
-      const leaderboardResults = await Promise.allSettled(
-        leaderboardLeagues.map((league) =>
-          leaguesAPI.getLeaderboard(league.id, { limit: 5, include_badges: true }, { ttlMs: 10000 })
+      setLeaderboardStatus((p) => ({ ...p, ...loadingState }));
+      const results = await Promise.allSettled(
+        featuredLeagues.map((l) =>
+          leaguesAPI.getLeaderboard(l.id, { limit: 5, include_badges: false }, { ttlMs: 10000 })
         )
       );
-      const nextLeaderboards = {};
-      const nextStatus = {};
-      leaderboardResults.forEach((result, index) => {
-        const leagueId = leaderboardLeagues[index]?.id;
-        if (!leagueId) return;
-        if (result.status === 'fulfilled') {
-          const leaderboardData = result.value.data?.leaderboard;
-          nextLeaderboards[leagueId] = Array.isArray(leaderboardData) ? leaderboardData : [];
-          nextStatus[leagueId] = { status: 'loaded' };
+      const next = {};
+      const status = {};
+      results.forEach((r, i) => {
+        const id = featuredLeagues[i]?.id;
+        if (!id) return;
+        if (r.status === 'fulfilled') {
+          const lb = r.value.data?.leaderboard;
+          next[id] = Array.isArray(lb) ? lb : [];
+          status[id] = { status: 'loaded' };
         } else {
-          console.error(`Failed to load leaderboard for league ${leagueId}:`, result.reason);
-          nextStatus[leagueId] = { status: 'error' };
+          status[id] = { status: 'error' };
         }
       });
-      setLeagueLeaderboards((prev) => ({ ...prev, ...nextLeaderboards }));
-      setLeaderboardStatus((prev) => ({ ...prev, ...nextStatus }));
+      setLeagueLeaderboards((p) => ({ ...p, ...next }));
+      setLeaderboardStatus((p) => ({ ...p, ...status }));
     };
-
-    loadLeaderboards();
-  }, [leaderboardLeagues, shouldLoadLeaderboards]);
-
-  const features = [
-    'Manage your own leagues',
-    'Track your performance among friends',
-    'Complex ELO system',
-    'Match history with detailed stats',
-    'Leaderboards',
-    'Define and award custom badges',
-    'Show off your profile',
-  ];
-
-  const comingSoon = ['Tournament systems', 'Different sport configurations', 'Chat system'];
+    load();
+  }, [featuredLeagues, shouldLoadLeaderboards]);
 
   return (
-    <div className="min-h-screen">
-      {/* Nav */}
-      <header className="sticky top-0 z-40 border-b border-gray-800/60 bg-gradient-to-r from-gray-900/95 via-gray-900/98 to-gray-900/95 backdrop-blur-xl">
-        <div className="max-w-5xl mx-auto px-4">
-          <div className="flex justify-between items-center h-16">
-            <Link to="/" className="flex items-center space-x-2 group">
-              <img src="/img/logo.png" alt="Logo" className="h-8 w-8 group-hover:scale-105 transition-transform" />
-              <span className="cyberpunk-title text-lg bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                {t('app.title')}
-              </span>
-            </Link>
-            <div className="flex items-center gap-3">
-              {/* Desktop: Wiki link and auth buttons */}
-              <div className="hidden md:flex items-center gap-3">
-                <Button variant="ghost" size="sm" asChild className="text-gray-400 hover:text-white">
-                  <Link to="/wiki/ttc-baden-wettingen" className="flex items-center gap-2">
-                    <BookOpen className="h-4 w-4" />
-                    <span className="inline-flex items-start gap-1">
-                      <span>TTC Baden-Wettingen</span>
-                      <sup className="text-[10px] font-semibold text-blue-400 inline-block -skew-y-3">wiki</sup>
-                    </span>
-                  </Link>
-                </Button>
-                <Button variant="ghost" size="sm" asChild className="text-gray-400 hover:text-white">
-                  <Link to="/login">Log in</Link>
-                </Button>
-                <Button size="sm" asChild className="bg-blue-600 hover:bg-blue-500">
-                  <Link to="/register">Get started</Link>
-                </Button>
+    <div className="min-h-screen flex flex-col">
+      <PublicHeader />
+
+      <main className="flex-1">
+        {/* HERO — fills viewport (minus nav) so the ticker sits right at the fold */}
+        <section
+          className="relative isolate overflow-hidden flex items-center"
+          style={{
+            minHeight: 'calc(100vh - 64px)',
+            paddingTop: 'clamp(24px, 4vh, 56px)',
+            paddingBottom: 'clamp(24px, 4vh, 56px)',
+          }}
+        >
+          <div className="relative z-10 max-w-[1140px] mx-auto px-6 md:px-12 w-full">
+            <div className="grid gap-10 lg:gap-16 items-end" style={{ gridTemplateColumns: 'minmax(0,1.15fr) minmax(0,1fr)' }}>
+              <div>
+                <div className="relative z-[2] flex items-center gap-4">
+                  <span className="inline-flex items-center justify-center text-white shrink-0">
+                    <BrandMark size={72} />
+                  </span>
+                  <h1
+                    className="font-sans font-bold leading-[0.95]"
+                    style={{
+                      fontSize: 'clamp(40px, 5.2vw, 76px)',
+                      letterSpacing: '-0.04em',
+                      color: '#ffffff',
+                    }}
+                  >
+                    leagues<span style={{ color: 'var(--accent)' }}>.lol</span>
+                  </h1>
+                </div>
+                <p
+                  className="display mt-7 mb-9 leading-[1.15]"
+                  style={{
+                    fontSize: 'clamp(24px, 3.2vw, 38px)',
+                    letterSpacing: '-0.02em',
+                    fontStyle: 'italic',
+                    fontWeight: 400,
+                    color: 'var(--fg-2)',
+                    maxWidth: 560,
+                  }}
+                >
+                  {t('landing.hero.ledeBefore')}{' '}
+                  <RotatingWord words={t('landing.hero.ledeWords', { returnObjects: true }) || []} />{' '}
+                  {t('landing.hero.ledeAfter')}
+                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    asChild
+                    className="bg-[var(--accent)] text-[var(--accent-ink)] hover:bg-[var(--accent-2)] font-bold rounded-full px-7 py-6 text-[15px] tt-btn-primary"
+                  >
+                    <Link to="/register">{t('landing.hero.ctaPrimary')}</Link>
+                  </Button>
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="rounded-full px-6 py-6 text-[15px] border-[1.5px]"
+                    style={{ borderColor: 'var(--line)' }}
+                  >
+                    <a
+                      onClick={() => document.getElementById('public')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                      className="cursor-pointer"
+                    >
+                      {t('landing.hero.ctaSecondary')}
+                    </a>
+                  </Button>
+                </div>
               </div>
-              
-              {/* Mobile: Hamburger button */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleMobileMenu}
-                className="md:hidden h-11 w-11 p-0 flex items-center justify-center hover:bg-transparent active:bg-transparent focus-visible:ring-0 focus:outline-none touch-manipulation"
-                aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
-                aria-expanded={mobileMenuOpen}
-              >
-                {mobileMenuOpen ? (
-                  <X className="w-6 h-6 text-gray-200" />
-                ) : (
-                  <Menu className="w-6 h-6 text-gray-200" />
-                )}
-              </Button>
+
+              <div className="relative flex flex-col gap-3.5">
+                {/* Blob sits behind the ball so it tracks the column instead of the viewport */}
+                <div
+                  aria-hidden="true"
+                  className="hero-blob"
+                  style={{
+                    left: '50%',
+                    top: '40%',
+                    width: 520,
+                    height: 520,
+                    zIndex: 0,
+                  }}
+                />
+                <div className="relative z-[1]">
+                  <SpinningBall />
+                </div>
+
+                {/* Platform live counters — 3 compact cards directly under the ball */}
+                <div className="relative z-[1] grid grid-cols-3 gap-2.5 mt-5">
+                  <div
+                    className="tt-card relative overflow-hidden p-3.5"
+                    style={{
+                      borderRadius: 'var(--r-md)',
+                      borderColor: 'oklch(0.70 0.20 38 / 0.35)',
+                    }}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="absolute top-0 left-0 right-0 h-[2px]"
+                      style={{
+                        background: 'var(--accent)',
+                        borderRadius: 'var(--r-md) var(--r-md) 0 0',
+                      }}
+                    />
+                    <div className="eyebrow" style={{ fontSize: 9.5 }}>
+                      {t('landing.stats.activePlayers')}
+                    </div>
+                    <div
+                      className="num mt-1.5"
+                      style={{
+                        fontSize: 'clamp(22px, 2.4vw, 30px)',
+                        color: 'var(--accent)',
+                        lineHeight: 1,
+                      }}
+                    >
+                      {compact(platformStats?.active_players)}
+                    </div>
+                    <div className="text-[11px] text-[var(--fg-3)] mt-1.5 leading-tight">
+                      {t('landing.stats.activePlayersSubShort')}
+                    </div>
+                  </div>
+
+                  <div className="tt-card p-3.5" style={{ borderRadius: 'var(--r-md)' }}>
+                    <div className="eyebrow" style={{ fontSize: 9.5 }}>
+                      {t('landing.stats.leagues')}
+                    </div>
+                    <div
+                      className="num mt-1.5"
+                      style={{
+                        fontSize: 'clamp(22px, 2.4vw, 30px)',
+                        color: 'var(--fg)',
+                        lineHeight: 1,
+                      }}
+                    >
+                      {compact(platformStats?.leagues)}
+                    </div>
+                    <div className="text-[11px] text-[var(--fg-3)] mt-1.5 leading-tight">
+                      {t('landing.stats.leaguesSub')}
+                    </div>
+                  </div>
+
+                  <div className="tt-card p-3.5" style={{ borderRadius: 'var(--r-md)' }}>
+                    <div className="eyebrow" style={{ fontSize: 9.5 }}>
+                      {t('landing.stats.matchesLogged')}
+                    </div>
+                    <div
+                      className="num mt-1.5"
+                      style={{
+                        fontSize: 'clamp(22px, 2.4vw, 30px)',
+                        color: 'var(--fg)',
+                        lineHeight: 1,
+                      }}
+                    >
+                      {compact(platformStats?.matches)}
+                    </div>
+                    <div className="text-[11px] text-[var(--fg-3)] mt-1.5 leading-tight">
+                      {t('landing.stats.matchesLoggedSub')}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
+        </section>
+
+        {/* TICKER */}
+        <div className="tt-ticker">
+          <div className="tt-ticker-track">
+            {[0, 1].map((k) => (
+              <span key={k} className="contents">
+                {TICKER_ENTRIES.map((e, i) => {
+                  const palette = [
+                    'var(--p-orange)',
+                    'var(--p-cyan)',
+                    'var(--p-magenta)',
+                    'var(--p-lime)',
+                    'var(--p-amber)',
+                  ];
+                  return (
+                    <span
+                      key={`${k}-${i}`}
+                      className="inline-flex items-center gap-2.5 align-middle"
+                      style={{ fontFamily: '"Inter Tight", sans-serif', fontSize: 14 }}
+                    >
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          display: 'inline-block',
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          background: palette[i % palette.length],
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span style={{ fontWeight: 600, color: 'var(--fg)' }}>{e.winner}</span>
+                      <span
+                        style={{
+                          fontFamily: '"Fraunces", ui-serif, Georgia, serif',
+                          fontStyle: 'italic',
+                          color: 'var(--accent)',
+                          fontWeight: 500,
+                          fontSize: 15,
+                        }}
+                      >
+                        vs.
+                      </span>
+                      <span style={{ color: 'var(--fg-2)' }}>{e.loser}</span>
+                      <span
+                        style={{
+                          fontFamily: '"JetBrains Mono", monospace',
+                          fontSize: 12,
+                          color: 'var(--fg-2)',
+                          letterSpacing: '0.02em',
+                        }}
+                      >
+                        {e.score}
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: '"JetBrains Mono", monospace',
+                          fontSize: 12,
+                          color: 'var(--good)',
+                          fontWeight: 600,
+                        }}
+                      >
+                        +{e.delta}
+                      </span>
+                      <Sparkline
+                        data={e.trend}
+                        w={50}
+                        h={14}
+                        stroke="auto"
+                        strokeWidth={1.4}
+                      />
+                      <span
+                        style={{
+                          color: 'var(--fg-3)',
+                          fontSize: 12,
+                          fontFamily: '"JetBrains Mono", monospace',
+                          letterSpacing: '0.02em',
+                        }}
+                      >
+                        · {e.league}
+                      </span>
+                    </span>
+                  );
+                })}
+              </span>
+            ))}
+          </div>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="py-12 px-4">
-        <div className="max-w-5xl mx-auto space-y-10">
-          
-          {/* Hero */}
-          <section className="text-center space-y-4">
-            <h1 className="cyberpunk-title text-3xl sm:text-4xl bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-              League & ELO Tracking
-            </h1>
-            <Button asChild size="lg" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500">
-              <Link to="/register">Get started</Link>
-            </Button>
-          </section>
+        <EloMarquee />
 
-          {/* Features List */}
-          <section className="max-w-2xl mx-auto">
-            <ul className="space-y-2">
-              {features.map((feature, i) => (
-                <li 
+        {/* HOW IT WORKS */}
+        <section id="how" className="pb-20 md:pb-24">
+          <div className="max-w-[1140px] mx-auto px-6 md:px-12">
+            <h2 className="display text-[clamp(32px,4.4vw,48px)] leading-[1.02] mb-10">
+              {t('landing.how.title')}
+            </h2>
+            <ol className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 md:gap-6">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <li
                   key={i}
-                  className="flex items-center gap-3 py-2 px-4 rounded-lg border-l-2 border-blue-500/60 bg-gray-900/40 hover:bg-gray-800/50 transition-colors"
+                  className="how-card group relative p-5 md:p-6 cursor-default"
+                  style={{
+                    background: 'var(--bg-2)',
+                    border: '1.5px solid var(--line-soft)',
+                    borderRadius: 'var(--r-lg)',
+                    transition: 'transform 220ms cubic-bezier(.34,1.56,.64,1), border-color 180ms ease, box-shadow 220ms ease',
+                  }}
                 >
-                  <ChevronRight className="h-4 w-4 text-blue-400 flex-shrink-0" />
-                  <span className="text-gray-200">{feature}</span>
+                  {/* Top accent rail — slides in from left on hover */}
+                  <span
+                    aria-hidden="true"
+                    className="how-card-rail"
+                    style={{
+                      position: 'absolute',
+                      top: -1,
+                      left: -1,
+                      right: -1,
+                      height: 2,
+                      background: 'var(--accent)',
+                      borderRadius: '2px 2px 0 0',
+                      transformOrigin: 'left',
+                      transform: 'scaleX(0)',
+                      transition: 'transform 320ms cubic-bezier(.34,1.56,.64,1)',
+                    }}
+                  />
+                  <div className="font-mono text-[11px] tracking-[0.16em] uppercase text-[var(--accent)] transition-colors">
+                    Step {String(i).padStart(2, '0')}
+                  </div>
+                  <h4
+                    className="text-[16px] md:text-[17px] font-semibold mt-2 leading-[1.35]"
+                    style={{ fontFamily: '"Inter Tight", sans-serif', letterSpacing: '-0.01em' }}
+                  >
+                    {t(`landing.how.step${i}.title`)}
+                  </h4>
                 </li>
               ))}
-            </ul>
-          </section>
+            </ol>
+            <style>{`
+              .how-card { will-change: transform; }
+              .how-card:hover, .how-card:focus-visible {
+                transform: translateY(-3px);
+                border-color: var(--accent) !important;
+                box-shadow: 0 14px 32px -18px oklch(0.70 0.20 38 / 0.55), 0 0 0 1px oklch(0.70 0.20 38 / 0.15);
+              }
+              .how-card:hover .how-card-rail,
+              .how-card:focus-visible .how-card-rail {
+                transform: scaleX(1);
+              }
+              .how-card:active {
+                transform: translateY(-1px) scale(0.99);
+              }
+              @media (hover: none) {
+                /* On touch devices, the press itself is the feedback */
+                .how-card:active {
+                  border-color: var(--accent) !important;
+                  transform: scale(0.985);
+                }
+                .how-card:active .how-card-rail { transform: scaleX(1); }
+              }
+            `}</style>
+          </div>
+        </section>
 
-          {/* Coming Soon + Free */}
-          <section className="py-5 border-t border-b border-gray-800/50">
-            <div className="max-w-2xl mx-auto text-center">
-              <div className="flex items-center justify-center gap-2 mb-3">
-                <Sparkles className="h-4 w-4 text-purple-300" />
-                <span className="text-sm font-semibold text-gray-200">Coming soon</span>
-              </div>
-              <ul className="space-y-2">
-                {comingSoon.map((item) => (
-                  <li
-                    key={item}
-                    className="flex items-center gap-3 py-2 px-4 rounded-lg border-l-2 border-purple-500/50 bg-gray-900/40 hover:bg-gray-800/50 transition-colors text-left"
-                  >
-                    <ChevronRight className="h-4 w-4 text-purple-300 flex-shrink-0" />
-                    <span className="text-gray-200">{item}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-3 text-xs text-gray-500">Free to use · No ads</div>
-            </div>
-          </section>
+        {/* PUBLIC LEAGUES */}
+        <section id="public" className="pb-20 md:pb-24" ref={leaderboardSectionRef}>
+          <div className="max-w-[1140px] mx-auto px-6 md:px-12">
+            <h2 className="display text-[clamp(32px,4.4vw,48px)] leading-[1.02] mb-10 max-w-[700px]">
+              {t('landing.public.title')}
+            </h2>
 
-          {/* Public Leagues with Leaderboards */}
-          <section ref={leaderboardSectionRef}>
-            <h2 className="cyberpunk-title text-lg text-gray-300 mb-4">Public Leagues</h2>
-            
             {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <LoadingSpinner size="sm" />
+              <div className="flex items-center justify-center py-12">
+                <LoadingSpinner size="md" />
               </div>
-            ) : error ? (
-              <p className="text-sm text-red-400 text-center py-6">{error}</p>
-            ) : publicLeagues.length > 0 ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {publicLeagues.slice(0, 2).map((league) => (
-                  <Card key={league.id} className="vg-card">
-                    <CardHeader className="space-y-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <Link to={`/league/${league.id}`} className="min-w-0">
-                          <CardTitle className="cyberpunk-subtitle text-xl truncate text-blue-400 hover:text-blue-300 transition-colors">
-                            {league.name}
-                          </CardTitle>
-                        </Link>
-                        <Badge variant="secondary" className="ml-2 flex items-center gap-1 shrink-0">
-                          <Globe className="h-3.5 w-3.5" />
-                          Public
-                        </Badge>
-                      </div>
-                      {league.description && (
-                        <CardDescription className="line-clamp-2 text-gray-400">{league.description}</CardDescription>
-                      )}
-                      <div className="flex flex-wrap gap-3 text-sm text-gray-500 pt-1">
-                        <span className="flex items-center gap-1">
-                          <Users className="h-4 w-4" /> {league.member_count || 0} members
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <ListChecks className="h-4 w-4" /> {league.match_count || 0} matches
-                        </span>
-                        {league.season && (
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4" /> {league.season}
-                          </span>
-                        )}
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      {(() => {
-                        const status = leaderboardStatus[league.id]?.status;
-                        const resolvedStatus = typeof status === 'string'
-                          ? status
-                          : (shouldLoadLeaderboards ? 'loading' : 'idle');
-                        const leaderboardData = Array.isArray(leagueLeaderboards[league.id])
-                          ? leagueLeaderboards[league.id]
-                          : [];
-
-                        if (resolvedStatus === 'loading' || resolvedStatus === 'idle') {
-                          return (
-                            <div className="flex items-center justify-center py-3">
-                              <LoadingSpinner size="sm" />
-                            </div>
-                          );
-                        }
-
-                        if (resolvedStatus === 'error') {
-                          return (
-                            <p className="text-sm text-red-400 text-center py-3">{t('leagues.leaderboardError')}</p>
-                          );
-                        }
-
-                        if (leaderboardData.length === 0) {
-                          return <p className="text-sm text-gray-500 text-center py-3">No players yet</p>;
-                        }
-
-                        return (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="text-left text-gray-400 border-b border-gray-700">
-                                <th className="px-2 py-2 font-medium w-16 text-center">Rank</th>
-                                <th className="px-2 py-2 font-medium">Player</th>
-                                <th className="px-2 py-2 font-medium">ELO</th>
-                                <th className="px-2 py-2 font-medium">Trend</th>
-                                <th className="px-2 py-2 font-medium text-right">W/L</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {leaderboardData.map((p, idx) => (
-                                <tr key={p.roster_id || idx} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
-                                  <td className="px-2 py-3 align-middle">
-                                    <div className="w-10 flex items-center justify-center">
-                                      {p.rank <= 3 ? (
-                                        <MedalIcon rank={p.rank} size={p.rank === 1 ? 32 : 28} />
-                                      ) : (
-                                        <span className="text-gray-300 text-sm font-bold tabular-nums">{p.rank}.</span>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="px-2 py-3 align-middle">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      {p.avatar_url ? (
-                                        <img 
-                                          src={p.avatar_url} 
-                                          alt="" 
-                                          className="w-6 h-6 rounded-full object-cover border border-gray-700"
-                                        />
-                                      ) : (
-                                        <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-xs text-gray-400">
-                                          {(p.display_name || p.username || 'P').charAt(0).toUpperCase()}
-                                        </div>
-                                      )}
-                                      <span className="text-blue-400 font-medium truncate">
-                                        {p.display_name || p.username || 'Player'}
-                                      </span>
-                                      {p.badges && p.badges.length > 0 && (
-                                        <BadgeList
-                                          badges={p.badges}
-                                          size="sm"
-                                          showDate={false}
-                                          showLeague={false}
-                                          className="flex-nowrap overflow-x-auto scrollbar-hide gap-1"
-                                        />
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="px-2 py-3 text-gray-200 font-medium tabular-nums align-middle">
-                                    {p.current_elo}
-                                  </td>
-                                  <td className="px-2 py-3 align-middle">
-                                    {p.user_id ? (
-                                      <EloSparkline userId={p.user_id} leagueId={league.id} width={56} height={14} points={15} />
-                                    ) : p.roster_id ? (
-                                      <EloSparkline rosterId={p.roster_id} leagueId={league.id} width={56} height={14} points={15} />
-                                    ) : (
-                                      <span className="text-xs text-gray-500">—</span>
-                                    )}
-                                  </td>
-                                  <td className="px-2 py-3 text-gray-300 tabular-nums text-right align-middle text-xs">
-                                    {p.matches_won}/{(p.matches_played || 0) - (p.matches_won || 0)}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                        );
-                      })()}
-                      <Link 
-                        to={`/league/${league.id}`}
-                        className="block text-center text-sm text-blue-400 hover:text-blue-300 mt-3 py-2 border-t border-gray-800/50"
-                      >
-                        View full leaderboard →
-                      </Link>
-                    </CardContent>
-                  </Card>
-                ))}
+            ) : publicLeagues.length === 0 ? (
+              <div className="ph h-24">
+                <span>{t('landing.public.empty')}</span>
               </div>
             ) : (
-              <p className="text-sm text-gray-500 text-center py-6">No public leagues yet</p>
-            )}
-
-            {/* Additional leagues list */}
-            {publicLeagues.length > 2 && (
-              <div className="mt-6 space-y-1">
-                <h3 className="text-sm text-gray-500 mb-2">More leagues</h3>
-                {publicLeagues.slice(2).map((league) => (
-                  <Link 
-                    key={league.id}
-                    to={`/league/${league.id}`}
-                    className="flex items-center justify-between py-2 px-3 rounded hover:bg-gray-800/30 transition-colors group"
+              <>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {publicLeagues.slice(0, 2).map((league) => (
+                    <PublicLeagueCard
+                      key={league.id}
+                      league={league}
+                      leaderboard={leagueLeaderboards[league.id]}
+                      status={leaderboardStatus[league.id]?.status}
+                      shouldLoad={shouldLoadLeaderboards}
+                      t={t}
+                    />
+                  ))}
+                </div>
+                {publicLeagues.length > 2 && (
+                  <div className="mt-6 grid gap-1">
+                    {publicLeagues.slice(2).map((l) => (
+                      <Link
+                        key={l.id}
+                        to={`/league/${l.id}`}
+                        className="flex items-center justify-between py-2.5 px-3 rounded-md hover:bg-[var(--bg-2)] transition-colors group"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`av-chip av-c${(l.id % 5) + 1} w-7 h-7 rounded-md flex items-center justify-center text-[10px] font-semibold`}>
+                            {(l.name || '??').slice(0, 2).toUpperCase()}
+                          </div>
+                          <span className="text-[14px] text-[var(--fg-2)] group-hover:text-[var(--fg)] truncate">
+                            {l.name}
+                          </span>
+                        </div>
+                        <div className="font-mono text-[12px] text-[var(--fg-3)] flex gap-4">
+                          <span>{l.member_count || 0} members</span>
+                          <span>{l.match_count || 0} matches</span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-8 flex justify-center">
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="rounded-full px-6 py-5 text-[14px] border-[1.5px]"
+                    style={{ borderColor: 'var(--line)' }}
                   >
-                    <div className="flex items-center gap-2">
-                      <Trophy className="h-4 w-4 text-yellow-500/60" />
-                      <span className="text-gray-300 group-hover:text-gray-100">{league.name}</span>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <span>{league.member_count || 0} members</span>
-                      <span>{league.match_count || 0} matches</span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
+                    <Link to="/register">
+                      {t('landing.public.seeAll')} →
+                    </Link>
+                  </Button>
+                </div>
+              </>
             )}
-          </section>
+          </div>
+        </section>
 
-        </div>
+        {/* CTA — editorial card-link with bobbing accent arrow */}
+        <section className="pb-24 md:pb-28 relative">
+          <div className="max-w-[1140px] mx-auto px-6 md:px-12 flex justify-center">
+            <Link
+              to="/register"
+              className="cta-card group relative inline-flex items-center justify-between gap-8 px-8 md:px-12 py-7 md:py-8 no-underline"
+              style={{
+                background: 'var(--bg-2)',
+                border: '1.5px solid var(--line-soft)',
+                borderRadius: 'var(--r-xl)',
+                color: '#ffffff',
+                minWidth: 'min(640px, 92vw)',
+                transition: 'transform 240ms cubic-bezier(.34,1.56,.64,1), border-color 200ms ease, box-shadow 240ms ease',
+                overflow: 'hidden',
+              }}
+            >
+              {/* Top accent rail (slides in on hover) */}
+              <span
+                aria-hidden="true"
+                className="cta-rail"
+                style={{
+                  position: 'absolute',
+                  top: -1,
+                  left: -1,
+                  right: -1,
+                  height: 2,
+                  background: 'var(--accent)',
+                  borderRadius: 'var(--r-xl) var(--r-xl) 0 0',
+                  transformOrigin: 'left',
+                  transform: 'scaleX(0)',
+                  transition: 'transform 360ms cubic-bezier(.34,1.56,.64,1)',
+                }}
+              />
+              <span
+                className="cta-text"
+                style={{
+                  fontFamily: '"Fraunces", ui-serif, Georgia, serif',
+                  fontStyle: 'italic',
+                  fontWeight: 600,
+                  fontSize: 'clamp(22px, 3.2vw, 36px)',
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1.05,
+                  color: '#ffffff',
+                }}
+              >
+                {t('landing.cta.button')}
+              </span>
+              <span
+                aria-hidden="true"
+                className="cta-arrow inline-flex items-center justify-center shrink-0"
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '50%',
+                  background: 'oklch(0.70 0.20 38 / 0.12)',
+                  color: 'var(--accent)',
+                  fontFamily: '"Inter Tight", sans-serif',
+                  fontSize: 22,
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  transition: 'background 200ms ease',
+                }}
+              >
+                <span className="cta-arrow-glyph">→</span>
+              </span>
+            </Link>
+          </div>
+        </section>
+        <style>{`
+          .cta-card { will-change: transform; }
+          .cta-card:hover, .cta-card:focus-visible {
+            transform: translateY(-2px);
+            border-color: var(--accent) !important;
+            box-shadow:
+              0 22px 40px -22px oklch(0.70 0.20 38 / 0.55),
+              0 0 0 1px oklch(0.70 0.20 38 / 0.18);
+          }
+          .cta-card:active { transform: translateY(-1px) scale(0.995); }
+          .cta-card:hover .cta-arrow { background: var(--accent) !important; color: var(--accent-ink) !important; }
+          .cta-card:hover .cta-rail { transform: scaleX(1); }
+
+          /* The arrow gently bobs on its own — the "this is a link" tell */
+          .cta-arrow-glyph {
+            display: inline-block;
+            animation: tt-cta-bob 2.4s ease-in-out infinite;
+          }
+          .cta-card:hover .cta-arrow-glyph { animation: tt-cta-snap 520ms cubic-bezier(.34,1.56,.64,1); }
+          @keyframes tt-cta-bob {
+            0%, 100% { transform: translateX(0); }
+            50%      { transform: translateX(4px); }
+          }
+          @keyframes tt-cta-snap {
+            0%   { transform: translateX(0); }
+            55%  { transform: translateX(10px); }
+            100% { transform: translateX(2px); }
+          }
+
+          /* Soft underline that grows under the editorial text on hover */
+          .cta-text { background-image: linear-gradient(var(--accent), var(--accent)); background-position: 0 100%; background-repeat: no-repeat; background-size: 0 1.5px; transition: background-size 320ms ease; padding-bottom: 4px; }
+          .cta-card:hover .cta-text { background-size: 100% 1.5px; }
+
+          @media (hover: none) {
+            .cta-card:active { border-color: var(--accent) !important; }
+            .cta-card:active .cta-rail { transform: scaleX(1); }
+            .cta-card:active .cta-arrow { background: var(--accent) !important; color: var(--accent-ink) !important; }
+          }
+        `}</style>
       </main>
 
       <SiteFooter />
-
-      {/* Mobile Menu */}
-      <>
-        {/* Backdrop */}
-        <div 
-          className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300 ${
-            mobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-          }`} 
-          onClick={closeMobileMenu}
-          aria-hidden="true"
-        />
-        
-        {/* Menu Panel */}
-        <div 
-          className={`fixed right-0 top-0 h-full w-80 bg-gray-900 border-l border-gray-700 z-50 transform transition-transform duration-300 ease-in-out ${
-            mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
-          }`}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Mobile navigation menu"
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-700">
-            <div className="flex items-center space-x-2">
-              <span className="font-bold text-lg text-gray-200">Menu</span>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={closeMobileMenu}
-              className="h-11 w-11 p-0 touch-manipulation"
-              aria-label="Close menu"
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
-
-          {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto">
-            <div className="p-2">
-              <Link
-                to="/wiki/ttc-baden-wettingen"
-                className="flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-700 transition-colors min-h-[44px] touch-manipulation"
-                onClick={closeMobileMenu}
-              >
-                <BookOpen className="h-5 w-5" />
-                <span className="inline-flex items-start gap-1">
-                  <span>TTC Baden-Wettingen</span>
-                  <sup className="text-[10px] font-semibold text-blue-400 inline-block -skew-y-3">wiki</sup>
-                </span>
-              </Link>
-            </div>
-
-            {/* Divider */}
-            <div className="px-4 py-2">
-              <div className="h-px bg-gray-700" />
-            </div>
-
-            {/* Auth Buttons */}
-            <div className="p-4">
-              <div className="flex flex-col gap-2">
-                <Button asChild variant="ghost" className="w-full justify-start min-h-[44px] touch-manipulation">
-                  <Link to="/login" onClick={closeMobileMenu}>Log in</Link>
-                </Button>
-                <Button asChild className="w-full min-h-[44px] touch-manipulation">
-                  <Link to="/register" onClick={closeMobileMenu}>Get started</Link>
-                </Button>
-              </div>
-            </div>
-          </nav>
-        </div>
-      </>
     </div>
   );
 };
+
+// Cycles through a list of words. The active word is rendered alone so the
+// surrounding line reflows tightly around it — short words don't leave a gap.
+function RotatingWord({ words, interval = 2200 }) {
+  const list = Array.isArray(words) && words.length > 0 ? words : [''];
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    if (list.length < 2) return undefined;
+    const t = setInterval(() => setI((p) => (p + 1) % list.length), interval);
+    return () => clearInterval(t);
+  }, [list.length, interval]);
+  return (
+    <span
+      key={i}
+      style={{
+        color: 'var(--accent)',
+        display: 'inline-block',
+        animation: 'tt-word-swap 0.45s ease',
+        whiteSpace: 'nowrap',
+      }}
+      aria-live="polite"
+    >
+      {list[i]}
+      <style>{`
+        @keyframes tt-word-swap {
+          from { opacity: 0; transform: translateY(-6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+    </span>
+  );
+}
+
+function PublicLeagueCard({ league, leaderboard, status, shouldLoad, t }) {
+  const resolvedStatus = typeof status === 'string' ? status : shouldLoad ? 'loading' : 'idle';
+  const data = Array.isArray(leaderboard) ? leaderboard : [];
+
+  return (
+    <div className="tt-card p-6">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <Link to={`/league/${league.id}`} className="min-w-0 flex-1 group">
+          <h3 className="display text-[24px] leading-[1.1] truncate group-hover:text-[var(--accent)] transition-colors">
+            {league.name}
+          </h3>
+        </Link>
+        <span className="chip">● {t('leagues.public')}</span>
+      </div>
+      {league.description && (
+        <p className="text-[14px] text-[var(--fg-3)] line-clamp-2 mb-3">{league.description}</p>
+      )}
+      <div className="flex flex-wrap gap-3 font-mono text-[11px] text-[var(--fg-3)] uppercase tracking-wider mb-4">
+        <span>{league.member_count || 0} members</span>
+        <span>·</span>
+        <span>{league.match_count || 0} matches</span>
+        {league.season && (
+          <>
+            <span>·</span>
+            <span>{league.season}</span>
+          </>
+        )}
+      </div>
+
+      {resolvedStatus === 'loading' || resolvedStatus === 'idle' ? (
+        <div className="flex items-center justify-center py-6">
+          <LoadingSpinner size="sm" />
+        </div>
+      ) : resolvedStatus === 'error' ? (
+        <p className="text-sm text-[var(--bad)] text-center py-4">{t('leagues.leaderboardError')}</p>
+      ) : data.length === 0 ? (
+        <p className="text-sm text-[var(--fg-3)] text-center py-4">{t('leagues.noPlayers')}</p>
+      ) : (
+        <div className="space-y-1">
+          {data.slice(0, 5).map((p) => (
+            <div
+              key={p.roster_id || p.user_id}
+              className="grid items-center gap-3 py-1.5"
+              style={{ gridTemplateColumns: '32px 1fr 60px auto' }}
+            >
+              <span
+                className={`font-sans font-bold text-[14px] tabular-nums ${
+                  p.rank === 1 ? 'text-[var(--accent)]' : 'text-[var(--fg-2)]'
+                }`}
+              >
+                {p.rank}.
+              </span>
+              <span className="text-[13.5px] truncate">{p.display_name || p.username || 'Player'}</span>
+              {p.user_id ? (
+                <EloSparkline userId={p.user_id} leagueId={league.id} width={56} height={14} points={15} />
+              ) : p.roster_id ? (
+                <EloSparkline rosterId={p.roster_id} leagueId={league.id} width={56} height={14} points={15} />
+              ) : (
+                <span className="text-xs text-[var(--fg-4)]">—</span>
+              )}
+              <span className="font-mono text-[13px] text-[var(--fg-2)] tabular-nums text-right">{p.current_elo}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <Link
+        to={`/league/${league.id}`}
+        className="block text-center text-[13px] text-[var(--accent)] hover:underline mt-4 pt-3 border-t"
+        style={{ borderColor: 'var(--line-soft)' }}
+      >
+        {t('landing.public.viewLeaderboard')} →
+      </Link>
+    </div>
+  );
+}
 
 export default LandingPage;

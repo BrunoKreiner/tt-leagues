@@ -2,34 +2,30 @@ import { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { 
-  Home, 
-  Trophy, 
-  Swords, 
-  User, 
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  User,
   LogOut,
   Bell,
-  Shield,
   UserPlus,
-  X
+  X,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
-const MobileMenu = ({ 
-  isOpen, 
-  onClose, 
-  navigation, 
+const MobileMenu = ({
+  isOpen,
+  onClose,
+  navigation,
   user,
   isAuthenticated,
-  notifications, 
-  unreadCount, 
-  notifLoading, 
+  notifications,
+  unreadCount,
+  notifLoading,
   acceptLoading,
   onMarkAsRead,
   onAcceptInvite,
   onDenyInvite,
-  onLogout 
+  onLogout,
 }) => {
   const { t } = useTranslation();
   const location = useLocation();
@@ -39,284 +35,261 @@ const MobileMenu = ({
     onClose();
   };
 
-  // Close menu on route change
   useEffect(() => {
     onClose();
-    // Intentionally only depend on pathname to avoid closing immediately on open
   }, [location.pathname, onClose]);
 
-  // Handle escape key
   useEffect(() => {
     const handleEscape = (e) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
+      if (e.key === 'Escape' && isOpen) onClose();
     };
-
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
-      // Prevent body scroll when menu is open
       document.body.style.overflow = 'hidden';
     }
-
     return () => {
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = 'unset';
     };
   }, [isOpen, onClose]);
 
-  const getUserInitials = (user) => {
-    if (!user) return 'U';
-    return `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase() || user.username?.[0]?.toUpperCase() || 'U';
+  const getUserInitials = (u) => {
+    if (!u) return 'U';
+    return (
+      `${u.first_name?.[0] || ''}${u.last_name?.[0] || ''}`.toUpperCase() ||
+      u.username?.[0]?.toUpperCase() ||
+      'U'
+    );
   };
+
+  const isActive = (href) =>
+    location.pathname === href || (href !== '/' && location.pathname.startsWith(href));
 
   return (
     <>
       {/* Backdrop */}
-      <div 
-        className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300 ${
+      <div
+        className={`fixed inset-0 z-40 transition-opacity duration-300 ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`} 
+        }`}
+        style={{
+          background: 'oklch(0.10 0.005 50 / 0.6)',
+          backdropFilter: 'blur(4px)',
+        }}
         onClick={onClose}
         aria-hidden="true"
       />
-      
-      {/* Menu Panel */}
-      <div 
-        className={`fixed right-0 top-0 h-full w-80 bg-gray-900 border-l border-gray-700 z-50 transform transition-transform duration-300 ease-in-out ${
+
+      {/* Drawer */}
+      <aside
+        className={`fixed right-0 top-0 bottom-0 z-50 flex flex-col transition-transform duration-300 ease-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
+        style={{
+          width: 'min(82vw, 340px)',
+          background: 'var(--bg-2)',
+          borderLeft: '1px solid var(--line-soft)',
+          boxShadow: '-20px 0 60px -10px oklch(0.10 0 0 / 0.5)',
+        }}
         role="dialog"
         aria-modal="true"
         aria-label="Mobile navigation menu"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700">
-          <div className="flex items-center space-x-2">
-            <span className="font-bold text-lg text-gray-200">Menu</span>
-          </div>
+        {/* Head */}
+        <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: 'var(--line-soft)' }}>
+          <span className="eyebrow dotted">Menu</span>
           <Button
             variant="ghost"
             size="sm"
             onClick={onClose}
-            className="h-11 w-11 p-0 touch-manipulation"
+            className="h-9 w-9 rounded-full p-0 border"
+            style={{ background: 'var(--bg-3)', borderColor: 'var(--line)' }}
             aria-label="Close menu"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </Button>
         </div>
 
-        {/* User Profile Section */}
+        {/* User block */}
         {isAuthenticated ? (
-          <Link to="/app/profile" onClick={onClose} className="block p-4 border-b border-gray-700 hover:bg-gray-800/50 transition-colors cursor-pointer touch-manipulation min-h-[64px]">
-            <div className="flex items-center space-x-3">
-              <Avatar className="h-10 w-10">
-                {user?.avatar_url && (
-                  <img src={user.avatar_url} alt="Avatar" className="h-full w-full object-cover rounded-full" />
-                )}
-                <AvatarFallback className="text-sm bg-gray-700 text-gray-200">
+          <Link
+            to="/app/profile"
+            onClick={onClose}
+            className="block px-6 py-4 border-b hover:bg-[var(--bg-3)]/40 transition-colors"
+            style={{ borderColor: 'var(--line-soft)' }}
+          >
+            <div className="flex items-center gap-3">
+              <Avatar className="h-11 w-11 border" style={{ borderColor: 'var(--line)' }}>
+                {user?.avatar_url && <AvatarImage src={user.avatar_url} alt="Avatar" />}
+                <AvatarFallback className="text-sm bg-[var(--bg-3)] text-[var(--fg)]">
                   {getUserInitials(user)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate text-gray-200">
+                <p className="font-semibold text-sm truncate">
                   {user?.first_name} {user?.last_name}
                 </p>
-                <p className="text-xs text-gray-400 truncate">
-                  @{user?.username}
-                </p>
+                <p className="text-xs text-[var(--fg-3)] font-mono truncate">@{user?.username}</p>
               </div>
             </div>
           </Link>
         ) : (
-          <div className="p-4 border-b border-gray-700">
-            <div className="flex items-center gap-2">
-              <Button asChild variant="ghost" className="flex-1">
-                <Link to="/login" onClick={onClose}>Log in</Link>
-              </Button>
-              <Button asChild className="flex-1">
-                <Link to="/register" onClick={onClose}>Sign up</Link>
-              </Button>
-            </div>
+          <div className="px-6 py-4 border-b flex flex-col gap-2" style={{ borderColor: 'var(--line-soft)' }}>
+            <Button
+              asChild
+              className="w-full bg-[var(--accent)] text-[var(--accent-ink)] hover:bg-[var(--accent-2)] font-bold rounded-full"
+            >
+              <Link to="/register" onClick={onClose}>
+                {t('auth.getStarted')}
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full rounded-full">
+              <Link to="/login" onClick={onClose}>
+                {t('auth.logIn')}
+              </Link>
+            </Button>
           </div>
         )}
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto">
-          <div className="p-2">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.href || 
-                             (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
-              const label = item.label ?? item.name;
-              
-              return (
-                <Link
-                  key={item.href}
-                  to={item.href}
-                  className={`flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors min-h-[44px] touch-manipulation ${
-                    isActive 
-                      ? 'bg-blue-600 text-white' 
-                      : 'text-gray-200 hover:bg-gray-700'
-                  }`}
-                  onClick={onClose}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span>{label}</span>
-                </Link>
-              );
-            })}
-          </div>
-
-          {/* Divider */}
-          <div className="px-4 py-2">
-            <div className="h-px bg-gray-700" />
-          </div>
-
-          {/* Quick Actions */}
-          {isAuthenticated ? (
-            <div className="p-2">
+        {/* Nav links */}
+        <nav className="flex-1 overflow-y-auto py-3">
+          {navigation.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
+            const label = item.label ?? item.name;
+            return (
               <Link
-                to="/app/profile"
-                className="flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium text-gray-200 hover:bg-gray-700 transition-colors min-h-[44px] touch-manipulation"
+                key={item.href}
+                to={item.href}
                 onClick={onClose}
+                className={`flex items-center gap-3.5 px-6 py-3.5 text-[15px] border-l-[3px] transition-colors min-h-[44px] ${
+                  active
+                    ? 'border-[var(--accent)] bg-[var(--bg-3)]'
+                    : 'border-transparent hover:bg-[var(--bg-3)]/50'
+                }`}
               >
-                <User className="h-5 w-5" />
-                <span>Profile</span>
+                <span
+                  className="inline-flex items-center justify-center w-5"
+                  style={{ color: active ? 'var(--accent)' : 'var(--fg-3)' }}
+                >
+                  <Icon className="h-[18px] w-[18px]" />
+                </span>
+                <span>{label}</span>
               </Link>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleLogoutClick}
-                className="w-full justify-start px-3 py-3 rounded-lg text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-900/20 min-h-[44px] touch-manipulation"
-              >
-                <LogOut className="h-5 w-5" />
-                <span>Log out</span>
-              </Button>
-            </div>
-          ) : null}
+            );
+          })}
 
-          {/* Notifications Section */}
-          {isAuthenticated ? (
-            <>
-              <div className="px-4 py-2">
-                <div className="h-px bg-gray-700" />
-              </div>
-              
-              <div className="p-2">
-                <div className="flex items-center justify-between px-3 py-2">
-                  <div className="flex items-center space-x-3">
-                    <Bell className="h-5 w-5 text-gray-400" />
-                    <span className="text-sm font-medium text-gray-200">Notifications</span>
-                  </div>
-                  {unreadCount > 0 && (
-                    <span className="min-w-[1.25rem] h-5 px-1.5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center">
-                      {unreadCount}
-                    </span>
-                  )}
-                </div>
-                
-                {/* Notifications List */}
-                <div className="max-h-64 overflow-y-auto">
-                  {notifLoading ? (
-                                     <div className="px-3 py-2 text-sm text-gray-400">{t('common.loading')}</div>
-                  ) : notifications.length === 0 ? (
-                                     <div className="px-3 py-2 text-sm text-gray-400">{t('notifications.none')}</div>
-                  ) : (
-                    notifications.slice(0, 5).map((n) => (
-                      <div key={n.id} className={`px-3 py-2 rounded-lg ${!n.is_read ? 'bg-gray-700/40' : 'bg-gray-800'}`}>
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5 text-gray-400">
-                            {n.type === 'league_invite' ? (
-                              <UserPlus className="h-4 w-4" />
-                            ) : (
-                              <Bell className="h-4 w-4" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <div className={`text-sm ${!n.is_read ? 'font-semibold' : 'font-medium'} truncate text-gray-200`}>
-                                  {n.title}
-                                </div>
-                                <div className="text-xs text-gray-400 line-clamp-2">
-                                  {n.message}
-                                </div>
-                                {n.created_at && (
-                                  <div className="text-[10px] text-gray-500 mt-1">
-                                    {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
-                                  </div>
-                                )}
-                              </div>
-                              {!n.is_read && (
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  onClick={() => onMarkAsRead(n.id)}
-                                  className="min-h-[44px] px-3 text-xs touch-manipulation"
-                                >
-                                  Read
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        {n.type === 'league_invite' && (
-                          <div className="mt-2 space-y-2">
-                            {!n.is_read ? (
-                              <div className="flex items-center gap-2">
-                                <Button 
-                                  size="sm" 
-                                  onClick={() => onAcceptInvite(n)} 
-                                  disabled={!!acceptLoading[n.id]}
-                                  className="flex-1 min-h-[44px] text-xs touch-manipulation"
-                                >
-                                  {acceptLoading[n.id] ? t('status.joining') : t('actions.accept')}
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
-                                  onClick={() => onDenyInvite(n)}
-                                  className="flex-1 min-h-[44px] text-xs touch-manipulation"
-                                >
-                                  Deny
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="text-xs text-gray-400">Invite handled</div>
-                            )}
-                            {n.related_id && (
-                              <Link 
-                                to={`/app/leagues/${n.related_id}`} 
-                                className="text-xs text-blue-400 underline"
-                                onClick={onClose}
-                              >
-                                View league
-                              </Link>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-                
-                {notifications.length > 0 && (
-                  <div className="mt-2">
-                    <Link 
-                      to="/app/notifications" 
-                      className="w-full inline-flex items-center justify-center text-sm underline text-blue-400 py-2"
-                      onClick={onClose}
-                    >
-                      View all notifications
-                    </Link>
-                  </div>
+          {/* Notifications block (auth only) */}
+          {isAuthenticated && (
+            <div className="mt-2 pt-3 border-t" style={{ borderColor: 'var(--line-soft)' }}>
+              <div className="flex items-center justify-between px-6 py-2">
+                <span className="eyebrow flex items-center gap-2">
+                  <Bell className="h-3.5 w-3.5" />
+                  {t('notifications.title')}
+                </span>
+                {unreadCount > 0 && (
+                  <span className="min-w-[20px] h-5 px-1.5 bg-[var(--accent)] text-[var(--accent-ink)] rounded-full text-[10px] font-bold flex items-center justify-center">
+                    {unreadCount}
+                  </span>
                 )}
               </div>
-            </>
-          ) : null}
+              <div className="px-3 pb-3 max-h-64 overflow-y-auto space-y-1.5">
+                {notifLoading ? (
+                  <div className="px-3 py-2 text-sm text-[var(--fg-3)]">{t('common.loading')}</div>
+                ) : !notifications || notifications.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-[var(--fg-3)]">{t('notifications.none')}</div>
+                ) : (
+                  notifications.slice(0, 5).map((n) => (
+                    <div
+                      key={n.id}
+                      className={`px-3 py-2 rounded-md ${!n.is_read ? 'bg-[var(--bg-3)]/60' : 'bg-[var(--bg-3)]/20'}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 text-[var(--fg-3)]">
+                          {n.type === 'league_invite' ? (
+                            <UserPlus className="h-4 w-4" />
+                          ) : (
+                            <Bell className="h-4 w-4" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className={`text-sm ${!n.is_read ? 'font-semibold' : 'font-medium'} truncate`}>
+                            {n.title}
+                          </div>
+                          <div className="text-xs text-[var(--fg-3)] line-clamp-2">{n.message}</div>
+                          {n.created_at && (
+                            <div className="text-[10px] text-[var(--fg-4)] mt-1 font-mono">
+                              {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                            </div>
+                          )}
+                        </div>
+                        {!n.is_read && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onMarkAsRead(n.id)}
+                            className="h-8 px-2 text-xs"
+                          >
+                            {t('actions.read')}
+                          </Button>
+                        )}
+                      </div>
+                      {n.type === 'league_invite' && !n.is_read && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => onAcceptInvite(n)}
+                            disabled={!!acceptLoading[n.id]}
+                            className="flex-1 text-xs"
+                          >
+                            {acceptLoading[n.id] ? t('status.joining') : t('actions.accept')}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onDenyInvite(n)}
+                            className="flex-1 text-xs"
+                          >
+                            {t('actions.reject')}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+                {notifications && notifications.length > 0 && (
+                  <Link
+                    to="/app/notifications"
+                    onClick={onClose}
+                    className="block text-center text-xs text-[var(--accent)] underline pt-2"
+                  >
+                    {t('nav.notifications')}
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
         </nav>
-      </div>
+
+        {/* Foot */}
+        {isAuthenticated && (
+          <div className="px-6 py-4 border-t flex flex-col gap-2" style={{ borderColor: 'var(--line-soft)' }}>
+            <Link
+              to="/app/profile"
+              onClick={onClose}
+              className="flex items-center gap-3 text-sm text-[var(--fg-2)] hover:text-[var(--fg)]"
+            >
+              <User className="h-4 w-4" /> {t('nav.profile')}
+            </Link>
+            <button
+              onClick={handleLogoutClick}
+              className="flex items-center gap-3 text-sm text-[var(--bad)] hover:opacity-80"
+            >
+              <LogOut className="h-4 w-4" /> {t('nav.logout')}
+            </button>
+          </div>
+        )}
+      </aside>
     </>
   );
 };

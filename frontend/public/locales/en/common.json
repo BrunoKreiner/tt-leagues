@@ -24,7 +24,35 @@
     "leaguesOverTime": "Leagues Over Time",
     "matchesPerMonth": "Matches Per Month",
     "winRateOverTime": "Win Rate Over Time",
-    "avgEloOverTime": "Average ELO Over Time"
+    "avgEloOverTime": "Average ELO Over Time",
+    "greet": {
+      "lateNight": "Burning the midnight oil",
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening"
+    },
+    "heroEyebrow": "Current",
+    "heroEyebrowNoLeague": "ELO · join a league to track",
+    "recentTrend": "Recent trend",
+    "rankIn": "of {{count}} players",
+    "joinLeagueToTrack": "Join a league to start tracking your ELO.",
+    "myLeagues": "My leagues",
+    "yourLeagues": "Your leagues",
+    "viewAll": "View all",
+    "browseAll": "Browse all",
+    "recentMatches": "Recent matches",
+    "noLeagues": "No leagues joined yet",
+    "noMatches": "No matches played yet",
+    "leaderboardsPeek": "Leaderboards",
+    "summary": {
+      "winRate": "Win rate",
+      "matches": "Matches",
+      "played": "played",
+      "streak": "Streak",
+      "games": "games",
+      "leagues": "Leagues",
+      "joined": "joined"
+    }
   },
   "stats": {
     "leagues": "Leagues: {{count}}",
@@ -96,6 +124,7 @@
     "pageOf": "Page {{current}} of {{total}}",
     "error": "Error",
     "vs": "vs",
+    "cancel": "Cancel",
     "validation": {
       "nameRequired": "Name is required",
       "max200Chars": "Max 200 characters",
@@ -262,7 +291,11 @@
     "consolidationDescription": "Apply deferred ELO updates for accepted matches. Only available for leagues with weekly/monthly consolidation mode.",
     "showing": "Showing {{start}} - {{end}} of {{total}}",
     "page": "Page {{current}} / {{total}}",
-    "of": "of"
+    "of": "of",
+    "deleteLeague": "Delete league",
+    "deleteConfirmTitle": "Delete league?",
+    "deleteConfirmDesc": "This action permanently removes the league and all related data.",
+    "deleteConfirmAction": "Yes, delete it"
   },
   "admin": {
     "panelTitle": "Manage",
@@ -458,7 +491,15 @@
     "opponentSetsWon": "Opponent sets won",
     "submitMatch": "Submit Match",
     "matchRecordedSuccess": "Match recorded successfully",
-    "failedToRecordMatch": "Failed to record match"
+    "failedToRecordMatch": "Failed to record match",
+    "stepPlayers": "Players",
+    "stepScore": "Score",
+    "stepConfirm": "Confirm",
+    "set": "Set",
+    "setScoresLabel": "Set scores · best of available",
+    "eloPreview": "Live ELO preview",
+    "playedAt": "Played at (optional)",
+    "playedAtHelp": "If empty, the created time will be used."
   },
   "quickMatch": {
     "subtitle": "Record a match in 4 quick steps",
@@ -491,6 +532,89 @@
       "item1": "List of training achievements",
       "item2": "Training plans",
       "item3": "Training morale at TTC Baden-Wettingen"
+    }
+  },
+  "auth": {
+    "logIn": "Log in",
+    "getStarted": "Register",
+    "login": {
+      "tagline": "Welcome back.",
+      "formTitle": "Log in",
+      "formSub": "Or",
+      "createAccount": "create an account",
+      "username": "Username",
+      "password": "Password",
+      "submit": "Log in",
+      "signingIn": "Signing in…",
+      "forgotPassword": "Forgot password?"
+    },
+    "register": {
+      "tagline": "Start for Free · Open source",
+      "formTitle": "Create account",
+      "formSub": "Already playing?",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "handle": "Handle",
+      "email": "Email (optional)",
+      "password": "Password",
+      "passwordPlaceholder": "At least 6 characters",
+      "confirmPassword": "Confirm password",
+      "submit": "Create account",
+      "creating": "Creating account…"
+    },
+    "validation": {
+      "usernameMin": "Username must be at least 3 characters",
+      "passwordMin": "Password must be at least 6 characters",
+      "passwordMismatch": "Passwords do not match",
+      "firstNameRequired": "First name is required",
+      "lastNameRequired": "Last name is required",
+      "emailInvalid": "Please enter a valid email address"
+    }
+  },
+  "landing": {
+    "nav": {
+      "howItWorks": "How it works",
+      "publicLeagues": "Public leagues"
+    },
+    "hero": {
+      "ledeBefore": "Run your",
+      "ledeAfter": "league.",
+      "ledeWords": ["office", "basement", "club", "party", "garage", "bar", "school", "frat", "weekend", "whatever"],
+      "ctaPrimary": "Use for free",
+      "ctaSecondary": "See a public league"
+    },
+    "stats": {
+      "activePlayers": "Active players",
+      "activePlayersSub": "across {{count}} leagues",
+      "activePlayersSubShort": "tracking their elo",
+      "leagues": "Leagues",
+      "leaguesSub": "running on the platform",
+      "matchesLogged": "Matches logged",
+      "matchesLoggedSub": "since launch"
+    },
+    "how": {
+      "title": "How it works.",
+      "step1": { "title": "Make an account" },
+      "step2": { "title": "Join a league" },
+      "step3": { "title": "Record a match" },
+      "step4": { "title": "Confirm matches as admin" },
+      "step5": { "title": "Calculate points with a customized ELO system where every point counts" },
+      "step6": { "title": "Award custom badges" }
+    },
+    "public": {
+      "title": "Browse public ladders.",
+      "viewLeaderboard": "View full leaderboard",
+      "seeAll": "See all public leagues",
+      "empty": "No public leagues yet."
+    },
+    "cta": {
+      "button": "Start counting your wins."
+    },
+    "footer": {
+      "tagline": "An open-source league app for table tennis clubs, offices, and basements.",
+      "product": "Product",
+      "project": "Project",
+      "features": "Features"
     }
   }
 }

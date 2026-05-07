@@ -227,6 +227,11 @@ export const ticketsAPI = {
   updateStatus: (id, status) => api.patch(`/tickets/${id}`, { status }),
 };
 
+// Stats API (public, no auth)
+export const statsAPI = {
+  getPublic: (options) => cachedGet('/stats/public', {}, options),
+};
+
 // Admin API
 export const adminAPI = {
   runRosterParticipationMigration: () => api.post('/admin/migrations/roster-participation'),

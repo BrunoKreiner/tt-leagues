@@ -24,7 +24,35 @@
     "leaguesOverTime": "Ligen im Zeitverlauf",
     "matchesPerMonth": "Spiele pro Monat",
     "winRateOverTime": "Siegquote im Zeitverlauf",
-    "avgEloOverTime": "Durchschnittliche ELO im Zeitverlauf"
+    "avgEloOverTime": "Durchschnittliche ELO im Zeitverlauf",
+    "greet": {
+      "lateNight": "Spät noch wach",
+      "morning": "Guten Morgen",
+      "afternoon": "Guten Tag",
+      "evening": "Guten Abend"
+    },
+    "heroEyebrow": "Aktuell",
+    "heroEyebrowNoLeague": "ELO · einer Liga beitreten zum Tracken",
+    "recentTrend": "Letzter Verlauf",
+    "rankIn": "von {{count}} Spielenden",
+    "joinLeagueToTrack": "Tritt einer Liga bei, um deine ELO zu verfolgen.",
+    "myLeagues": "Meine Ligen",
+    "yourLeagues": "Deine Ligen",
+    "viewAll": "Alle ansehen",
+    "browseAll": "Alle durchsuchen",
+    "recentMatches": "Letzte Spiele",
+    "noLeagues": "Noch keiner Liga beigetreten",
+    "noMatches": "Noch keine Spiele gespielt",
+    "leaderboardsPeek": "Ranglisten",
+    "summary": {
+      "winRate": "Siegquote",
+      "matches": "Spiele",
+      "played": "gespielt",
+      "streak": "Serie",
+      "games": "Spiele",
+      "leagues": "Ligen",
+      "joined": "beigetreten"
+    }
   },
   "stats": {
     "leagues": "Ligen: {{count}}",
@@ -96,6 +124,7 @@
     "pageOf": "Seite {{current}} von {{total}}",
     "error": "Fehler",
     "vs": "gegen",
+    "cancel": "Abbrechen",
     "validation": {
       "nameRequired": "Name ist erforderlich",
       "max200Chars": "Max 200 Zeichen",
@@ -255,7 +284,11 @@
     "consolidationDescription": "Verzögerte ELO-Updates für angenommene Spiele anwenden. Nur verfügbar für Ligen mit wöchentlichem/monatlichem Konsolidierungsmodus.",
     "showing": "Zeige {{start}} - {{end}} von {{total}}",
     "page": "Seite {{current}} / {{total}}",
-    "of": "von"
+    "of": "von",
+    "deleteLeague": "Liga löschen",
+    "deleteConfirmTitle": "Liga löschen?",
+    "deleteConfirmDesc": "Diese Aktion entfernt die Liga und alle zugehörigen Daten dauerhaft.",
+    "deleteConfirmAction": "Ja, löschen"
   },
   "admin": {
     "panelTitle": "Verwalten",
@@ -457,7 +490,15 @@
     "opponentSetsWon": "Gegner gewonnene Sätze",
     "submitMatch": "Spiel einreichen",
     "matchRecordedSuccess": "Spiel erfolgreich eingetragen",
-    "failedToRecordMatch": "Spiel konnte nicht eingetragen werden"
+    "failedToRecordMatch": "Spiel konnte nicht eingetragen werden",
+    "stepPlayers": "Spieler",
+    "stepScore": "Ergebnis",
+    "stepConfirm": "Bestätigen",
+    "set": "Satz",
+    "setScoresLabel": "Satzergebnisse · best of available",
+    "eloPreview": "Live-ELO-Vorschau",
+    "playedAt": "Gespielt am (optional)",
+    "playedAtHelp": "Wenn leer, wird die Erstellungszeit verwendet."
   },
   "quickMatch": {
     "subtitle": "Spiel in 4 schnellen Schritten eintragen",
@@ -490,6 +531,89 @@
       "item1": "Liste der Trainingserfolge",
       "item2": "Trainingspläne",
       "item3": "Trainingsmoral beim TTC Baden-Wettingen"
+    }
+  },
+  "auth": {
+    "logIn": "Anmelden",
+    "getStarted": "Registrieren",
+    "login": {
+      "tagline": "Willkommen zurück.",
+      "formTitle": "Anmelden",
+      "formSub": "Oder",
+      "createAccount": "Konto erstellen",
+      "username": "Benutzername",
+      "password": "Passwort",
+      "submit": "Anmelden",
+      "signingIn": "Anmeldung läuft…",
+      "forgotPassword": "Passwort vergessen?"
+    },
+    "register": {
+      "tagline": "Kostenlos starten · Open Source",
+      "formTitle": "Konto erstellen",
+      "formSub": "Schon dabei?",
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "handle": "Handle",
+      "email": "E-Mail (optional)",
+      "password": "Passwort",
+      "passwordPlaceholder": "Mindestens 6 Zeichen",
+      "confirmPassword": "Passwort bestätigen",
+      "submit": "Konto erstellen",
+      "creating": "Konto wird erstellt…"
+    },
+    "validation": {
+      "usernameMin": "Benutzername muss mindestens 3 Zeichen haben",
+      "passwordMin": "Passwort muss mindestens 6 Zeichen haben",
+      "passwordMismatch": "Passwörter stimmen nicht überein",
+      "firstNameRequired": "Vorname ist erforderlich",
+      "lastNameRequired": "Nachname ist erforderlich",
+      "emailInvalid": "Bitte gib eine gültige E-Mail-Adresse ein"
+    }
+  },
+  "landing": {
+    "nav": {
+      "howItWorks": "So funktioniert's",
+      "publicLeagues": "Öffentliche Ligen"
+    },
+    "hero": {
+      "ledeBefore": "Führe deine",
+      "ledeAfter": "Liga.",
+      "ledeWords": ["Büro-", "Keller-", "Club-", "Party-", "Garagen-", "Bar-", "Schul-", "Wochenend-", "Pausen-", "Was-auch-immer-"],
+      "ctaPrimary": "Kostenlos nutzen",
+      "ctaSecondary": "Öffentliche Liga ansehen"
+    },
+    "stats": {
+      "activePlayers": "Aktive Spieler",
+      "activePlayersSub": "in {{count}} Ligen",
+      "activePlayersSubShort": "verfolgen ihre Elo",
+      "leagues": "Ligen",
+      "leaguesSub": "auf der Plattform",
+      "matchesLogged": "Spiele eingetragen",
+      "matchesLoggedSub": "seit dem Start"
+    },
+    "how": {
+      "title": "So funktioniert's.",
+      "step1": { "title": "Konto erstellen" },
+      "step2": { "title": "Liga beitreten" },
+      "step3": { "title": "Spiel eintragen" },
+      "step4": { "title": "Spiele als Admin bestätigen" },
+      "step5": { "title": "Punkte über ein angepasstes ELO-System berechnen — jeder Punkt zählt" },
+      "step6": { "title": "Eigene Abzeichen vergeben" }
+    },
+    "public": {
+      "title": "Öffentliche Ligen.",
+      "viewLeaderboard": "Komplette Rangliste ansehen",
+      "seeAll": "Alle öffentlichen Ligen ansehen",
+      "empty": "Noch keine öffentlichen Ligen."
+    },
+    "cta": {
+      "button": "Fang an, deine Siege zu zählen."
+    },
+    "footer": {
+      "tagline": "Open-Source-Liga-App für Tischtennisclubs, Büros und Keller.",
+      "product": "Produkt",
+      "project": "Projekt",
+      "features": "Funktionen"
     }
   }
 }

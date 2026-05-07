@@ -1,23 +1,21 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trophy, Swords, ArrowRight, User } from 'lucide-react';
-import MedalIcon from '@/components/MedalIcon';
-import TimelineStats from '@/components/TimelineStats';
+import { Trophy, ArrowRight, Plus } from 'lucide-react';
 import EloSparkline from '@/components/EloSparkline';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { leaguesAPI, matchesAPI, usersAPI } from '../services/api';
 import { useTranslation } from 'react-i18next';
+import { format } from 'date-fns';
 
 const DashboardPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(null);
-  const [_stats, setStats] = useState(null);
+  const [_loadError, setLoadError] = useState(null);
+  const [stats, setStats] = useState(null);
   const [recentMatches, setRecentMatches] = useState([]);
   const [matchesError, setMatchesError] = useState(null);
   const [userLeagues, setUserLeagues] = useState([]);
@@ -30,84 +28,84 @@ const DashboardPage = () => {
   const leaderboardLeagues = userLeagues;
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         setLoadError(null);
         setMatchesError(null);
         setLeaguesError(null);
-        
-        // Fetch all data in parallel - user comes from AuthContext (no extra getMe call)
-        const [matchesResponse, leaguesResponse, statsResponse] = await Promise.allSettled([
+        const [matchesRes, leaguesRes, statsRes] = await Promise.allSettled([
           matchesAPI.getAll({ limit: 5, status: 'accepted' }, { ttlMs: 10000 }),
           leaguesAPI.getAll({ limit: 10 }, { ttlMs: 10000 }),
-          user?.id ? usersAPI.getStats(user.id, { ttlMs: 15000 }) : Promise.reject(new Error('no user id'))
+          user?.id ? usersAPI.getStats(user.id, { ttlMs: 15000 }) : Promise.reject(new Error('no user id')),
         ]);
 
-        if (statsResponse.status === 'fulfilled') {
-          const statsData = statsResponse.value.data;
-          const normalized = statsData?.overall
-            ? { ...statsData, avg_elo: statsData.overall.average_elo, win_rate: statsData.overall.win_rate, leagues_count: statsData.overall.leagues_count, matches_played: statsData.overall.matches_played }
-            : statsData;
+        if (statsRes.status === 'fulfilled') {
+          const sd = statsRes.value.data;
+          const normalized = sd?.overall
+            ? {
+                ...sd,
+                avg_elo: sd.overall.average_elo,
+                win_rate: sd.overall.win_rate,
+                leagues_count: sd.overall.leagues_count,
+                matches_played: sd.overall.matches_played,
+                wins: sd.overall.wins,
+                losses: sd.overall.losses,
+                current_streak: sd.overall.current_streak,
+                peak_elo: sd.overall.peak_elo,
+              }
+            : sd;
           setStats(normalized);
         }
 
-        if (matchesResponse.status === 'fulfilled') {
-          const matchesData = matchesResponse.value.data?.matches;
-          setRecentMatches(Array.isArray(matchesData) ? matchesData : []);
+        if (matchesRes.status === 'fulfilled') {
+          const m = matchesRes.value.data?.matches;
+          setRecentMatches(Array.isArray(m) ? m : []);
         } else {
-          const apiMessage = matchesResponse.reason?.response?.data?.error;
-          setMatchesError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : 'Failed to load matches');
+          const apiMessage = matchesRes.reason?.response?.data?.error;
+          setMatchesError(typeof apiMessage === 'string' ? apiMessage : 'Failed to load matches');
         }
 
-        if (leaguesResponse.status === 'fulfilled') {
-          const leagueData = leaguesResponse.value.data?.leagues;
-          // Use backend-provided membership flag
-          const leagues = Array.isArray(leagueData)
-            ? leagueData.filter((league) => !!league.is_member)
-            : [];
+        if (leaguesRes.status === 'fulfilled') {
+          const ld = leaguesRes.value.data?.leagues;
+          const leagues = Array.isArray(ld) ? ld.filter((l) => !!l.is_member) : [];
           setUserLeagues(leagues);
           if (leagues.length === 0) {
             setLeagueLeaderboards({});
             setLeaderboardStatus({});
           }
         } else {
-          const apiMessage = leaguesResponse.reason?.response?.data?.error;
-          setLeaguesError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : 'Failed to load leagues');
+          const apiMessage = leaguesRes.reason?.response?.data?.error;
+          setLeaguesError(typeof apiMessage === 'string' ? apiMessage : 'Failed to load leagues');
         }
-        
-      } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
-        const apiMessage = error?.response?.data?.error;
-        setLoadError(typeof apiMessage === 'string' && apiMessage.length > 0 ? apiMessage : 'Failed to load dashboard');
+      } catch (err) {
+        console.error('Failed to fetch dashboard data:', err);
+        const apiMessage = err?.response?.data?.error;
+        setLoadError(typeof apiMessage === 'string' ? apiMessage : 'Failed to load dashboard');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDashboardData();
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (loading) return;
     const node = leaderboardSectionRef.current;
     if (!node) return;
-
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
+        if (entries.some((e) => e.isIntersecting)) {
           setShouldLoadLeaderboards(true);
           observer.disconnect();
         }
       },
       { rootMargin: '200px' }
     );
-
     observer.observe(node);
-
-    return () => {
-      observer.disconnect();
-    };
+    return () => observer.disconnect();
   }, [loading]);
 
   useEffect(() => {
@@ -118,364 +116,408 @@ const DashboardPage = () => {
       return;
     }
 
-    const loadLeaderboards = async () => {
-      const loadingStatus = {};
-      leaderboardLeagues.forEach((league) => {
-        loadingStatus[league.id] = { status: 'loading' };
+    const load = async () => {
+      const loadingState = {};
+      leaderboardLeagues.forEach((l) => {
+        loadingState[l.id] = { status: 'loading' };
       });
-      setLeaderboardStatus((prev) => ({ ...prev, ...loadingStatus }));
+      setLeaderboardStatus((p) => ({ ...p, ...loadingState }));
 
-      const leaderboardResults = await Promise.allSettled(
-        leaderboardLeagues.map((league) =>
-          leaguesAPI.getLeaderboard(league.id, { page: 1, limit: 5, include_badges: false }, { ttlMs: 10000 })
+      const results = await Promise.allSettled(
+        leaderboardLeagues.map((l) =>
+          leaguesAPI.getLeaderboard(l.id, { page: 1, limit: 5, include_badges: false }, { ttlMs: 10000 })
         )
       );
-      const leaderboardMap = {};
-      const nextStatus = {};
-      leaderboardResults.forEach((result, index) => {
-        const leagueId = leaderboardLeagues[index]?.id;
-        if (!leagueId) return;
-        if (result.status === 'fulfilled') {
-          const data = result.value.data?.leaderboard;
-          leaderboardMap[leagueId] = Array.isArray(data) ? data : [];
-          nextStatus[leagueId] = { status: 'loaded' };
+      const map = {};
+      const status = {};
+      results.forEach((r, i) => {
+        const id = leaderboardLeagues[i]?.id;
+        if (!id) return;
+        if (r.status === 'fulfilled') {
+          const data = r.value.data?.leaderboard;
+          map[id] = Array.isArray(data) ? data : [];
+          status[id] = { status: 'loaded' };
         } else {
-          console.error(`Failed to load leaderboard for league ${leagueId}:`, result.reason);
-          nextStatus[leagueId] = { status: 'error' };
+          status[id] = { status: 'error' };
         }
       });
-      setLeagueLeaderboards((prev) => ({ ...prev, ...leaderboardMap }));
-      setLeaderboardStatus((prev) => ({ ...prev, ...nextStatus }));
+      setLeagueLeaderboards((p) => ({ ...p, ...map }));
+      setLeaderboardStatus((p) => ({ ...p, ...status }));
     };
-
-    loadLeaderboards();
+    load();
   }, [leaderboardLeagues, shouldLoadLeaderboards]);
+
+  // Pick the league with the user's highest ELO as the "primary" surface for the hero card
+  const primaryLeague = useMemo(() => {
+    if (!userLeagues || userLeagues.length === 0) return null;
+    const ranked = [...userLeagues].sort((a, b) => {
+      const ae = a.user_current_elo ?? a.user_elo ?? 0;
+      const be = b.user_current_elo ?? b.user_elo ?? 0;
+      return be - ae;
+    });
+    return ranked[0];
+  }, [userLeagues]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-[60vh]">
         <LoadingSpinner size="lg" />
       </div>
     );
   }
-  if (loadError) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('common.error')}</CardTitle>
-          <CardDescription className="text-red-500">{loadError}</CardDescription>
-        </CardHeader>
-      </Card>
-    );
-  }
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
+  const greet = (() => {
+    const h = new Date().getHours();
+    if (h < 5) return t('dashboard.greet.lateNight');
+    if (h < 12) return t('dashboard.greet.morning');
+    if (h < 18) return t('dashboard.greet.afternoon');
+    return t('dashboard.greet.evening');
+  })();
 
   return (
-    <div className="space-y-10 animate-fade-in max-w-7xl mx-auto">
-      {/* Header: Username */}
-      <div className="flex items-center justify-center gap-4 flex-wrap py-6 bg-gray-800/20 rounded-xl border border-gray-700/30">
-        <h1 className="cyberpunk-title text-3xl sm:text-4xl bg-gradient-to-r from-blue-400 via-purple-400 to-blue-400 bg-clip-text text-transparent">
-          {user?.first_name || user?.username}
-        </h1>
-        <Link to="/app/profile" className="text-gray-400 hover:text-blue-400 transition-colors">
-          <User className="h-5 w-5" />
-        </Link>
-        <Button asChild variant="outline" size="sm" className="border-gray-700 hover:border-blue-500/50 hover:bg-blue-500/10">
-          <Link to="/app/profile">
-            {t('cta.viewProfile')}
-          </Link>
-        </Button>
-      </div>
-
-      {/* Section 1: Timeline Statistics */}
-      <div className="space-y-6">
-        <h2 className="cyberpunk-title text-2xl bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-          Performance Overview
-        </h2>
-        <TimelineStats userId={user?.id} />
-      </div>
-
-      {/* Section 2: Recent Matches */}
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="cyberpunk-title text-2xl bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-            Recent Matches
-          </h2>
-          <Link to="/app/matches" className="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1">
-            View all <ArrowRight className="h-3 w-3" />
-          </Link>
-        </div>
-        {matchesError ? (
-          <div className="text-center py-4">
-            <p className="text-sm text-red-400">{matchesError}</p>
+    <div className="max-w-[1140px] mx-auto px-6 md:px-12 py-7 md:py-10">
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
+        <div>
+          <div className="font-mono text-[12px] text-[var(--fg-3)] tracking-[0.06em] uppercase">
+            {format(new Date(), 'EEEE · MMM d')}
           </div>
-        ) : recentMatches.length > 0 ? (
-          <div className="relative">
-            {/* Left Arrow */}
-            <button
-              className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 text-gray-400 hover:text-blue-400 transition-colors text-2xl bg-gray-900/90 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center border border-gray-700 hover:border-blue-500/50"
-              onClick={() => {
-                const container = document.getElementById('dashboard-matches-scroll');
-                if (container) container.scrollLeft -= 250;
-              }}
-              aria-label="Scroll left"
+          <h1
+            className="tt-pop-in text-[28px] md:text-[30px] font-bold tracking-tight leading-[1.05] mt-1.5"
+            style={{ fontFamily: '"Inter Tight", sans-serif' }}
+          >
+            {greet},{' '}
+            <em
+              className="not-italic"
+              style={{ fontStyle: 'italic', color: 'var(--accent)', fontWeight: 500 }}
             >
-              ‹
-            </button>
+              {user?.first_name || user?.username || 'player'}
+            </em>
+            .
+          </h1>
+        </div>
+        <div className="flex flex-wrap gap-2.5">
+          <Button asChild variant="outline" className="rounded-full border-[1.5px]" style={{ borderColor: 'var(--line)' }}>
+            <Link to="/app/leagues">{t('dashboard.myLeagues')}</Link>
+          </Button>
+          <Button
+            asChild
+            className="bg-[var(--accent)] text-[var(--accent-ink)] hover:bg-[var(--accent-2)] font-bold rounded-full"
+          >
+            <Link to="/app/quick-match" className="inline-flex items-center gap-1.5">
+              <Plus className="h-4 w-4" /> {t('cta.recordMatch')}
+            </Link>
+          </Button>
+        </div>
+      </div>
 
-            {/* Right Arrow */}
-            <button
-              className="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 text-gray-400 hover:text-blue-400 transition-colors text-2xl bg-gray-900/90 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center border border-gray-700 hover:border-blue-500/50"
-              onClick={() => {
-                const container = document.getElementById('dashboard-matches-scroll');
-                if (container) container.scrollLeft += 250;
-              }}
-              aria-label="Scroll right"
-            >
-              ›
-            </button>
-
-            {/* Matches Container */}
-            <div
-              id="dashboard-matches-scroll"
-              className="overflow-x-auto scrollbar-hide px-10"
-              style={{ scrollBehavior: 'smooth' }}
-            >
-              <div className="flex gap-4 min-w-max py-2 justify-center">
-                {recentMatches.slice(0, 5).map((match) => {
-                  const player1Won = match.player1_sets_won > match.player2_sets_won;
-                  const player2Won = match.player2_sets_won > match.player1_sets_won;
-
-                  return (
-                    <div
-                      key={match.id}
-                      className="flex flex-col items-center min-w-fit px-4 py-3 bg-gray-800/30 rounded-lg border border-gray-700/50 hover:border-gray-600/50 hover:bg-gray-800/50 transition-all"
-                    >
-                      {/* Players and Score Line */}
-                      <div className="flex items-center gap-2 text-sm whitespace-nowrap">
-                        {match.player1_username ? (
-                          <Link
-                            to={`/app/profile/${match.player1_username}`}
-                            className="text-blue-400 hover:text-blue-300 font-medium"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {match.player1_display_name || match.player1_username}
-                          </Link>
-                        ) : (
-                          <span className="text-blue-400 font-medium">{match.player1_display_name || 'Player 1'}</span>
-                        )}
-                        <span className={`font-bold text-lg ${player1Won ? 'text-green-400' : 'text-gray-300'}`}>{match.player1_sets_won}</span>
-                        <span className="text-gray-500 font-bold">-</span>
-                        <span className={`font-bold text-lg ${player2Won ? 'text-green-400' : 'text-gray-300'}`}>{match.player2_sets_won}</span>
-                        {match.player2_username ? (
-                          <Link
-                            to={`/app/profile/${match.player2_username}`}
-                            className="text-blue-400 hover:text-blue-300 font-medium"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {match.player2_display_name || match.player2_username}
-                          </Link>
-                        ) : (
-                          <span className="text-blue-400 font-medium">{match.player2_display_name || 'Player 2'}</span>
-                        )}
-                      </div>
-                      
-                      {/* ELO Points Line */}
-                      <div className="flex items-center gap-1 text-xs whitespace-nowrap mt-0.5">
-                        {match.elo_applied ? (
-                          <>
-                            <span className={`font-medium ${player1Won ? 'text-green-400' : player2Won ? 'text-red-400' : 'text-gray-400'}`}>
-                              {match.player1_elo_before || 'N/A'}
-                              {match.player1_elo_after && match.player1_elo_before && (
-                                <span className={match.player1_elo_after > match.player1_elo_before ? 'text-green-400' : 'text-red-400'}>
-                                  {match.player1_elo_after > match.player1_elo_before ? ' (+' : ' ('}
-                                  {match.player1_elo_after - match.player1_elo_before}
-                                  {match.player1_elo_after > match.player1_elo_before ? ')' : ')'}
-                                </span>
-                              )}
-                            </span>
-                            <span className="text-gray-500">vs</span>
-                            <span className={`font-medium ${player2Won ? 'text-green-400' : player1Won ? 'text-red-400' : 'text-gray-400'}`}>
-                              {match.player2_elo_before || 'N/A'}
-                              {match.player2_elo_after && match.player2_elo_before && (
-                                <span className={match.player2_elo_after > match.player2_elo_before ? 'text-green-400' : 'text-red-400'}>
-                                  {match.player2_elo_after > match.player2_elo_before ? ' (+' : ' ('}
-                                  {match.player2_elo_after - match.player2_elo_before}
-                                  {match.player2_elo_after > match.player2_elo_before ? ')' : ')'}
-                                </span>
-                              )}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-yellow-500/80 font-medium text-[11px]">Pending ELO</span>
-                        )}
-                      </div>
-                      
-                      {/* Date and League Line */}
-                      <Link
-                        to={`/app/matches/${match.id}`}
-                        className="text-[11px] text-gray-400 hover:text-blue-400 mt-1 text-center transition-colors"
-                      >
-                        {formatDate(match.played_at)} • {match.league_name || 'Unknown'}
-                      </Link>
-                    </div>
-                  );
-                })}
+      {/* HERO + SUMMARY GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-[18px]">
+        {/* ELO HERO */}
+        <div className="tt-panel relative overflow-hidden p-6 md:p-7" style={{ borderRadius: 'var(--r-xl)' }}>
+          <div
+            aria-hidden
+            className="absolute -top-16 -right-16 w-[200px] h-[200px] rounded-full pointer-events-none"
+            style={{ background: 'oklch(0.70 0.20 38 / 0.06)' }}
+          />
+          <div className="flex justify-between items-start gap-4 relative">
+            <div className="min-w-0">
+              <div className="font-mono text-[11px] text-[var(--fg-3)] tracking-[0.1em] uppercase">
+                {primaryLeague
+                  ? `${t('dashboard.heroEyebrow')} · ${primaryLeague.name}`
+                  : t('dashboard.heroEyebrowNoLeague')}
+              </div>
+              <div
+                className="font-bold tabular-nums leading-none mt-1.5"
+                style={{
+                  fontFamily: '"Inter Tight", sans-serif',
+                  fontSize: 'clamp(56px, 8vw, 88px)',
+                  letterSpacing: '-0.055em',
+                  color: 'var(--fg)',
+                }}
+              >
+                {primaryLeague?.user_current_elo ?? primaryLeague?.user_elo ?? stats?.avg_elo ?? '—'}
+                {typeof stats?.peak_elo === 'number' && (
+                  <sup
+                    className="font-mono ml-1.5 px-1.5 py-0.5 rounded-full"
+                    style={{
+                      fontSize: 18,
+                      verticalAlign: 'super',
+                      color: 'var(--good)',
+                      background: 'oklch(0.78 0.16 145 / 0.15)',
+                      letterSpacing: 0,
+                      fontWeight: 600,
+                    }}
+                  >
+                    peak {stats.peak_elo}
+                  </sup>
+                )}
+              </div>
+              <div className="text-[12.5px] text-[var(--fg-3)] mt-2">
+                {primaryLeague ? (
+                  <>
+                    {t('dashboard.rankIn', { count: primaryLeague.member_count || 0 })}
+                  </>
+                ) : (
+                  t('dashboard.joinLeagueToTrack')
+                )}
               </div>
             </div>
+            {primaryLeague && user?.id && (
+              <div className="text-right shrink-0">
+                <EloSparkline userId={user.id} leagueId={primaryLeague.id} width={120} height={36} points={12} />
+                <div className="font-mono text-[10px] text-[var(--fg-3)] mt-1.5 tracking-[0.1em] uppercase">
+                  {t('dashboard.recentTrend')}
+                </div>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="text-center py-4">
-            <Swords className="h-6 w-6 text-gray-600 mx-auto mb-2" />
-            <p className="text-gray-500 text-sm mb-3">No matches yet</p>
-            <Button asChild variant="outline">
-              <Link to="/app/profile">
-                {t('cta.viewProfile')}
-              </Link>
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {/* Section 3: Leaderboards (ref triggers lazy-load via IntersectionObserver) */}
-      <div ref={leaderboardSectionRef} className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="cyberpunk-title text-2xl bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Leaderboards</h2>
-          <Link
-            to="/app/leagues"
-            className="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
-          >
-            Browse all leagues <ArrowRight className="h-3 w-3" />
-          </Link>
         </div>
-        {leaguesError && (
-          <Card className="mb-4">
-            <CardHeader>
-              <CardTitle>{t('common.error')}</CardTitle>
-              <CardDescription className="text-red-500">{leaguesError}</CardDescription>
-            </CardHeader>
-          </Card>
-        )}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {userLeagues.map((league) => (
-            <Card
-              key={league.id}
-              className="vg-card cursor-pointer hover:scale-[1.02] transition-all bg-gray-800/30 border-gray-700/50 hover:border-gray-600/50 hover:shadow-lg hover:shadow-blue-500/10"
-              onClick={() => navigate(`/app/leagues/${league.id}`)}
+
+        {/* SUMMARY CARD */}
+        <div
+          className="overflow-hidden border-[1.5px]"
+          style={{
+            background: 'var(--bg-2)',
+            borderColor: 'var(--line-soft)',
+            borderRadius: 'var(--r-xl)',
+          }}
+        >
+          {[
+            {
+              k: t('dashboard.summary.winRate'),
+              v: stats?.win_rate != null ? `${Math.round(stats.win_rate)}` : '—',
+              suf: '%',
+            },
+            {
+              k: t('dashboard.summary.matches'),
+              v: stats?.matches_played ?? 0,
+              suf: t('dashboard.summary.played'),
+            },
+            {
+              k: t('dashboard.summary.streak'),
+              v: stats?.current_streak ?? 0,
+              suf: t('dashboard.summary.games'),
+            },
+            {
+              k: t('dashboard.summary.leagues'),
+              v: stats?.leagues_count ?? userLeagues.length,
+              suf: t('dashboard.summary.joined'),
+            },
+          ].map((row, i) => (
+            <div
+              key={i}
+              className="px-5 py-3.5 flex justify-between items-baseline border-b last:border-b-0"
+              style={{ borderColor: 'var(--line-soft)' }}
             >
-              <CardHeader className="compact-card-header">
-                <CardTitle className="cyberpunk-subtitle flex items-center gap-2 text-lg">
-                  <Trophy className="h-5 w-5 text-yellow-400" />
-                  {league.name}
-                </CardTitle>
-                <CardDescription className="text-gray-400">
-                  {league.member_count} members • {league.match_count} matches
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {(() => {
-                  const status = leaderboardStatus[league.id]?.status;
-                  const resolvedStatus = typeof status === 'string'
-                    ? status
-                    : (shouldLoadLeaderboards ? 'loading' : 'idle');
-                  const leaderboardData = Array.isArray(leagueLeaderboards[league.id])
-                    ? leagueLeaderboards[league.id]
-                    : [];
-
-                  if (resolvedStatus === 'loading' || resolvedStatus === 'idle') {
-                    return (
-                      <div className="flex items-center justify-center py-3">
-                        <LoadingSpinner size="sm" />
-                      </div>
-                    );
-                  }
-
-                  if (resolvedStatus === 'error') {
-                    return (
-                      <p className="text-sm text-red-400">{t('leagues.leaderboardError')}</p>
-                    );
-                  }
-
-                  if (leaderboardData.length === 0) {
-                    return <p className="text-sm text-gray-400">{t('leagues.noPlayers')}</p>;
-                  }
-
-                  return (
-                    <div className="space-y-2">
-                      {leaderboardData.slice(0, 5).map((player) => (
-                        <div 
-                          key={player.roster_id || player.user_id} 
-                          className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-800 transition-colors"
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 flex items-center justify-center shrink-0">
-                              {player.rank <= 3 ? (
-                                <MedalIcon rank={player.rank} size={player.rank === 1 ? 28 : 24} userAvatar={player.avatar_url} />
-                              ) : (
-                                <span className="text-sm text-gray-400 text-center tabular-nums">{player.rank}.</span>
-                              )}
-                            </div>
-                            {player.username ? (
-                              <Link 
-                                to={`/app/profile/${player.username}`} 
-                                className="text-sm font-medium text-blue-400 hover:text-blue-300"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {player.display_name || player.username}
-                              </Link>
-                            ) : (
-                              <span
-                                className="text-sm font-medium text-blue-400"
-                                title="No user assigned"
-                              >
-                                {player.display_name || 'No user assigned'}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {player.user_id ? (
-                              <EloSparkline
-                                userId={player.user_id}
-                                leagueId={league.id}
-                                width={56}
-                                height={14}
-                                points={15}
-                              />
-                            ) : player.roster_id ? (
-                              <EloSparkline
-                                rosterId={player.roster_id}
-                                leagueId={league.id}
-                                width={56}
-                                height={14}
-                                points={15}
-                              />
-                            ) : (
-                              <span className="text-xs text-gray-500">—</span>
-                            )}
-                            <span className="text-sm text-gray-400 tabular-nums shrink-0 w-10 text-right">{player.current_elo}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-              </CardContent>
-            </Card>
+              <span className="font-mono text-[11px] text-[var(--fg-3)] tracking-[0.08em] uppercase">{row.k}</span>
+              <span
+                className="font-bold tabular-nums"
+                style={{
+                  fontFamily: '"Inter Tight", sans-serif',
+                  fontSize: 24,
+                  letterSpacing: '-0.035em',
+                }}
+              >
+                {row.v}
+                <small className="ml-1 font-normal font-mono text-[11px] text-[var(--fg-3)]">{row.suf}</small>
+              </span>
+            </div>
           ))}
         </div>
       </div>
 
+      {/* SECONDARY GRID — leagues + matches + rivalries */}
+      <div ref={leaderboardSectionRef} className="grid grid-cols-1 lg:grid-cols-3 gap-[18px] mt-[18px]">
+        {/* MY LEAGUES */}
+        <section className="tt-panel">
+          <div className="panel-title">
+            <h3>{t('dashboard.yourLeagues')}</h3>
+            <Link to="/app/leagues" className="eyebrow text-[var(--accent)] hover:opacity-80">
+              {t('dashboard.viewAll')} →
+            </Link>
+          </div>
+          {leaguesError ? (
+            <p className="text-sm text-[var(--bad)] py-4">{leaguesError}</p>
+          ) : userLeagues.length === 0 ? (
+            <div className="ph py-6">
+              <span>{t('dashboard.noLeagues')}</span>
+            </div>
+          ) : (
+            <div>
+              {userLeagues.slice(0, 5).map((l) => (
+                <button
+                  key={l.id}
+                  onClick={() => navigate(`/app/leagues/${l.id}`)}
+                  className="w-full grid items-center gap-3 py-2.5 border-b last:border-b-0 cursor-pointer hover:bg-[var(--bg-3)]/40 transition-colors text-left rounded-md hover:px-2.5"
+                  style={{
+                    gridTemplateColumns: '32px 1fr auto auto',
+                    borderColor: 'var(--line-soft)',
+                  }}
+                >
+                  <div
+                    className={`av-chip av-c${(l.id % 5) + 1} w-8 h-8 rounded-md flex items-center justify-center text-[11px] font-semibold`}
+                  >
+                    {(l.name || '??').slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-medium text-[13.5px] truncate">{l.name}</div>
+                    <div className="font-mono text-[11px] text-[var(--fg-3)]">
+                      {l.member_count || 0} {t('leagues.members')}
+                      {l.season && ` · ${l.season}`}
+                    </div>
+                  </div>
+                  <div
+                    className="font-bold tabular-nums"
+                    style={{
+                      fontFamily: '"Inter Tight", sans-serif',
+                      fontSize: 17,
+                      letterSpacing: '-0.03em',
+                      color: l.user_rank === 1 ? 'var(--accent)' : 'var(--fg)',
+                    }}
+                  >
+                    {l.user_rank ? `#${l.user_rank}` : '—'}
+                  </div>
+                  <div className="font-mono text-[13px] text-[var(--fg-3)] text-right">
+                    {l.user_current_elo ?? l.user_elo ?? '—'}
+                    <div className="font-mono text-[10px] text-[var(--fg-4)]">ELO</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
 
+        {/* RECENT MATCHES */}
+        <section className="tt-panel">
+          <div className="panel-title">
+            <h3>{t('dashboard.recentMatches')}</h3>
+            <Link to="/app/matches" className="eyebrow text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1">
+              {t('dashboard.viewAll')} <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+          {matchesError ? (
+            <p className="text-sm text-[var(--bad)] py-4">{matchesError}</p>
+          ) : recentMatches.length === 0 ? (
+            <div className="ph py-6">
+              <span>{t('dashboard.noMatches')}</span>
+            </div>
+          ) : (
+            <div>
+              {recentMatches.slice(0, 5).map((m) => {
+                const youAreP1 = m.player1_user_id === user?.id;
+                const youSets = youAreP1 ? m.player1_sets_won : m.player2_sets_won;
+                const oppSets = youAreP1 ? m.player2_sets_won : m.player1_sets_won;
+                const oppName = youAreP1
+                  ? m.player2_display_name || m.player2_username || 'Opponent'
+                  : m.player1_display_name || m.player1_username || 'Opponent';
+                const win = youSets > oppSets;
+                const eloBefore = youAreP1 ? m.player1_elo_before : m.player2_elo_before;
+                const eloAfter = youAreP1 ? m.player1_elo_after : m.player2_elo_after;
+                const delta =
+                  m.elo_applied && eloAfter != null && eloBefore != null ? eloAfter - eloBefore : null;
+                return (
+                  <Link
+                    key={m.id}
+                    to={`/app/matches/${m.id}`}
+                    className="grid items-center gap-3 py-2.5 border-b last:border-b-0 hover:opacity-90"
+                    style={{ gridTemplateColumns: 'auto 1fr auto', borderColor: 'var(--line-soft)' }}
+                  >
+                    <div className={`match-result ${win ? 'win' : 'loss'}`}>{win ? 'W' : 'L'}</div>
+                    <div>
+                      <div className="text-[13px]">
+                        <span className="font-semibold">vs {oppName}</span>
+                      </div>
+                      <div className="font-mono text-[11px] text-[var(--fg-3)] mt-0.5">
+                        {youSets}–{oppSets} · {m.league_name || ''}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      {delta != null ? (
+                        <div
+                          className="font-mono text-[12.5px]"
+                          style={{ color: delta > 0 ? 'var(--good)' : 'var(--bad)' }}
+                        >
+                          {delta > 0 ? '+' : ''}
+                          {delta} ELO
+                        </div>
+                      ) : (
+                        <div className="font-mono text-[11px] text-[var(--fg-3)]">{t('elo.deferred')}</div>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* LEAGUE LEADERBOARDS PEEK */}
+        <section className="tt-panel">
+          <div className="panel-title">
+            <h3>{t('dashboard.leaderboardsPeek')}</h3>
+            <Link to="/app/leagues" className="eyebrow text-[var(--accent)] hover:opacity-80">
+              {t('dashboard.browseAll')} →
+            </Link>
+          </div>
+          {leaderboardLeagues.length === 0 ? (
+            <div className="ph py-6">
+              <span>{t('dashboard.noLeagues')}</span>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {leaderboardLeagues.slice(0, 2).map((l) => {
+                const status = leaderboardStatus[l.id]?.status;
+                const resolvedStatus = typeof status === 'string' ? status : shouldLoadLeaderboards ? 'loading' : 'idle';
+                const data = Array.isArray(leagueLeaderboards[l.id]) ? leagueLeaderboards[l.id] : [];
+                return (
+                  <div key={l.id} className="">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Trophy className="h-3.5 w-3.5 text-[var(--accent)] shrink-0" />
+                        <Link
+                          to={`/app/leagues/${l.id}`}
+                          className="text-[13px] font-medium truncate hover:text-[var(--accent)] transition-colors"
+                        >
+                          {l.name}
+                        </Link>
+                      </div>
+                    </div>
+                    {resolvedStatus === 'loading' || resolvedStatus === 'idle' ? (
+                      <div className="flex items-center justify-center py-3">
+                        <LoadingSpinner size="sm" />
+                      </div>
+                    ) : data.length === 0 ? (
+                      <p className="text-[12px] text-[var(--fg-3)] py-2">{t('leagues.noPlayers')}</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {data.slice(0, 5).map((p) => (
+                          <div
+                            key={p.roster_id || p.user_id}
+                            className="grid items-center gap-2.5 py-1"
+                            style={{ gridTemplateColumns: '24px 1fr auto' }}
+                          >
+                            <span
+                              className="font-sans font-bold text-[13px] tabular-nums"
+                              style={{ color: p.rank === 1 ? 'var(--accent)' : 'var(--fg-2)' }}
+                            >
+                              {p.rank}.
+                            </span>
+                            <span className="text-[13px] truncate">{p.display_name || p.username || 'Player'}</span>
+                            <span className="font-mono text-[12px] text-[var(--fg-2)] tabular-nums">{p.current_elo}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   );
 };
 
 export default DashboardPage;
-

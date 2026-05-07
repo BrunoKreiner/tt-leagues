@@ -896,24 +896,51 @@ const LeagueDetailPage = () => {
   const joinRequestPending = joinRequest && joinRequest.status === 'pending';
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="cyberpunk-title text-3xl text-blue-300">{league.name}</h1>
-          <p className="cyberpunk-text text-gray-400">{t('leagues.createdBy', { user: '' })}<Link to={`/app/profile/${league.created_by_username}`} className="text-blue-400 hover:text-blue-300">{league.created_by_username}</Link> • {format(new Date(league.created_at), 'PPP')}</p>
+    <div className="max-w-[1140px] mx-auto px-6 md:px-12 pb-20">
+      {/* Editorial league hero */}
+      <div className="pt-10 pb-8" style={{ borderBottom: '1px solid var(--line-soft)' }}>
+        <div className="font-mono text-[12px] text-[var(--fg-3)] mb-3.5">
+          <Link to="/app/dashboard" className="hover:text-[var(--fg)]">{t('nav.dashboard')}</Link> /{' '}
+          <Link to="/app/leagues" className="hover:text-[var(--fg)]">{t('nav.leagues')}</Link> /{' '}
+          <span style={{ color: 'var(--fg)' }}>{league.name}</span>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {league.description && (
-            <span className="max-w-full text-sm text-gray-300 px-2 py-1 bg-gray-800 rounded border border-gray-700 break-words">
-              {league.description}
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+          <div className="min-w-0">
+            <h1
+              className="display"
+              style={{
+                fontSize: 'clamp(40px, 5.4vw, 56px)',
+                lineHeight: 1,
+                letterSpacing: '-0.035em',
+              }}
+            >
+              {league.name}.
+            </h1>
+            <div className="flex flex-wrap gap-x-6 gap-y-2 mt-4 font-mono text-[13.5px] text-[var(--fg-3)]">
+              <span><b className="text-[var(--fg)] font-medium">{league.member_count}</b> {t('leagues.members')}</span>
+              <span><b className="text-[var(--fg)] font-medium">{league.match_count}</b> {t('leagues.matches')}</span>
+              {league.season && <span>{t('admin.season')} <b className="text-[var(--fg)] font-medium">{league.season}</b></span>}
+              <span>
+                {t('leagues.createdBy', { user: '' })}
+                <Link
+                  to={`/app/profile/${league.created_by_username}`}
+                  className="text-[var(--accent)] hover:underline ml-0.5"
+                >
+                  {league.created_by_username}
+                </Link>
+              </span>
+            </div>
+            {league.description && (
+              <p className="mt-3 text-[14px] text-[var(--fg-2)] max-w-[640px] leading-[1.5]">
+                {league.description}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <span className="chip">
+              {league.is_public ? <Globe className="h-3 w-3" /> : <Lock className="h-3 w-3" />}{' '}
+              {league.is_public ? t('leagues.public') : t('leagues.private')}
             </span>
-          )}
-          <Badge variant="secondary" className="flex items-center gap-1">
-            {league.is_public ? <Globe className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
-            {league.is_public ? t('leagues.public') : t('leagues.private')}
-          </Badge>
-          {league.season && <Badge variant="outline">{t('admin.season')}: {league.season}</Badge>}
           {isAuthenticated && userMembership && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -941,33 +968,45 @@ const LeagueDetailPage = () => {
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" disabled={deleteLoading}>
-                  Delete league
+                  {t('leagues.deleteLeague')}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Delete league?</AlertDialogTitle>
+                  <AlertDialogTitle>{t('leagues.deleteConfirmTitle')}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This action permanently removes the league and all related data.
+                    {t('leagues.deleteConfirmDesc')}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel>{t('dialog.cancel')}</AlertDialogCancel>
                   <AlertDialogAction asChild>
                     <Button
                       variant="secondary"
                       onClick={handleDeleteLeague}
                       disabled={deleteLoading}
                     >
-                      Are you sure?
+                      {t('leagues.deleteConfirmAction')}
                     </Button>
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
           ) : null}
+          {isAuthenticated && userMembership && (
+            <Button
+              asChild
+              size="sm"
+              className="bg-[var(--accent)] text-[var(--accent-ink)] hover:bg-[var(--accent-2)] font-bold rounded-full"
+            >
+              <Link to="/app/quick-match">+ {t('cta.recordMatch')}</Link>
+            </Button>
+          )}
         </div>
       </div>
+      </div>
+
+      <div className="space-y-8 pt-8">
 
       {/* Recent Matches - Minimal */}
       {matchesStatus === 'loading' || matchesStatus === 'idle' ? (
@@ -1846,16 +1885,8 @@ const LeagueDetailPage = () => {
         </div>
       ) : null}
 
-      {/* Mobile FAB - Quick Match Button */}
-      {isAuthenticated && userMembership && (
-        <button
-          onClick={() => setShowQuickMatch(true)}
-          className="md:hidden fixed bottom-6 right-6 h-14 w-14 rounded-full bg-blue-500 hover:bg-blue-600 shadow-lg flex items-center justify-center z-50 transition-transform hover:scale-110 active:scale-95"
-          aria-label={t('recordMatch.title')}
-        >
-          <Swords className="h-6 w-6 text-white" />
-        </button>
-      )}
+      </div>
+      {/* Mobile FAB removed — replaced by global bottom tab-bar's accent + button */}
     </div>
   );
 };

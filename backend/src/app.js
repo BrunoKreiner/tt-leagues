@@ -17,6 +17,7 @@ const notificationRoutes = require('./routes/notifications');
 const badgeRoutes = require('./routes/badges');
 const ticketRoutes = require('./routes/tickets');
 const adminRoutes = require('./routes/admin');
+const statsRoutes = require('./routes/stats');
 const { moderationErrorHandler } = require('./middleware/contentModeration');
 
 const app = express();
@@ -143,6 +144,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/badges', badgeRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/stats', statsRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
