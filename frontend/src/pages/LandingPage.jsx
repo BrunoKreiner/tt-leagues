@@ -81,7 +81,7 @@ const LandingPage = () => {
     }
   }, []);
 
-  const featuredLeagues = useMemo(() => publicLeagues.slice(0, 1), [publicLeagues]);
+  const featuredLeagues = useMemo(() => publicLeagues.slice(0, 2), [publicLeagues]);
 
   useEffect(() => {
     const node = leaderboardSectionRef.current;
