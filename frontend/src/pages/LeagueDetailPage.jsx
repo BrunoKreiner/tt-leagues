@@ -896,7 +896,7 @@ const LeagueDetailPage = () => {
   const joinRequestPending = joinRequest && joinRequest.status === 'pending';
 
   return (
-    <div className="max-w-[1140px] mx-auto px-6 md:px-12 pb-20">
+    <div className="tt-container pb-20">
       {/* Editorial league hero */}
       <div className="pt-10 pb-8" style={{ borderBottom: '1px solid var(--line-soft)' }}>
         <div className="font-mono text-[12px] text-[var(--fg-3)] mb-3.5">

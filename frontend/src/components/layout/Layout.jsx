@@ -174,7 +174,7 @@ const Layout = () => {
           borderColor: 'var(--line-soft)',
         }}
       >
-        <div className="max-w-[1140px] mx-auto px-6 md:px-12">
+        <div className="tt-container">
           <div className="flex items-center gap-7 h-16">
             <Brand to={isAuthenticated ? '/app/dashboard' : '/'} />
 

@@ -121,7 +121,7 @@ const LeaguesPage = () => {
   }, [publicFiltered, publicSort]);
 
   return (
-    <div className="space-y-6">
+    <div className="tt-container py-7 md:py-10 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white">{t('nav.leagues')}</h1>

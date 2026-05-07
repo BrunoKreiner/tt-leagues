@@ -346,7 +346,7 @@ const ProfilePage = () => {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="tt-container py-7 md:py-10 space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">

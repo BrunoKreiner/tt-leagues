@@ -8,7 +8,7 @@ export default function SiteFooter() {
 
   return (
     <footer className="pt-14 pb-20 text-[var(--fg-3)]" style={{ borderTop: '1px solid var(--line-soft)' }}>
-      <div className="max-w-[1140px] mx-auto px-6 md:px-12">
+      <div className="tt-container">
         <div className="flex flex-col gap-10 sm:flex-row sm:justify-between sm:items-end">
           <div>
             <Brand />

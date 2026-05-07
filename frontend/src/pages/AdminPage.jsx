@@ -637,7 +637,7 @@ const AdminPage = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="tt-container py-7 md:py-10 space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">{t('admin.panelTitle')}</h1>
         <p className="text-muted-foreground">{t('admin.panelSubtitle')}</p>

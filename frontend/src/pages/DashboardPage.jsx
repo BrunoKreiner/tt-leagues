@@ -175,7 +175,7 @@ const DashboardPage = () => {
   })();
 
   return (
-    <div className="max-w-[1140px] mx-auto px-6 md:px-12 py-7 md:py-10">
+    <div className="tt-container py-7 md:py-10">
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
         <div>

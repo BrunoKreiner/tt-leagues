@@ -175,7 +175,7 @@ const LandingPage = () => {
             paddingBottom: 'clamp(24px, 4vh, 56px)',
           }}
         >
-          <div className="relative z-10 max-w-[1140px] mx-auto px-6 md:px-12 w-full">
+          <div className="relative z-10 tt-container w-full">
             <div className="grid gap-10 lg:gap-16 items-end" style={{ gridTemplateColumns: 'minmax(0,1.15fr) minmax(0,1fr)' }}>
               <div>
                 <div className="relative z-[2] flex items-center gap-4">
@@ -418,7 +418,7 @@ const LandingPage = () => {
 
         {/* HOW IT WORKS */}
         <section id="how" className="pb-20 md:pb-24">
-          <div className="max-w-[1140px] mx-auto px-6 md:px-12">
+          <div className="tt-container">
             <h2 className="display text-[clamp(32px,4.4vw,48px)] leading-[1.02] mb-10">
               {t('landing.how.title')}
             </h2>
@@ -491,7 +491,7 @@ const LandingPage = () => {
 
         {/* PUBLIC LEAGUES */}
         <section id="public" className="pb-20 md:pb-24" ref={leaderboardSectionRef}>
-          <div className="max-w-[1140px] mx-auto px-6 md:px-12">
+          <div className="tt-container">
             <h2 className="display text-[clamp(32px,4.4vw,48px)] leading-[1.02] mb-10 max-w-[700px]">
               {t('landing.public.title')}
             </h2>
@@ -561,7 +561,7 @@ const LandingPage = () => {
 
         {/* CTA — editorial card-link with bobbing accent arrow */}
         <section className="pb-24 md:pb-28 relative">
-          <div className="max-w-[1140px] mx-auto px-6 md:px-12 flex justify-center">
+          <div className="tt-container flex justify-center">
             <Link
               to="/register"
               className="cta-card group relative inline-flex items-center justify-between gap-8 px-8 md:px-12 py-7 md:py-8 no-underline"

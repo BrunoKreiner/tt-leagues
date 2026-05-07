@@ -125,6 +125,23 @@
   color: var(--accent);
 }
 
+/* ============= Container ============= */
+
+.tt-container {
+  width: 100%;
+  margin-inline: auto;
+  padding-inline: var(--container-pad);
+  max-width: var(--container-max);
+}
+
+/* Narrow form/reading container — for auth, record-match, single-form pages */
+.tt-container-narrow {
+  width: 100%;
+  margin-inline: auto;
+  padding-inline: var(--container-pad);
+  max-width: clamp(560px, 60vw, 880px);
+}
+
 /* ============= Cards / panels ============= */
 
 .tt-card {
