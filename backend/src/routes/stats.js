@@ -4,18 +4,18 @@ const database = require('../models/database');
 const router = express.Router();
 
 // Public platform-wide counters for the marketing page.
-// No auth required, cacheable on the edge for 5 minutes.
+// No auth required; cached on the edge for ~24h with stale-while-revalidate.
 router.get('/public', async (req, res) => {
     try {
         const [playersRow, leaguesRow, matchesRow] = await Promise.all([
             database.get(
                 'SELECT COUNT(DISTINCT user_id) as count FROM league_roster WHERE user_id IS NOT NULL'
             ),
-            database.get('SELECT COUNT(*) as count FROM leagues'),
-            database.get('SELECT COUNT(*) as count FROM matches WHERE is_accepted = 1')
+            database.get('SELECT COUNT(*) as count FROM leagues WHERE is_active = ?', [true]),
+            database.get('SELECT COUNT(*) as count FROM matches WHERE is_accepted = ?', [true])
         ]);
 
-        res.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+        res.set('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=86400');
         res.set('Vary', 'Origin');
 
         res.json({
