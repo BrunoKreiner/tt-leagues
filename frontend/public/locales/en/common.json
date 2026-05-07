@@ -536,7 +536,7 @@
   },
   "auth": {
     "logIn": "Log in",
-    "getStarted": "Get started",
+    "getStarted": "Register",
     "login": {
       "tagline": "Welcome back.",
       "formTitle": "Log in",

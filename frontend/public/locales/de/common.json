@@ -535,7 +535,7 @@
   },
   "auth": {
     "logIn": "Anmelden",
-    "getStarted": "Loslegen",
+    "getStarted": "Registrieren",
     "login": {
       "tagline": "Willkommen zurück.",
       "formTitle": "Anmelden",
