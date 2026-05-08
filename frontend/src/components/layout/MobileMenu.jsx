@@ -27,7 +27,7 @@ const MobileMenu = ({
   onDenyInvite,
   onLogout,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const location = useLocation();
 
   const handleLogoutClick = async () => {
@@ -273,6 +273,38 @@ const MobileMenu = ({
             </div>
           )}
         </nav>
+
+        {/* Language */}
+        <div
+          className="px-6 py-4 border-t flex items-center justify-between"
+          style={{ borderColor: 'var(--line-soft)' }}
+        >
+          <span className="eyebrow">{t('language.label', 'Language')}</span>
+          <div className="inline-flex rounded-full border" style={{ borderColor: 'var(--line)' }}>
+            <button
+              type="button"
+              onClick={() => i18n.changeLanguage('en')}
+              className={`px-3 py-1 text-[11px] font-mono uppercase tracking-wider rounded-l-full transition-colors ${
+                i18n.language !== 'de'
+                  ? 'bg-[var(--accent)] text-[var(--accent-ink)]'
+                  : 'text-[var(--fg-3)] hover:text-[var(--fg)]'
+              }`}
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              onClick={() => i18n.changeLanguage('de')}
+              className={`px-3 py-1 text-[11px] font-mono uppercase tracking-wider rounded-r-full transition-colors ${
+                i18n.language === 'de'
+                  ? 'bg-[var(--accent)] text-[var(--accent-ink)]'
+                  : 'text-[var(--fg-3)] hover:text-[var(--fg)]'
+              }`}
+            >
+              DE
+            </button>
+          </div>
+        </div>
 
         {/* Foot */}
         {isAuthenticated && (
