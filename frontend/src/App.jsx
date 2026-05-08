@@ -2,31 +2,32 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
+import lazyWithReload from './lib/lazyWithReload';
 
 // Layout components (keep eager - needed for shell)
 import Layout from './components/layout/Layout';
 import LoadingSpinner from './components/ui/LoadingSpinner';
 
-// Lazy load all page components
-const LoginPage = lazy(() => import('./pages/LoginPage'));
-const RegisterPage = lazy(() => import('./pages/RegisterPage'));
-const LandingPage = lazy(() => import('./pages/LandingPage'));
-const PublicLeaguePage = lazy(() => import('./pages/PublicLeaguePage'));
-const PublicLeaguesPage = lazy(() => import('./pages/PublicLeaguesPage'));
-const ContactPage = lazy(() => import('./pages/ContactPage'));
-const SupportTicketPage = lazy(() => import('./pages/SupportTicketPage'));
-const DashboardPage = lazy(() => import('./pages/DashboardPage'));
-const LeaguesPage = lazy(() => import('./pages/LeaguesPage'));
-const LeagueDetailPage = lazy(() => import('./pages/LeagueDetailPage'));
-const MatchesPage = lazy(() => import('./pages/MatchesPage'));
-const ProfilePage = lazy(() => import('./pages/ProfilePage'));
-const AdminPage = lazy(() => import('./pages/AdminPage'));
-const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
-const RecordMatchPage = lazy(() => import('./pages/RecordMatchPage'));
-const MatchDetailPage = lazy(() => import('./pages/MatchDetailPage'));
-const QuickMatchPage = lazy(() => import('./pages/QuickMatchPage'));
-const TtcBadenWettingenWikiPage = lazy(() => import('./pages/TtcBadenWettingenWikiPage'));
+// Lazy load all page components (with stale-chunk auto-reload)
+const LoginPage = lazyWithReload(() => import('./pages/LoginPage'));
+const RegisterPage = lazyWithReload(() => import('./pages/RegisterPage'));
+const LandingPage = lazyWithReload(() => import('./pages/LandingPage'));
+const PublicLeaguePage = lazyWithReload(() => import('./pages/PublicLeaguePage'));
+const PublicLeaguesPage = lazyWithReload(() => import('./pages/PublicLeaguesPage'));
+const ContactPage = lazyWithReload(() => import('./pages/ContactPage'));
+const SupportTicketPage = lazyWithReload(() => import('./pages/SupportTicketPage'));
+const DashboardPage = lazyWithReload(() => import('./pages/DashboardPage'));
+const LeaguesPage = lazyWithReload(() => import('./pages/LeaguesPage'));
+const LeagueDetailPage = lazyWithReload(() => import('./pages/LeagueDetailPage'));
+const MatchesPage = lazyWithReload(() => import('./pages/MatchesPage'));
+const ProfilePage = lazyWithReload(() => import('./pages/ProfilePage'));
+const AdminPage = lazyWithReload(() => import('./pages/AdminPage'));
+const NotificationsPage = lazyWithReload(() => import('./pages/NotificationsPage'));
+const RecordMatchPage = lazyWithReload(() => import('./pages/RecordMatchPage'));
+const MatchDetailPage = lazyWithReload(() => import('./pages/MatchDetailPage'));
+const QuickMatchPage = lazyWithReload(() => import('./pages/QuickMatchPage'));
+const TtcBadenWettingenWikiPage = lazyWithReload(() => import('./pages/TtcBadenWettingenWikiPage'));
 
 import './App.css';
 

@@ -125,6 +125,66 @@
   color: var(--accent);
 }
 
+/* ============= Loading ball (mini SpinningBall) =============
+   A still ping-pong ball with the leagues.lol mark on its surface,
+   surrounded by orbital ink streaks (arcs + dots) rotating around it
+   — same impact-frame language the hero SpinningBall uses on contact.
+   The ball stays still; the ink layer carries the motion. */
+
+.tt-loading-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tt-loading-size);
+  height: var(--tt-loading-size);
+  flex-shrink: 0;
+}
+.tt-loading-ball-shape {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 30%, #ffffff 0%, #f4ebd9 65%, #c8b88a 100%);
+  box-shadow:
+    0 3px 8px oklch(0 0 0 / 0.4),
+    inset -2px -3px 6px oklch(0 0 0 / 0.12);
+  display: grid;
+  place-items: center;
+  color: oklch(0.16 0.04 30);
+}
+.tt-loading-ink {
+  position: absolute;
+  inset: -50%;
+  width: 200%;
+  height: 200%;
+  z-index: 2;
+  pointer-events: none;
+  overflow: visible;
+}
+.tt-loading-ink-spin {
+  transform-origin: 0 0;
+  animation: tt-loading-ink-rotate 1.2s linear infinite;
+  will-change: transform;
+}
+.tt-loading-ink-spin path {
+  fill: none;
+  stroke: oklch(0.10 0.005 50);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.tt-loading-ink-spin circle {
+  fill: oklch(0.10 0.005 50);
+}
+@keyframes tt-loading-ink-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tt-loading-ink-spin { animation-duration: 4s; }
+}
+
 /* ============= Container ============= */
 
 .tt-container {
