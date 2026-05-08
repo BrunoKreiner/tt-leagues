@@ -14,6 +14,7 @@ const LoginPage = lazyWithReload(() => import('./pages/LoginPage'));
 const RegisterPage = lazyWithReload(() => import('./pages/RegisterPage'));
 const LandingPage = lazyWithReload(() => import('./pages/LandingPage'));
 const PublicLeaguePage = lazyWithReload(() => import('./pages/PublicLeaguePage'));
+const PublicLeaguesPage = lazyWithReload(() => import('./pages/PublicLeaguesPage'));
 const ContactPage = lazyWithReload(() => import('./pages/ContactPage'));
 const SupportTicketPage = lazyWithReload(() => import('./pages/SupportTicketPage'));
 const DashboardPage = lazyWithReload(() => import('./pages/DashboardPage'));
@@ -114,6 +115,11 @@ function AppRoutes() {
             <PublicLeaguePage />
           </SuspenseRoute>
         } />
+        <Route path="/leagues" element={
+          <SuspenseRoute>
+            <PublicLeaguesPage />
+          </SuspenseRoute>
+        } />
         <Route path="/contact" element={
           <SuspenseRoute>
             <ContactPage />
@@ -158,7 +164,6 @@ function AppRoutes() {
 
         {/* Legacy redirects for old paths */}
         <Route path="/dashboard" element={<Navigate to="/app/dashboard" replace />} />
-        <Route path="/leagues" element={<Navigate to="/app/leagues" replace />} />
         <Route path="/leagues/:id" element={<Navigate to="/app/leagues/:id" replace />} />
         <Route path="/matches" element={<Navigate to="/app/matches" replace />} />
         <Route path="/matches/record" element={<Navigate to="/app/matches/record" replace />} />

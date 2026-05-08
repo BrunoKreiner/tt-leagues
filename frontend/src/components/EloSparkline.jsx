@@ -118,25 +118,9 @@ const EloSparkline = ({ userId, rosterId, leagueId, width = 60, height = 20, poi
     );
   }
 
+  const startingElo = data[0].elo_after;
   const latestElo = data[data.length - 1].elo_after;
-  const oneMonthAgo = new Date();
-  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-  const targetTime = oneMonthAgo.getTime();
-  let closestPoint = data[0];
-  let closestDiff = Math.abs(new Date(closestPoint.recorded_at).getTime() - targetTime);
-
-  for (let i = 1; i < data.length; i += 1) {
-    const point = data[i];
-    const pointTime = new Date(point.recorded_at).getTime();
-    const diff = Math.abs(pointTime - targetTime);
-    if (diff < closestDiff) {
-      closestPoint = point;
-      closestDiff = diff;
-    }
-  }
-
-  const comparisonElo = closestPoint.elo_after;
-  const trend = latestElo > comparisonElo ? 'up' : latestElo < comparisonElo ? 'down' : 'flat';
+  const trend = latestElo > startingElo ? 'up' : latestElo < startingElo ? 'down' : 'flat';
 
   return (
     <div className="flex items-center gap-1">
