@@ -1517,14 +1517,14 @@ const LeagueDetailPage = () => {
 
       {/* Members List and Admin Panel - Side by Side (kept last in DOM) */}
       {canManageLeague ? (
-        <div className="grid gap-6 lg:grid-cols-2 mt-6">
+        <div className="grid gap-6 lg:grid-cols-2 mt-6 min-w-0">
           {/* Members List - Left */}
-          <Card id="members" className="vg-card">
-            <CardHeader className="py-4">
+          <Card id="members" className="vg-card min-w-0 overflow-hidden">
+            <CardHeader className="py-4 px-4 sm:px-6">
               <CardTitle className="cyberpunk-subtitle text-lg">{t('leagues.members')}</CardTitle>
               <CardDescription className="text-gray-400">{t('leagues.manageRoles')}</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-4 sm:px-6">
               {membersStatus === 'loading' || membersStatus === 'idle' ? (
                 <div className="flex items-center justify-center py-4">
                   <LoadingSpinner size="sm" />
@@ -1599,12 +1599,13 @@ const LeagueDetailPage = () => {
                                     size="sm"
                                     onClick={() => handleParticipationToggle(!m.is_participating)}
                                     disabled={participationLoading}
+                                    className="whitespace-nowrap"
                                   >
                                     {participationLoading
                                       ? t('status.updating')
                                       : m.is_participating
-                                        ? 'Leave leaderboard'
-                                        : 'Join leaderboard'}
+                                        ? 'Leave'
+                                        : 'Join'}
                                   </Button>
                                 )}
                               </div>
@@ -1629,15 +1630,15 @@ const LeagueDetailPage = () => {
           </Card>
 
           {/* Admin Panel - Right */}
-          <Card className="vg-card">
-            <CardHeader className="pb-2">
+          <Card className="vg-card min-w-0 overflow-hidden">
+            <CardHeader className="pb-2 px-4 sm:px-6">
               <CardTitle className="cyberpunk-subtitle text-lg">Manage</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 px-4 sm:px-6">
               {/* Roster management (placeholders) */}
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-gray-300">Roster management (placeholders)</h4>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Input
                     value={placeholderDisplayName}
                     onChange={(e) => setPlaceholderDisplayName(e.target.value)}
@@ -1648,6 +1649,7 @@ const LeagueDetailPage = () => {
                     type="button"
                     onClick={handleCreatePlaceholder}
                     disabled={creatingPlaceholder}
+                    className="w-full sm:w-auto"
                   >
                     {creatingPlaceholder ? 'Adding...' : 'Add'}
                   </Button>
@@ -1760,7 +1762,7 @@ const LeagueDetailPage = () => {
                 {inviteResult?.invite_code && (
                   <div className="text-sm bg-gray-800 p-3 rounded border border-gray-700">
                     <div className="text-gray-400 mb-1">Invite Code:</div>
-                    <div className="font-mono text-blue-400 text-lg">{inviteResult.invite_code}</div>
+                    <div className="font-mono text-blue-400 text-lg break-all">{inviteResult.invite_code}</div>
                     {inviteResult.expires_at && (
                       <div className="text-xs text-gray-500 mt-1">
                         Expires: {format(new Date(inviteResult.expires_at), 'PPp')}
@@ -1794,10 +1796,10 @@ const LeagueDetailPage = () => {
                         <div key={request.id} className="flex flex-col gap-2 rounded-md border border-gray-800 p-2">
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                             <div className="min-w-0">
-                              <div className="text-sm text-gray-200">{requesterName}</div>
-                              <div className="text-xs text-gray-500">@{request.username}</div>
+                              <div className="text-sm text-gray-200 break-words">{requesterName}</div>
+                              <div className="text-xs text-gray-500 break-all">@{request.username}</div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <Button
                                 type="button"
                                 size="sm"
