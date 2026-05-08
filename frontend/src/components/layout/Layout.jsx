@@ -448,7 +448,7 @@ const Layout = () => {
             <Trophy className="ic" /> <span>{t('nav.leagues')}</span>
           </Link>
           <Link to="/app/quick-match" className="fab" aria-label={t('cta.recordMatch')}>
-            <Plus className="ic" /> <span>{t('cta.recordMatch')}</span>
+            <Plus className="ic" strokeWidth={3} />
           </Link>
           <Link to="/app/matches" className={isActive('/app/matches') ? 'active' : ''}>
             <Swords className="ic" /> <span>{t('nav.matches')}</span>
