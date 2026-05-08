@@ -346,23 +346,23 @@ const ProfilePage = () => {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
+    <div className="tt-container py-7 md:py-10 space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
             {isOwnProfile ? t('nav.profile') : t('profile.titleOf', { name: targetUser?.first_name || username })}
           </h1>
-          <p className="text-muted-foreground">
-            {isOwnProfile 
+          <p className="text-muted-foreground text-sm sm:text-base">
+            {isOwnProfile
               ? t('profile.subtitleOwn')
               : t('profile.subtitlePublic')
             }
           </p>
         </div>
         {!isOwnProfile && isAuthenticated && (
-          <Link 
-            to="/profile" 
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          <Link
+            to="/profile"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground self-start sm:self-auto"
           >
             <ExternalLink className="h-4 w-4" />
             {t('profile.myProfile')}
@@ -380,18 +380,18 @@ const ProfilePage = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 pt-0">
-            <div className="flex items-center gap-3">
-              <Avatar className="h-16 w-16">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <Avatar className="h-16 w-16 shrink-0">
                 {avatarUrl && <AvatarImage src={avatarUrl} alt="Avatar" />}
                 <AvatarFallback className="bg-gray-700 text-gray-200">{(isOwnProfile ? currentUser.username : username)?.[0]?.toUpperCase()}</AvatarFallback>
               </Avatar>
               {isOwnProfile && (
-                <div className="flex-1">
+                <div className="flex-1 min-w-0 w-full">
                   <label className="text-sm font-medium text-muted-foreground">Avatar</label>
                   <input
                     type="file"
                     accept="image/*"
-                    className="w-full mt-1 border border-gray-600 rounded px-2 py-1 bg-gray-800 text-gray-200 file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer cursor-pointer"
+                    className="w-full mt-1 border border-gray-600 rounded px-2 py-1 bg-gray-800 text-gray-200 text-sm file:mr-3 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer cursor-pointer"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {

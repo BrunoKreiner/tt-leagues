@@ -158,25 +158,27 @@ export default function NotificationsPage() {
 
   return (
     <div className="px-4 py-6 mx-auto w-full max-w-4xl">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold">{t('notifications.title')}</h1>
           <p className="text-sm text-muted-foreground">{t('notifications.counts', { unread: unreadCount, total })}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
+            size="sm"
             variant={filter === 'all' ? 'default' : 'outline'}
             onClick={() => { setPage(1); setFilter('all'); }}
           >
             {t('common.all')}
           </Button>
           <Button
+            size="sm"
             variant={filter === 'unread' ? 'default' : 'outline'}
             onClick={() => { setPage(1); setFilter('unread'); }}
           >
             {t('common.unread')}
           </Button>
-          <Button variant="secondary" onClick={handleMarkAllRead} disabled={markingAll || unreadCount === 0}>
+          <Button size="sm" variant="secondary" onClick={handleMarkAllRead} disabled={markingAll || unreadCount === 0}>
             {markingAll ? t('status.marking') : t('actions.markAllRead')}
           </Button>
         </div>

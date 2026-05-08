@@ -2,6 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { BookOpen, Menu, X } from 'lucide-react';
 import Brand from '@/components/layout/Brand';
 
@@ -11,7 +17,7 @@ import Brand from '@/components/layout/Brand';
  * otherwise navigate to / + hash (LandingPage scrolls to the hash on mount).
  */
 export default function PublicHeader() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -55,7 +61,7 @@ export default function PublicHeader() {
           borderBottom: '1px solid var(--line-soft)',
         }}
       >
-        <div className="max-w-[1140px] mx-auto px-6 md:px-12">
+        <div className="tt-container">
           <div className="flex items-center gap-7 h-16">
             <Brand />
             <nav className="hidden md:flex items-center gap-6 text-[14px] text-[var(--fg-2)]">
@@ -84,6 +90,21 @@ export default function PublicHeader() {
             </nav>
             <div className="ml-auto flex items-center gap-2">
               <div className="hidden md:flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="font-mono text-[11px] tracking-wider uppercase">
+                      {i18n.language === 'de' ? 'DE' : 'EN'}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => i18n.changeLanguage('en')}>
+                      {t('language.english')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => i18n.changeLanguage('de')}>
+                      {t('language.german')}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Button variant="ghost" size="sm" asChild>
                   <Link to="/login">{t('auth.logIn')}</Link>
                 </Button>
@@ -182,9 +203,36 @@ export default function PublicHeader() {
           </Link>
         </nav>
         <div
-          className="px-6 py-5 border-t flex flex-col gap-2"
+          className="px-6 py-5 border-t flex flex-col gap-3"
           style={{ borderColor: 'var(--line-soft)' }}
         >
+          <div className="flex items-center justify-between">
+            <span className="eyebrow">{t('language.label', 'Language')}</span>
+            <div className="inline-flex rounded-full border" style={{ borderColor: 'var(--line)' }}>
+              <button
+                type="button"
+                onClick={() => i18n.changeLanguage('en')}
+                className={`px-3 py-1 text-[11px] font-mono uppercase tracking-wider rounded-l-full transition-colors ${
+                  i18n.language !== 'de'
+                    ? 'bg-[var(--accent)] text-[var(--accent-ink)]'
+                    : 'text-[var(--fg-3)] hover:text-[var(--fg)]'
+                }`}
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                onClick={() => i18n.changeLanguage('de')}
+                className={`px-3 py-1 text-[11px] font-mono uppercase tracking-wider rounded-r-full transition-colors ${
+                  i18n.language === 'de'
+                    ? 'bg-[var(--accent)] text-[var(--accent-ink)]'
+                    : 'text-[var(--fg-3)] hover:text-[var(--fg)]'
+                }`}
+              >
+                DE
+              </button>
+            </div>
+          </div>
           <Button
             asChild
             className="w-full bg-[var(--accent)] text-[var(--accent-ink)] hover:bg-[var(--accent-2)] font-bold rounded-full"

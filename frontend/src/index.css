@@ -107,6 +107,11 @@
   --r-md: 10px;
   --r-lg: 16px;
   --r-xl: 22px;
+
+  /* Fluid container: stays at ~1140px on laptops, scales up on widescreen,
+     hard-caps so 4K/ultrawide doesn't get unreadably wide lines. */
+  --container-max: min(1760px, max(1140px, 78vw));
+  --container-pad: clamp(1.5rem, 3vw, 3rem);
 }
 
 /* Dark is the only theme — keep .dark class as no-op so shadcn flags don't break things */

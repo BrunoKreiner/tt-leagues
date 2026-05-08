@@ -896,9 +896,9 @@ const LeagueDetailPage = () => {
   const joinRequestPending = joinRequest && joinRequest.status === 'pending';
 
   return (
-    <div className="max-w-[1140px] mx-auto px-6 md:px-12 pb-20">
+    <div className="tt-container pb-20">
       {/* Editorial league hero */}
-      <div className="pt-10 pb-8" style={{ borderBottom: '1px solid var(--line-soft)' }}>
+      <div className="pt-6 sm:pt-10 pb-6 sm:pb-8" style={{ borderBottom: '1px solid var(--line-soft)' }}>
         <div className="font-mono text-[12px] text-[var(--fg-3)] mb-3.5">
           <Link to="/app/dashboard" className="hover:text-[var(--fg)]">{t('nav.dashboard')}</Link> /{' '}
           <Link to="/app/leagues" className="hover:text-[var(--fg)]">{t('nav.leagues')}</Link> /{' '}
@@ -909,9 +909,10 @@ const LeagueDetailPage = () => {
             <h1
               className="display"
               style={{
-                fontSize: 'clamp(40px, 5.4vw, 56px)',
+                fontSize: 'clamp(32px, 5.4vw, 56px)',
                 lineHeight: 1,
                 letterSpacing: '-0.035em',
+                wordBreak: 'break-word',
               }}
             >
               {league.name}.
@@ -1018,10 +1019,10 @@ const LeagueDetailPage = () => {
       ) : matches.length === 0 ? (
         <p className="text-sm text-gray-400">{t('leagues.noMatchesYet')}</p>
       ) : (
-        <div className="relative mx-4">
-          {/* Left Arrow */}
-          <button 
-            className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 text-gray-400 hover:text-gray-300 text-2xl font-bold bg-gray-900/80 rounded-full w-8 h-8 flex items-center justify-center"
+        <div className="relative">
+          {/* Left Arrow — hidden on mobile (touch users can swipe) */}
+          <button
+            className="hidden sm:flex absolute left-0 top-1/2 transform -translate-y-1/2 z-10 text-gray-400 hover:text-gray-300 text-2xl font-bold bg-gray-900/80 rounded-full w-8 h-8 items-center justify-center"
             onClick={() => {
               const container = document.getElementById('matches-scroll');
               if (container) container.scrollLeft -= 300;
@@ -1029,10 +1030,10 @@ const LeagueDetailPage = () => {
           >
             ‹
           </button>
-          
-          {/* Right Arrow */}
-          <button 
-            className="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 text-gray-400 hover:text-gray-300 text-2xl font-bold bg-gray-900/80 rounded-full w-8 h-8 flex items-center justify-center"
+
+          {/* Right Arrow — hidden on mobile */}
+          <button
+            className="hidden sm:flex absolute right-0 top-1/2 transform -translate-y-1/2 z-10 text-gray-400 hover:text-gray-300 text-2xl font-bold bg-gray-900/80 rounded-full w-8 h-8 items-center justify-center"
             onClick={() => {
               const container = document.getElementById('matches-scroll');
               if (container) container.scrollLeft += 300;
@@ -1040,11 +1041,11 @@ const LeagueDetailPage = () => {
           >
             ›
           </button>
-          
+
           {/* Matches Container */}
-          <div 
+          <div
             id="matches-scroll"
-            className="overflow-x-auto scrollbar-hide px-10"
+            className="overflow-x-auto scrollbar-hide px-1 sm:px-10"
             style={{ scrollBehavior: 'smooth' }}
           >
             <div className="flex gap-4 min-w-max py-3 justify-center">

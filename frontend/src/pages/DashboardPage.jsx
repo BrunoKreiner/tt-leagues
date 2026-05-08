@@ -175,7 +175,7 @@ const DashboardPage = () => {
   })();
 
   return (
-    <div className="max-w-[1140px] mx-auto px-6 md:px-12 py-7 md:py-10">
+    <div className="tt-container py-7 md:py-10">
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
         <div>
@@ -214,13 +214,13 @@ const DashboardPage = () => {
       {/* HERO + SUMMARY GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-[18px]">
         {/* ELO HERO */}
-        <div className="tt-panel relative overflow-hidden p-6 md:p-7" style={{ borderRadius: 'var(--r-xl)' }}>
+        <div className="tt-panel relative overflow-hidden p-5 sm:p-6 md:p-7" style={{ borderRadius: 'var(--r-xl)' }}>
           <div
             aria-hidden
             className="absolute -top-16 -right-16 w-[200px] h-[200px] rounded-full pointer-events-none"
             style={{ background: 'oklch(0.70 0.20 38 / 0.06)' }}
           />
-          <div className="flex justify-between items-start gap-4 relative">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 relative">
             <div className="min-w-0">
               <div className="font-mono text-[11px] text-[var(--fg-3)] tracking-[0.1em] uppercase">
                 {primaryLeague
@@ -228,21 +228,22 @@ const DashboardPage = () => {
                   : t('dashboard.heroEyebrowNoLeague')}
               </div>
               <div
-                className="font-bold tabular-nums leading-none mt-1.5"
+                className="font-bold tabular-nums leading-none mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1"
                 style={{
                   fontFamily: '"Inter Tight", sans-serif',
-                  fontSize: 'clamp(56px, 8vw, 88px)',
+                  fontSize: 'clamp(44px, 8vw, 88px)',
                   letterSpacing: '-0.055em',
                   color: 'var(--fg)',
                 }}
               >
-                {primaryLeague?.user_current_elo ?? primaryLeague?.user_elo ?? stats?.avg_elo ?? '—'}
+                <span>
+                  {primaryLeague?.user_current_elo ?? primaryLeague?.user_elo ?? stats?.avg_elo ?? '—'}
+                </span>
                 {typeof stats?.peak_elo === 'number' && (
-                  <sup
-                    className="font-mono ml-1.5 px-1.5 py-0.5 rounded-full"
+                  <span
+                    className="font-mono px-1.5 py-0.5 rounded-full"
                     style={{
-                      fontSize: 18,
-                      verticalAlign: 'super',
+                      fontSize: 'clamp(13px, 1.6vw, 18px)',
                       color: 'var(--good)',
                       background: 'oklch(0.78 0.16 145 / 0.15)',
                       letterSpacing: 0,
@@ -250,7 +251,7 @@ const DashboardPage = () => {
                     }}
                   >
                     peak {stats.peak_elo}
-                  </sup>
+                  </span>
                 )}
               </div>
               <div className="text-[12.5px] text-[var(--fg-3)] mt-2">
@@ -264,7 +265,7 @@ const DashboardPage = () => {
               </div>
             </div>
             {primaryLeague && user?.id && (
-              <div className="text-right shrink-0">
+              <div className="sm:text-right sm:shrink-0">
                 <EloSparkline userId={user.id} leagueId={primaryLeague.id} width={120} height={36} points={12} />
                 <div className="font-mono text-[10px] text-[var(--fg-3)] mt-1.5 tracking-[0.1em] uppercase">
                   {t('dashboard.recentTrend')}
