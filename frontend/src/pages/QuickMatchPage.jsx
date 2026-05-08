@@ -4,31 +4,40 @@ import { useAuth } from '@/contexts/AuthContext';
 import { leaguesAPI, matchesAPI } from '@/services/api';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import { Zap, Trophy, User, ArrowRight, Check } from 'lucide-react';
+import { Zap, Check, Trophy, Pencil } from 'lucide-react';
 
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import SetScoreInput from '@/components/SetScoreInput';
 
 import { GAME_TYPE_VALUES, getGameTypeById, calculateWinner } from '@/constants/gameTypes';
+
+const PRESET_LOSER_SCORES = [9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
+const DEUCE_PAIRS = [
+  { winner: 12, loser: 10 },
+  { winner: 13, loser: 11 },
+  { winner: 14, loser: 12 },
+  { winner: 15, loser: 13 },
+  { winner: 16, loser: 14 },
+];
 
 export default function QuickMatchPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // Step state (1-4)
-  const [step, setStep] = useState(1);
-
-  // Form data
   const [selectedLeague, setSelectedLeague] = useState(null);
   const [selectedOpponent, setSelectedOpponent] = useState(null);
   const [selectedGameType, setSelectedGameType] = useState('best_of_3');
-  const [setScores, setSetScores] = useState([]); // [{ p1, p2 }, ...]
+  const [setScores, setSetScores] = useState([]);
 
-  // Loading states
+  const [editingSet, setEditingSet] = useState(null);
+  const [entryMode, setEntryMode] = useState('presets');
+  const [activeWinner, setActiveWinner] = useState('p1');
+  const [manualP1, setManualP1] = useState('');
+  const [manualP2, setManualP2] = useState('');
+
   const [leagues, setLeagues] = useState([]);
   const [members, setMembers] = useState([]);
   const [loadingLeagues, setLoadingLeagues] = useState(true);
@@ -44,24 +53,40 @@ export default function QuickMatchPage() {
     }
   }, [user]);
 
-  // Calculate stats from actual scores
-  const { player1SetsWon, player2SetsWon, player1Points, player2Points } = useMemo(() => {
-    return calculateWinner(setScores);
-  }, [setScores]);
-
-  // Get current game type metadata
   const gameType = getGameTypeById(selectedGameType);
-  const totalSteps = 3 + gameType.maxSets + 1; // league + opponent + type + sets (up to maxSets) + review
+  const { player1SetsWon, player2SetsWon, player1Points, player2Points } = useMemo(
+    () => calculateWinner(setScores),
+    [setScores],
+  );
 
-  // Load leagues
+  const matchDecided =
+    player1SetsWon >= gameType.setsToWin || player2SetsWon >= gameType.setsToWin;
+
+  const youLabel = me?.username || t('recordMatch.you');
+  const opponentName =
+    members.find((m) => m.roster_id === selectedOpponent)?.display_name || t('recordMatch.opponent');
+
+  const activeIndex =
+    editingSet !== null
+      ? editingSet
+      : matchDecided
+        ? -1
+        : Math.min(setScores.length, gameType.maxSets - 1);
+
+  const showActiveEntry =
+    selectedLeague !== null &&
+    selectedOpponent !== null &&
+    !matchDecided &&
+    activeIndex >= 0 &&
+    activeIndex < gameType.maxSets;
+
   useEffect(() => {
     const loadLeagues = async () => {
       try {
         setLoadingLeagues(true);
         const { data } = await leaguesAPI.getAll({ page: 1, limit: 100 });
         const items = data.leagues || data.items || [];
-        const mine = items.filter((l) => l.is_member);
-        setLeagues(mine);
+        setLeagues(items.filter((l) => l.is_member));
       } catch (e) {
         console.error('Failed to load leagues', e);
         toast.error(t('recordMatch.failedToLoadLeagues'));
@@ -72,21 +97,18 @@ export default function QuickMatchPage() {
     loadLeagues();
   }, [t]);
 
-  // Load members when league changes
   useEffect(() => {
     if (!selectedLeague) {
       setMembers([]);
       setSelectedOpponent(null);
       return;
     }
-
     const loadMembers = async () => {
       try {
         setLoadingMembers(true);
         const { data } = await leaguesAPI.getMembers(selectedLeague);
         const arr = (data.members || data) || [];
-        const filtered = arr.filter((m) => m.user_id !== me?.id);
-        setMembers(filtered);
+        setMembers(arr.filter((m) => m.user_id !== me?.id));
       } catch (e) {
         console.error('Failed to load members', e);
         toast.error(t('recordMatch.failedToLoadLeagueMembers'));
@@ -96,6 +118,61 @@ export default function QuickMatchPage() {
     };
     loadMembers();
   }, [selectedLeague, me?.id, t]);
+
+  useEffect(() => {
+    if (setScores.length > gameType.maxSets) {
+      setSetScores((prev) => prev.slice(0, gameType.maxSets));
+    }
+  }, [gameType.maxSets, setScores.length]);
+
+  const recordSet = (p1, p2) => {
+    setSetScores((prev) => {
+      const next = [...prev];
+      next[activeIndex] = { p1, p2 };
+      return next;
+    });
+    setEditingSet(null);
+    setEntryMode('presets');
+    setActiveWinner('p1');
+    setManualP1('');
+    setManualP2('');
+  };
+
+  const handlePreset = (loserScore) => {
+    if (activeWinner === 'p1') recordSet(11, loserScore);
+    else recordSet(loserScore, 11);
+  };
+
+  const handleDeuce = (winnerScore, loserScore) => {
+    if (activeWinner === 'p1') recordSet(winnerScore, loserScore);
+    else recordSet(loserScore, winnerScore);
+  };
+
+  const handleManual = () => {
+    const p1 = parseInt(manualP1, 10);
+    const p2 = parseInt(manualP2, 10);
+    if (!Number.isFinite(p1) || !Number.isFinite(p2) || p1 < 0 || p2 < 0 || p1 === p2) return;
+    recordSet(p1, p2);
+  };
+
+  const handleEditSet = (idx) => {
+    setEditingSet(idx);
+    const existing = setScores[idx];
+    if (existing) setActiveWinner(existing.p1 > existing.p2 ? 'p1' : 'p2');
+    setEntryMode('presets');
+  };
+
+  const handleClearSet = (idx) => {
+    setSetScores((prev) => prev.slice(0, idx));
+    setEditingSet(null);
+  };
+
+  const handleFormatChange = (id) => {
+    setSelectedGameType(id);
+    const next = getGameTypeById(id);
+    if (setScores.length > next.maxSets) setSetScores((prev) => prev.slice(0, next.maxSets));
+    setEditingSet(null);
+  };
 
   const handleSubmit = async () => {
     try {
@@ -125,41 +202,6 @@ export default function QuickMatchPage() {
     }
   };
 
-  const handleSetScore = (setIndex, p1, p2) => {
-    setSetScores((prev) => {
-      const next = [...prev];
-      next[setIndex] = { p1, p2 };
-      return next;
-    });
-
-    // Check if match is decided (winner has enough sets)
-    const tempScores = [...setScores];
-    tempScores[setIndex] = { p1, p2 };
-    const { player1SetsWon: p1Sets, player2SetsWon: p2Sets } = calculateWinner(tempScores);
-
-    // Auto-advance to review if winner is decided
-    if (p1Sets >= gameType.setsToWin || p2Sets >= gameType.setsToWin) {
-      setStep(totalSteps); // Jump to review
-    }
-  };
-
-  const canProceed = () => {
-    if (step === 1) return selectedLeague !== null;
-    if (step === 2) return selectedOpponent !== null;
-    if (step === 3) return selectedGameType !== null;
-    if (step >= 4 && step < totalSteps) {
-      // On set entry steps, check if current set is entered
-      const setIndex = step - 4;
-      return setScores[setIndex] !== undefined;
-    }
-    if (step === totalSteps) {
-      // On review step, check if match has valid winner
-      return player1SetsWon !== player2SetsWon &&
-             (player1SetsWon >= gameType.setsToWin || player2SetsWon >= gameType.setsToWin);
-    }
-    return false;
-  };
-
   if (loadingLeagues) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -168,301 +210,427 @@ export default function QuickMatchPage() {
     );
   }
 
+  const eyebrow = 'font-mono text-[11px] tracking-[0.16em] uppercase text-[var(--accent)]';
+  const divider = (
+    <div aria-hidden="true" className="h-px w-full" style={{ background: 'var(--line-soft)' }} />
+  );
+
   return (
-    <div className="px-4 py-6 mx-auto w-full max-w-2xl">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-2 mb-2">
-          <Zap className="h-6 w-6 text-yellow-400" />
-          <h1 className="text-2xl font-semibold">{t('nav.quickMatch')}</h1>
+    <div className="px-4 py-6 mx-auto w-full max-w-[560px]">
+      {/* HEADER */}
+      <div className="mb-5 flex items-center gap-3">
+        <span
+          className="inline-flex items-center justify-center rounded-full"
+          style={{
+            width: 38,
+            height: 38,
+            background: 'oklch(0.70 0.20 38 / 0.14)',
+            color: 'var(--accent)',
+          }}
+        >
+          <Zap className="h-5 w-5" />
+        </span>
+        <div>
+          <h1
+            className="font-sans font-bold leading-none"
+            style={{ fontSize: 26, letterSpacing: '-0.02em' }}
+          >
+            {t('nav.quickMatch')}
+          </h1>
+          <p className="text-[13px] mt-1" style={{ color: 'var(--fg-3)' }}>
+            {t('quickMatch.subtitle')}
+          </p>
         </div>
-        <p className="text-sm text-muted-foreground">{t('quickMatch.subtitle')}</p>
       </div>
 
-      {/* Progress Indicator */}
-      <div className="flex items-center justify-center gap-2 mb-8">
-        {Array.from({ length: totalSteps }).map((_, idx) => (
+      {/* MAIN PANEL */}
+      <div
+        className="relative overflow-hidden p-5 sm:p-6 space-y-5"
+        style={{
+          background: 'var(--bg-2)',
+          border: '1.5px solid var(--line-soft)',
+          borderRadius: 'var(--r-lg)',
+        }}
+      >
+        <span
+          aria-hidden="true"
+          className="absolute top-0 left-0 right-0"
+          style={{ height: 2, background: 'var(--accent)', borderRadius: 'var(--r-lg) var(--r-lg) 0 0' }}
+        />
+
+        {/* LEAGUE */}
+        <div className="space-y-2">
+          <div className={eyebrow}>{t('quickMatch.selectLeague')}</div>
+          <Select
+            value={selectedLeague?.toString() || ''}
+            onValueChange={(v) => setSelectedLeague(Number(v))}
+          >
+            <SelectTrigger className="w-full h-12 text-[15px]">
+              <SelectValue placeholder={t('recordMatch.selectLeague')} />
+            </SelectTrigger>
+            <SelectContent>
+              {leagues.map((l) => (
+                <SelectItem key={l.id} value={String(l.id)} className="text-base py-2.5">
+                  {l.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {divider}
+
+        {/* OPPONENT */}
+        <div className="space-y-2">
+          <div className={eyebrow}>{t('quickMatch.selectOpponent')}</div>
+          <Select
+            value={selectedOpponent?.toString() || ''}
+            onValueChange={(v) => setSelectedOpponent(Number(v))}
+            disabled={!selectedLeague || loadingMembers}
+          >
+            <SelectTrigger className="w-full h-12 text-[15px]">
+              <SelectValue
+                placeholder={
+                  !selectedLeague
+                    ? t('recordMatch.selectLeagueFirst')
+                    : loadingMembers
+                      ? t('common.loading')
+                      : t('recordMatch.selectOpponent')
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {members.map((m) => (
+                <SelectItem key={m.roster_id} value={String(m.roster_id)} className="text-base py-2.5">
+                  {m.display_name}
+                  {typeof m.current_elo === 'number' ? `  ·  ${m.current_elo}` : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {divider}
+
+        {/* FORMAT */}
+        <div className="space-y-2">
+          <div className={eyebrow}>{t('matchDetail.gameType')}</div>
+          <div className="grid grid-cols-4 gap-2">
+            {GAME_TYPE_VALUES.map((gt) => {
+              const active = selectedGameType === gt.id;
+              return (
+                <button
+                  key={gt.id}
+                  type="button"
+                  onClick={() => handleFormatChange(gt.id)}
+                  className="h-12 rounded-md text-[15px] font-semibold transition-all active:scale-[0.97]"
+                  style={{
+                    background: active ? 'oklch(0.70 0.20 38 / 0.14)' : 'transparent',
+                    border: `1.5px solid ${active ? 'var(--accent)' : 'var(--line-soft)'}`,
+                    color: active ? 'var(--accent)' : 'var(--fg-2)',
+                  }}
+                >
+                  {gt.shortLabel}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {divider}
+
+        {/* SCOREBOARD */}
+        <div className="space-y-3">
+          <div className={eyebrow}>{t('quickMatch.score')}</div>
           <div
-            key={idx}
-            className={`h-2 flex-1 rounded-full transition-colors ${
-              idx + 1 <= step ? 'bg-blue-500' : 'bg-gray-700'
-            }`}
-          />
-        ))}
-      </div>
+            className="flex items-center justify-center gap-4 py-3 rounded-md"
+            style={{ background: 'var(--bg-3, oklch(0.18 0.006 50))' }}
+          >
+            <span className="text-[13px] truncate max-w-[35vw] text-right" style={{ color: 'var(--fg-2)' }}>
+              {youLabel}
+            </span>
+            <span
+              className="tabular-nums font-bold"
+              style={{
+                fontSize: 38,
+                lineHeight: 1,
+                color: player1SetsWon >= player2SetsWon && matchDecided ? 'var(--accent)' : 'var(--fg)',
+              }}
+            >
+              {player1SetsWon}
+            </span>
+            <span
+              style={{
+                fontFamily: '"Fraunces", ui-serif, Georgia, serif',
+                fontStyle: 'italic',
+                color: 'var(--accent)',
+                fontSize: 18,
+                fontWeight: 500,
+              }}
+            >
+              vs.
+            </span>
+            <span
+              className="tabular-nums font-bold"
+              style={{
+                fontSize: 38,
+                lineHeight: 1,
+                color: player2SetsWon > player1SetsWon && matchDecided ? 'var(--accent)' : 'var(--fg)',
+              }}
+            >
+              {player2SetsWon}
+            </span>
+            <span className="text-[13px] truncate max-w-[35vw]" style={{ color: 'var(--fg-2)' }}>
+              {opponentName}
+            </span>
+          </div>
 
-      <Card>
-        <CardContent className="pt-6 space-y-6">
-          {/* STEP 1: League Selection */}
-          {step === 1 && (
-            <div className="space-y-4">
-              <div>
-                <h2 className="text-lg font-medium flex items-center gap-2 mb-4">
-                  <Trophy className="h-5 w-5 text-yellow-400" />
-                  {t('quickMatch.selectLeague')}
-                </h2>
-                <Select
-                  value={selectedLeague?.toString()}
-                  onValueChange={(v) => setSelectedLeague(Number(v))}
-                >
-                  <SelectTrigger className="w-full h-14 text-lg">
-                    <SelectValue placeholder={t('recordMatch.selectLeague')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {leagues.map((l) => (
-                      <SelectItem key={l.id} value={String(l.id)} className="text-lg py-3">
-                        {l.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button
-                size="lg"
-                className="w-full h-14 text-lg"
-                disabled={!canProceed()}
-                onClick={() => setStep(2)}
-              >
-                {t('quickMatch.next')} <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </div>
-          )}
-
-          {/* STEP 2: Opponent Selection */}
-          {step === 2 && (
-            <div className="space-y-4">
-              <div>
-                <h2 className="text-lg font-medium flex items-center gap-2 mb-4">
-                  <User className="h-5 w-5 text-blue-400" />
-                  {t('quickMatch.selectOpponent')}
-                </h2>
-                <Select
-                  value={selectedOpponent?.toString()}
-                  onValueChange={(v) => setSelectedOpponent(Number(v))}
-                  disabled={loadingMembers}
-                >
-                  <SelectTrigger className="w-full h-14 text-lg">
-                    <SelectValue
-                      placeholder={
-                        loadingMembers ? t('common.loading') : t('recordMatch.selectOpponent')
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {members.map((m) => (
-                      <SelectItem key={m.roster_id} value={String(m.roster_id)} className="text-lg py-3">
-                        {m.display_name} {typeof m.current_elo === 'number' ? `(${m.current_elo})` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="flex-1 h-14 text-lg"
-                  onClick={() => setStep(1)}
-                >
-                  {t('quickMatch.back')}
-                </Button>
-                <Button
-                  size="lg"
-                  className="flex-1 h-14 text-lg"
-                  disabled={!canProceed()}
-                  onClick={() => setStep(3)}
-                >
-                  {t('quickMatch.next')} <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 3: Game Type Selection */}
-          {step === 3 && (
-            <div className="space-y-4">
-              <div>
-                <h2 className="text-lg font-medium flex items-center gap-2 mb-4">
-                  <Trophy className="h-5 w-5 text-yellow-400" />
-                  {t('matchDetail.gameType')}
-                </h2>
-                <div className="grid grid-cols-2 gap-3">
-                  {GAME_TYPE_VALUES.map((gt) => (
-                    <button
-                      key={gt.id}
-                      onClick={() => setSelectedGameType(gt.id)}
-                      className={`h-16 rounded-lg border-2 text-lg font-medium transition-all ${
-                        selectedGameType === gt.id
-                          ? 'border-blue-500 bg-blue-500/10 text-blue-400'
-                          : 'border-gray-700 hover:border-gray-600'
-                      }`}
-                    >
-                      {gt.shortLabel}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="flex-1 h-14 text-lg"
-                  onClick={() => setStep(2)}
-                >
-                  {t('quickMatch.back')}
-                </Button>
-                <Button
-                  size="lg"
-                  className="flex-1 h-14 text-lg"
-                  disabled={!canProceed()}
-                  onClick={() => setStep(4)}
-                >
-                  {t('quickMatch.next')} <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 4+: Set Score Entry (one per set) */}
-          {step >= 4 && step < totalSteps && (() => {
-            const setIndex = step - 4;
-            const setNumber = setIndex + 1;
-            const opponentName = members.find((m) => m.roster_id === selectedOpponent)?.display_name || '';
-
-            return (
-              <div className="space-y-4">
-                <div>
-                  <h2 className="text-lg font-medium mb-2">
-                    Set {setNumber}
-                  </h2>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    {me?.username || 'You'} vs {opponentName}
-                  </p>
-                  <SetScoreInput
-                    currentScore={setScores[setIndex]}
-                    onScoreSelect={(p1, p2) => handleSetScore(setIndex, p1, p2)}
-                    allowSwap={true}
-                    player1Label={me?.username || 'You'}
-                    player2Label={opponentName}
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="flex-1 h-14 text-lg"
-                    onClick={() => setStep(step - 1)}
+          {/* Set chips */}
+          {setScores.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {setScores.map((s, idx) => {
+                const youWon = s.p1 > s.p2;
+                const isEditing = editingSet === idx;
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleEditSet(idx)}
+                    className="inline-flex items-center gap-2 px-3 h-9 rounded-full text-[13px] font-mono tabular-nums transition-all active:scale-[0.97]"
+                    style={{
+                      background: isEditing ? 'oklch(0.70 0.20 38 / 0.14)' : 'transparent',
+                      border: `1.5px solid ${isEditing ? 'var(--accent)' : 'var(--line-soft)'}`,
+                      color: 'var(--fg)',
+                    }}
                   >
-                    {t('quickMatch.back')}
-                  </Button>
-                  {setScores[setIndex] && (
-                    <Button
-                      size="lg"
-                      className="flex-1 h-14 text-lg"
-                      onClick={() => {
-                        // Check if match is decided
-                        const { player1SetsWon: p1Sets, player2SetsWon: p2Sets } = calculateWinner(setScores.slice(0, setIndex + 1));
-                        if (p1Sets >= gameType.setsToWin || p2Sets >= gameType.setsToWin) {
-                          setStep(totalSteps);
-                        } else {
-                          setStep(step + 1);
-                        }
+                    <span style={{ color: 'var(--fg-3)' }}>{idx + 1}</span>
+                    <span style={{ color: youWon ? 'var(--accent)' : 'var(--fg-2)' }}>{s.p1}</span>
+                    <span style={{ color: 'var(--fg-3)' }}>–</span>
+                    <span style={{ color: !youWon ? 'var(--accent)' : 'var(--fg-2)' }}>{s.p2}</span>
+                    <Pencil className="h-3 w-3" style={{ color: 'var(--fg-3)' }} />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {matchDecided && (
+            <div
+              className="flex items-center gap-2 text-[13px]"
+              style={{ color: 'var(--accent)' }}
+            >
+              <Trophy className="h-4 w-4" />
+              <span style={{ fontFamily: '"Fraunces", ui-serif, Georgia, serif', fontStyle: 'italic' }}>
+                {player1SetsWon > player2SetsWon ? youLabel : opponentName} wins
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* ACTIVE SET ENTRY */}
+        {showActiveEntry && (
+          <>
+            {divider}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className={eyebrow}>
+                  {t('recordMatch.set')} {activeIndex + 1}
+                </div>
+                {editingSet !== null && (
+                  <button
+                    type="button"
+                    onClick={() => handleClearSet(editingSet)}
+                    className="text-[12px]"
+                    style={{ color: 'var(--fg-3)' }}
+                  >
+                    {t('common.cancel')}
+                  </button>
+                )}
+              </div>
+
+              {/* Winner toggle */}
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: 'p1', label: youLabel },
+                  { id: 'p2', label: opponentName },
+                ].map(({ id, label }) => {
+                  const active = activeWinner === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setActiveWinner(id)}
+                      className="h-11 rounded-md text-[14px] font-medium transition-all active:scale-[0.97] truncate px-3 inline-flex items-center justify-center gap-1.5"
+                      style={{
+                        background: active ? 'oklch(0.70 0.20 38 / 0.14)' : 'transparent',
+                        border: `1.5px solid ${active ? 'var(--accent)' : 'var(--line-soft)'}`,
+                        color: active ? 'var(--accent)' : 'var(--fg-2)',
                       }}
                     >
-                      {t('quickMatch.next')} <ArrowRight className="ml-2 h-5 w-5" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* FINAL STEP: Review & Submit */}
-          {step === totalSteps && (
-            <div className="space-y-6">
-              <h2 className="text-lg font-medium">{t('quickMatch.reviewAndSubmit')}</h2>
-
-              <div className="space-y-3 p-4 bg-gray-800/30 rounded-lg border border-gray-700">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">{t('recordMatch.leagueLabel')}:</span>
-                  <span className="font-medium">{leagues.find((l) => l.id === selectedLeague)?.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">{t('recordMatch.opponentLabel')}:</span>
-                  <span className="font-medium">
-                    {members.find((m) => m.roster_id === selectedOpponent)?.display_name}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">{t('matchDetail.gameType')}:</span>
-                  <span className="font-medium">{gameType.label}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">{t('quickMatch.score')}:</span>
-                  <span className="text-2xl font-bold">
-                    <span className={player1SetsWon > player2SetsWon ? 'text-green-400' : 'text-gray-400'}>
-                      {player1SetsWon}
-                    </span>
-                    <span className="mx-2 text-gray-500">-</span>
-                    <span className={player2SetsWon > player1SetsWon ? 'text-green-400' : 'text-gray-400'}>
-                      {player2SetsWon}
-                    </span>
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Total Points:</span>
-                  <span>{player1Points} - {player2Points}</span>
-                </div>
+                      {active && <Trophy className="h-3.5 w-3.5" />}
+                      <span className="truncate">{label}</span>
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Set-by-set breakdown */}
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium text-muted-foreground">Set Scores:</h3>
-                {setScores.map((s, idx) => (
-                  <div key={idx} className="flex justify-between items-center p-2 bg-gray-800/20 rounded">
-                    <span className="text-sm">Set {idx + 1}</span>
-                    <span className="font-medium">
-                      <span className={s.p1 > s.p2 ? 'text-green-400' : 'text-gray-400'}>{s.p1}</span>
-                      <span className="mx-2">-</span>
-                      <span className={s.p2 > s.p1 ? 'text-green-400' : 'text-gray-400'}>{s.p2}</span>
-                    </span>
+              {entryMode === 'presets' && (
+                <>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {PRESET_LOSER_SCORES.map((loser) => {
+                      const display =
+                        activeWinner === 'p1' ? `11–${loser}` : `${loser}–11`;
+                      return (
+                        <button
+                          key={loser}
+                          type="button"
+                          onClick={() => handlePreset(loser)}
+                          className="h-12 rounded-md font-mono tabular-nums text-[13px] transition-all active:scale-[0.95]"
+                          style={{
+                            border: '1.5px solid var(--line-soft)',
+                            color: 'var(--fg)',
+                            background: 'transparent',
+                          }}
+                        >
+                          {display}
+                        </button>
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setEntryMode('deuce')}
+                      className="h-10 rounded-md text-[13px] font-medium"
+                      style={{ border: '1.5px solid var(--line-soft)', color: 'var(--fg-2)' }}
+                    >
+                      Deuce…
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEntryMode('manual')}
+                      className="h-10 rounded-md text-[13px] font-medium"
+                      style={{ border: '1.5px solid var(--line-soft)', color: 'var(--fg-2)' }}
+                    >
+                      Manual
+                    </button>
+                  </div>
+                </>
+              )}
 
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="flex-1 h-14 text-lg"
-                  onClick={() => setStep(step - 1)}
-                  disabled={submitting}
-                >
-                  {t('quickMatch.back')}
-                </Button>
-                <Button
-                  size="lg"
-                  className="flex-1 h-14 text-lg"
-                  onClick={handleSubmit}
-                  disabled={submitting || !canProceed()}
-                >
-                  {submitting ? (
-                    <>
-                      <LoadingSpinner className="mr-2 h-5 w-5" />
-                      {t('common.submitting')}
-                    </>
-                  ) : (
-                    <>
-                      <Check className="mr-2 h-5 w-5" />
-                      {t('quickMatch.submit')}
-                    </>
-                  )}
-                </Button>
-              </div>
+              {entryMode === 'deuce' && (
+                <>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {DEUCE_PAIRS.map(({ winner, loser }) => {
+                      const display =
+                        activeWinner === 'p1' ? `${winner}–${loser}` : `${loser}–${winner}`;
+                      return (
+                        <button
+                          key={winner}
+                          type="button"
+                          onClick={() => handleDeuce(winner, loser)}
+                          className="h-12 rounded-md font-mono tabular-nums text-[13px] transition-all active:scale-[0.95]"
+                          style={{
+                            border: '1.5px solid var(--line-soft)',
+                            color: 'var(--fg)',
+                          }}
+                        >
+                          {display}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEntryMode('presets')}
+                    className="h-10 w-full rounded-md text-[13px] font-medium"
+                    style={{ border: '1.5px solid var(--line-soft)', color: 'var(--fg-2)' }}
+                  >
+                    ← Back
+                  </button>
+                </>
+              )}
+
+              {entryMode === 'manual' && (
+                <>
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min="0"
+                      value={manualP1}
+                      onChange={(e) => setManualP1(e.target.value)}
+                      placeholder="11"
+                      className="h-12 text-center text-lg tabular-nums"
+                    />
+                    <span style={{ color: 'var(--fg-3)' }}>–</span>
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min="0"
+                      value={manualP2}
+                      onChange={(e) => setManualP2(e.target.value)}
+                      placeholder="9"
+                      className="h-12 text-center text-lg tabular-nums"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEntryMode('presets');
+                        setManualP1('');
+                        setManualP2('');
+                      }}
+                      className="h-10 rounded-md text-[13px] font-medium"
+                      style={{ border: '1.5px solid var(--line-soft)', color: 'var(--fg-2)' }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleManual}
+                      disabled={!manualP1 || !manualP2 || manualP1 === manualP2}
+                      className="h-10 rounded-md text-[13px] font-semibold disabled:opacity-50"
+                      style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
+                    >
+                      Confirm
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
+          </>
+        )}
+      </div>
+
+      {/* SUBMIT */}
+      <div className="mt-5">
+        <Button
+          onClick={handleSubmit}
+          disabled={!matchDecided || submitting}
+          className="w-full h-14 rounded-full font-bold text-[15px] bg-[var(--accent)] text-[var(--accent-ink)] hover:bg-[var(--accent-2)] disabled:opacity-50 tt-btn-primary"
+        >
+          {submitting ? (
+            <>
+              <LoadingSpinner className="mr-2 h-5 w-5" />
+              {t('common.submitting')}
+            </>
+          ) : (
+            <>
+              <Check className="mr-2 h-5 w-5" />
+              {t('quickMatch.submit')}
+            </>
           )}
-        </CardContent>
-      </Card>
+        </Button>
+        {!matchDecided && selectedLeague && selectedOpponent && (
+          <p className="text-center text-[12px] mt-3" style={{ color: 'var(--fg-3)' }}>
+            {t('quickMatch.enterSetsHint', {
+              defaultValue: `Enter sets until someone wins ${gameType.setsToWin}`,
+            })}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
