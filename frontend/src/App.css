@@ -125,31 +125,69 @@
   color: var(--accent);
 }
 
-/* ============= Loading ball (mini SpinningBall) ============= */
+/* ============= Loading ball (mini SpinningBall) =============
+   A CSS-only ping-pong ball that mirrors the hero SpinningBall: cream
+   gradient surface, soft shadow, and the leagues.lol logo + wordmark
+   "printed" on the surface, rotating around the Y axis. Two decal faces
+   (front + back) keep the brand visible all the way around. */
 
-.tt-loading-ball {
+.tt-loading-wrap {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  perspective: calc(var(--tt-loading-size) * 3);
   flex-shrink: 0;
+}
+.tt-loading-ball-shape {
+  position: relative;
+  width: var(--tt-loading-size);
+  height: var(--tt-loading-size);
   border-radius: 50%;
   background: radial-gradient(circle at 32% 30%, #ffffff 0%, #f4ebd9 65%, #c8b88a 100%);
   box-shadow:
     0 3px 8px oklch(0 0 0 / 0.4),
     inset -2px -3px 6px oklch(0 0 0 / 0.12);
-  animation: tt-loading-ball-spin 1.4s linear infinite;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.tt-loading-rotor {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  transform-style: preserve-3d;
+  animation: tt-loading-rotor-spin 1.8s linear infinite;
   will-change: transform;
 }
-.tt-loading-mark {
+.tt-loading-decal {
+  position: absolute;
   display: inline-flex;
-  line-height: 0;
+  align-items: center;
+  gap: calc(var(--tt-loading-size) * 0.08);
+  font-family: "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  font-size: calc(var(--tt-loading-size) * 0.22);
+  line-height: 1;
+  color: oklch(0.16 0.04 30);
+  white-space: nowrap;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  pointer-events: none;
 }
-@keyframes tt-loading-ball-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+.tt-loading-decal-back {
+  transform: rotateY(180deg);
+}
+.tt-loading-wordmark-accent {
+  color: var(--accent);
+}
+@keyframes tt-loading-rotor-spin {
+  from { transform: rotateY(0deg); }
+  to   { transform: rotateY(360deg); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .tt-loading-ball { animation-duration: 4s; }
+  .tt-loading-rotor { animation-duration: 5s; }
 }
 
 /* ============= Container ============= */
