@@ -125,6 +125,33 @@
   color: var(--accent);
 }
 
+/* ============= Loading ball (mini SpinningBall) ============= */
+
+.tt-loading-ball {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 30%, #ffffff 0%, #f4ebd9 65%, #c8b88a 100%);
+  box-shadow:
+    0 3px 8px oklch(0 0 0 / 0.4),
+    inset -2px -3px 6px oklch(0 0 0 / 0.12);
+  animation: tt-loading-ball-spin 1.4s linear infinite;
+  will-change: transform;
+}
+.tt-loading-mark {
+  display: inline-flex;
+  line-height: 0;
+}
+@keyframes tt-loading-ball-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tt-loading-ball { animation-duration: 4s; }
+}
+
 /* ============= Container ============= */
 
 .tt-container {
