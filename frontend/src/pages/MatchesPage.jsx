@@ -98,13 +98,13 @@ export default function MatchesPage() {
 
   return (
     <div className="tt-container py-7 md:py-10 space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">{t('nav.matches')}</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">{t('nav.matches')}</h1>
           <p className="text-sm text-muted-foreground">{t('common.totalN', { n: total })}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-56">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex-1 sm:w-56 sm:flex-none">
             <Select
               value={sort}
               onValueChange={(v) => {
@@ -123,7 +123,7 @@ export default function MatchesPage() {
               </SelectContent>
             </Select>
           </div>
-          <Button asChild>
+          <Button asChild className="shrink-0">
             <Link to="/app/matches/record">{t('cta.recordMatch')}</Link>
           </Button>
         </div>
