@@ -9,6 +9,7 @@ import { Zap, Check, Trophy, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 import { GAME_TYPE_VALUES, getGameTypeById, calculateWinner } from '@/constants/gameTypes';
@@ -25,10 +26,12 @@ const DEUCE_PAIRS = [
 export default function QuickMatchPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   const [selectedLeague, setSelectedLeague] = useState(null);
   const [selectedOpponent, setSelectedOpponent] = useState(null);
+  const [selectedPlayer1, setSelectedPlayer1] = useState(null);
+  const [adminMode, setAdminMode] = useState(false);
   const [selectedGameType, setSelectedGameType] = useState('best_of_3');
   const [setScores, setSetScores] = useState([]);
 
@@ -59,10 +62,29 @@ export default function QuickMatchPage() {
     [setScores],
   );
 
+  const myMembership = useMemo(
+    () => members.find((m) => m.user_id === me?.id),
+    [members, me?.id],
+  );
+  const isLeagueAdmin = !!myMembership?.is_league_admin;
+  const canRecordForOthers = isAdmin || isLeagueAdmin;
+
+  const opponentOptions = useMemo(() => {
+    if (adminMode) {
+      return members.filter((m) => m.roster_id !== selectedPlayer1);
+    }
+    return members.filter((m) => m.user_id !== me?.id);
+  }, [adminMode, members, me?.id, selectedPlayer1]);
+
   const matchDecided =
     player1SetsWon >= gameType.setsToWin || player2SetsWon >= gameType.setsToWin;
 
-  const youLabel = me?.username || t('recordMatch.you');
+  const player1Member = adminMode
+    ? members.find((m) => m.roster_id === selectedPlayer1)
+    : myMembership;
+  const youLabel = adminMode
+    ? (player1Member?.display_name || t('quickMatch.player1'))
+    : (me?.username || t('recordMatch.you'));
   const opponentName =
     members.find((m) => m.roster_id === selectedOpponent)?.display_name || t('recordMatch.opponent');
 
@@ -73,9 +95,11 @@ export default function QuickMatchPage() {
         ? -1
         : Math.min(setScores.length, gameType.maxSets - 1);
 
+  const playersReady = selectedOpponent !== null && (!adminMode || selectedPlayer1 !== null);
+
   const showActiveEntry =
     selectedLeague !== null &&
-    selectedOpponent !== null &&
+    playersReady &&
     !matchDecided &&
     activeIndex >= 0 &&
     activeIndex < gameType.maxSets;
@@ -101,14 +125,19 @@ export default function QuickMatchPage() {
     if (!selectedLeague) {
       setMembers([]);
       setSelectedOpponent(null);
+      setSelectedPlayer1(null);
+      setAdminMode(false);
       return;
     }
+    setSelectedOpponent(null);
+    setSelectedPlayer1(null);
+    setAdminMode(false);
     const loadMembers = async () => {
       try {
         setLoadingMembers(true);
         const { data } = await leaguesAPI.getMembers(selectedLeague);
         const arr = (data.members || data) || [];
-        setMembers(arr.filter((m) => m.user_id !== me?.id));
+        setMembers(arr);
       } catch (e) {
         console.error('Failed to load members', e);
         toast.error(t('recordMatch.failedToLoadLeagueMembers'));
@@ -117,7 +146,20 @@ export default function QuickMatchPage() {
       }
     };
     loadMembers();
-  }, [selectedLeague, me?.id, t]);
+  }, [selectedLeague, t]);
+
+  useEffect(() => {
+    if (!adminMode) {
+      setSelectedPlayer1(null);
+      setSelectedOpponent((prev) => {
+        if (!prev) return prev;
+        const stillValid = members.some(
+          (m) => m.roster_id === prev && m.user_id !== me?.id,
+        );
+        return stillValid ? prev : null;
+      });
+    }
+  }, [adminMode, members, me?.id]);
 
   useEffect(() => {
     if (setScores.length > gameType.maxSets) {
@@ -191,6 +233,9 @@ export default function QuickMatchPage() {
           player2_score: s.p2,
         })),
       };
+      if (adminMode && selectedPlayer1) {
+        payload.player1_roster_id = selectedPlayer1;
+      }
       await matchesAPI.create(payload);
       toast.success(t('recordMatch.matchRecordedSuccess'));
       navigate('/app/matches');
@@ -280,9 +325,71 @@ export default function QuickMatchPage() {
 
         {divider}
 
+        {/* ADMIN: Record for another person */}
+        {selectedLeague && canRecordForOthers && (
+          <>
+            <div
+              className="flex items-center justify-between rounded-md px-3 py-2.5"
+              style={{ border: '1.5px solid var(--line-soft)', background: 'var(--bg-3, transparent)' }}
+            >
+              <div className="pr-3">
+                <div className="text-[14px] font-medium" style={{ color: 'var(--fg)' }}>
+                  {t('quickMatch.recordForAnotherPerson')}
+                </div>
+                <div className="text-[12px]" style={{ color: 'var(--fg-3)' }}>
+                  {t('quickMatch.recordForAnotherPersonHint')}
+                </div>
+              </div>
+              <Switch checked={adminMode} onCheckedChange={setAdminMode} />
+            </div>
+
+            {divider}
+          </>
+        )}
+
+        {/* PLAYER 1 (admin mode only) */}
+        {adminMode && (
+          <>
+            <div className="space-y-2">
+              <div className={eyebrow}>{t('quickMatch.selectPlayer1')}</div>
+              <Select
+                value={selectedPlayer1?.toString() || ''}
+                onValueChange={(v) => setSelectedPlayer1(Number(v))}
+                disabled={!selectedLeague || loadingMembers}
+              >
+                <SelectTrigger className="w-full h-12 text-[15px]">
+                  <SelectValue
+                    placeholder={
+                      !selectedLeague
+                        ? t('recordMatch.selectLeagueFirst')
+                        : loadingMembers
+                          ? t('common.loading')
+                          : t('quickMatch.selectPlayer1')
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {members
+                    .filter((m) => m.roster_id !== selectedOpponent)
+                    .map((m) => (
+                      <SelectItem key={m.roster_id} value={String(m.roster_id)} className="text-base py-2.5">
+                        {m.display_name}
+                        {typeof m.current_elo === 'number' ? `  ·  ${m.current_elo}` : ''}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {divider}
+          </>
+        )}
+
         {/* OPPONENT */}
         <div className="space-y-2">
-          <div className={eyebrow}>{t('quickMatch.selectOpponent')}</div>
+          <div className={eyebrow}>
+            {adminMode ? t('quickMatch.selectPlayer2') : t('quickMatch.selectOpponent')}
+          </div>
           <Select
             value={selectedOpponent?.toString() || ''}
             onValueChange={(v) => setSelectedOpponent(Number(v))}
@@ -295,12 +402,12 @@ export default function QuickMatchPage() {
                     ? t('recordMatch.selectLeagueFirst')
                     : loadingMembers
                       ? t('common.loading')
-                      : t('recordMatch.selectOpponent')
+                      : (adminMode ? t('quickMatch.selectPlayer2') : t('recordMatch.selectOpponent'))
                 }
               />
             </SelectTrigger>
             <SelectContent>
-              {members.map((m) => (
+              {opponentOptions.map((m) => (
                 <SelectItem key={m.roster_id} value={String(m.roster_id)} className="text-base py-2.5">
                   {m.display_name}
                   {typeof m.current_elo === 'number' ? `  ·  ${m.current_elo}` : ''}
@@ -623,7 +730,7 @@ export default function QuickMatchPage() {
             </>
           )}
         </Button>
-        {!matchDecided && selectedLeague && selectedOpponent && (
+        {!matchDecided && selectedLeague && playersReady && (
           <p className="text-center text-[12px] mt-3" style={{ color: 'var(--fg-3)' }}>
             {t('quickMatch.enterSetsHint', {
               defaultValue: `Enter sets until someone wins ${gameType.setsToWin}`,

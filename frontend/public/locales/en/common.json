@@ -516,7 +516,13 @@
     "next": "Next",
     "back": "Back",
     "submit": "Submit Match",
-    "needDetailedScores": "Need to enter detailed set scores?"
+    "needDetailedScores": "Need to enter detailed set scores?",
+    "recordForAnotherPerson": "Record match for another person",
+    "recordForAnotherPersonHint": "As league admin, record a match between two other players",
+    "player1": "Player 1",
+    "player2": "Player 2",
+    "selectPlayer1": "Select Player 1",
+    "selectPlayer2": "Select Player 2"
   },
   "wiki": {
     "chapters": "Chapters",
