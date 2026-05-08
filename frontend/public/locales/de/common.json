@@ -515,7 +515,13 @@
     "next": "Weiter",
     "back": "Zurück",
     "submit": "Spiel einreichen",
-    "needDetailedScores": "Detaillierte Satzergebnisse eingeben?"
+    "needDetailedScores": "Detaillierte Satzergebnisse eingeben?",
+    "recordForAnotherPerson": "Spiel für eine andere Person eintragen",
+    "recordForAnotherPersonHint": "Als Liga-Admin ein Spiel zwischen zwei anderen Spielern eintragen",
+    "player1": "Spieler 1",
+    "player2": "Spieler 2",
+    "selectPlayer1": "Spieler 1 auswählen",
+    "selectPlayer2": "Spieler 2 auswählen"
   },
   "wiki": {
     "chapters": "Kapitel",

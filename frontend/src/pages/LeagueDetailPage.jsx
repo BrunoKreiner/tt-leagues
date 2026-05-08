@@ -1499,6 +1499,7 @@ const LeagueDetailPage = () => {
                   <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
                     <MobileQuickMatch
                       initialLeagueId={parseInt(id)}
+                      allowAdminMatchForOthers={canManageLeague}
                       onSuccess={() => {
                         setShowQuickMatch(false);
                         fetchMatches();
