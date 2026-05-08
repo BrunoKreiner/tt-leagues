@@ -507,7 +507,7 @@
     "playedAtHelp": "If empty, the created time will be used."
   },
   "quickMatch": {
-    "subtitle": "Record a match in 4 quick steps",
+    "subtitle": "Record a match in seconds",
     "selectLeague": "Select League",
     "selectOpponent": "Select Opponent",
     "finalScore": "Final Score",
