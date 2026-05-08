@@ -168,15 +168,10 @@ const LandingPage = () => {
       <main className="flex-1">
         {/* HERO — fills viewport (minus nav) so the ticker sits right at the fold */}
         <section
-          className="relative isolate overflow-hidden flex items-center"
-          style={{
-            minHeight: 'calc(100vh - 64px)',
-            paddingTop: 'clamp(24px, 4vh, 56px)',
-            paddingBottom: 'clamp(24px, 4vh, 56px)',
-          }}
+          className="hero-section relative isolate overflow-hidden flex items-center"
         >
           <div className="relative z-10 tt-container w-full">
-            <div className="grid gap-10 lg:gap-16 items-end" style={{ gridTemplateColumns: 'minmax(0,1.15fr) minmax(0,1fr)' }}>
+            <div className="hero-grid grid gap-10 lg:gap-16 md:items-end">
               <div>
                 <div className="relative z-[2] flex items-center gap-4">
                   <span className="inline-flex items-center justify-center text-white shrink-0">
@@ -185,7 +180,7 @@ const LandingPage = () => {
                   <h1
                     className="font-sans font-bold leading-[0.95]"
                     style={{
-                      fontSize: 'clamp(40px, 5.2vw, 76px)',
+                      fontSize: 'clamp(36px, 5.2vw, 76px)',
                       letterSpacing: '-0.04em',
                       color: '#ffffff',
                     }}
@@ -196,7 +191,7 @@ const LandingPage = () => {
                 <p
                   className="display mt-7 mb-9 leading-[1.15]"
                   style={{
-                    fontSize: 'clamp(24px, 3.2vw, 38px)',
+                    fontSize: 'clamp(22px, 3.2vw, 38px)',
                     letterSpacing: '-0.02em',
                     fontStyle: 'italic',
                     fontWeight: 400,
@@ -231,27 +226,20 @@ const LandingPage = () => {
                 </div>
               </div>
 
-              <div className="relative flex flex-col gap-3.5">
+              <div className="hero-ball-col relative flex flex-col gap-3.5">
                 {/* Blob sits behind the ball so it tracks the column instead of the viewport */}
                 <div
                   aria-hidden="true"
-                  className="hero-blob"
-                  style={{
-                    left: '50%',
-                    top: '40%',
-                    width: 520,
-                    height: 520,
-                    zIndex: 0,
-                  }}
+                  className="hero-blob hero-blob-mobile"
                 />
                 <div className="relative z-[1]">
                   <SpinningBall />
                 </div>
 
                 {/* Platform live counters — 3 compact cards directly under the ball */}
-                <div className="relative z-[1] grid grid-cols-3 gap-2.5 mt-5">
+                <div className="relative z-[1] grid grid-cols-3 gap-2 sm:gap-2.5 mt-5">
                   <div
-                    className="tt-card relative overflow-hidden p-3.5"
+                    className="tt-card relative overflow-hidden p-2.5 sm:p-3.5"
                     style={{
                       borderRadius: 'var(--r-md)',
                       borderColor: 'oklch(0.70 0.20 38 / 0.35)',
@@ -265,58 +253,58 @@ const LandingPage = () => {
                         borderRadius: 'var(--r-md) var(--r-md) 0 0',
                       }}
                     />
-                    <div className="eyebrow" style={{ fontSize: 9.5 }}>
+                    <div className="eyebrow" style={{ fontSize: 9, letterSpacing: '0.08em' }}>
                       {t('landing.stats.activePlayers')}
                     </div>
                     <div
                       className="num mt-1.5"
                       style={{
-                        fontSize: 'clamp(22px, 2.4vw, 30px)',
+                        fontSize: 'clamp(18px, 2.4vw, 30px)',
                         color: 'var(--accent)',
                         lineHeight: 1,
                       }}
                     >
                       {compact(platformStats?.active_players)}
                     </div>
-                    <div className="text-[11px] text-[var(--fg-3)] mt-1.5 leading-tight">
+                    <div className="text-[10px] sm:text-[11px] text-[var(--fg-3)] mt-1.5 leading-tight">
                       {t('landing.stats.activePlayersSubShort')}
                     </div>
                   </div>
 
-                  <div className="tt-card p-3.5" style={{ borderRadius: 'var(--r-md)' }}>
-                    <div className="eyebrow" style={{ fontSize: 9.5 }}>
+                  <div className="tt-card p-2.5 sm:p-3.5" style={{ borderRadius: 'var(--r-md)' }}>
+                    <div className="eyebrow" style={{ fontSize: 9, letterSpacing: '0.08em' }}>
                       {t('landing.stats.leagues')}
                     </div>
                     <div
                       className="num mt-1.5"
                       style={{
-                        fontSize: 'clamp(22px, 2.4vw, 30px)',
+                        fontSize: 'clamp(18px, 2.4vw, 30px)',
                         color: 'var(--fg)',
                         lineHeight: 1,
                       }}
                     >
                       {compact(platformStats?.leagues)}
                     </div>
-                    <div className="text-[11px] text-[var(--fg-3)] mt-1.5 leading-tight">
+                    <div className="text-[10px] sm:text-[11px] text-[var(--fg-3)] mt-1.5 leading-tight">
                       {t('landing.stats.leaguesSub')}
                     </div>
                   </div>
 
-                  <div className="tt-card p-3.5" style={{ borderRadius: 'var(--r-md)' }}>
-                    <div className="eyebrow" style={{ fontSize: 9.5 }}>
+                  <div className="tt-card p-2.5 sm:p-3.5" style={{ borderRadius: 'var(--r-md)' }}>
+                    <div className="eyebrow" style={{ fontSize: 9, letterSpacing: '0.08em' }}>
                       {t('landing.stats.matchesLogged')}
                     </div>
                     <div
                       className="num mt-1.5"
                       style={{
-                        fontSize: 'clamp(22px, 2.4vw, 30px)',
+                        fontSize: 'clamp(18px, 2.4vw, 30px)',
                         color: 'var(--fg)',
                         lineHeight: 1,
                       }}
                     >
                       {compact(platformStats?.matches)}
                     </div>
-                    <div className="text-[11px] text-[var(--fg-3)] mt-1.5 leading-tight">
+                    <div className="text-[10px] sm:text-[11px] text-[var(--fg-3)] mt-1.5 leading-tight">
                       {t('landing.stats.matchesLoggedSub')}
                     </div>
                   </div>
@@ -325,6 +313,53 @@ const LandingPage = () => {
             </div>
           </div>
         </section>
+        <style>{`
+          .hero-section {
+            min-height: auto;
+            padding-top: clamp(20px, 4vh, 56px);
+            padding-bottom: clamp(32px, 6vh, 72px);
+          }
+          .hero-grid {
+            grid-template-columns: minmax(0, 1fr);
+          }
+          .hero-blob-mobile {
+            left: 50%;
+            top: 50%;
+            width: min(90vw, 520px);
+            height: min(90vw, 520px);
+            z-index: 0;
+            opacity: 0.32;
+          }
+          /* On md+ restore the editorial two-column layout */
+          @media (min-width: 768px) {
+            .hero-section {
+              min-height: calc(100vh - 64px);
+            }
+            .hero-grid {
+              grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+            }
+            .hero-blob-mobile {
+              width: 520px;
+              height: 520px;
+              left: 50%;
+              top: 40%;
+              opacity: 0.45;
+            }
+          }
+          /* Cap the ball column so it doesn't dominate on mobile (where the
+             whole grid is single-column). */
+          .hero-ball-col {
+            max-width: 460px;
+            width: 100%;
+            margin-inline: auto;
+          }
+          @media (min-width: 768px) {
+            .hero-ball-col {
+              max-width: none;
+              margin-inline: 0;
+            }
+          }
+        `}</style>
 
         {/* TICKER */}
         <div className="tt-ticker">
