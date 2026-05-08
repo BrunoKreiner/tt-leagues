@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
+import { useEffect, useMemo, useState, Suspense } from 'react';
 import { format } from 'date-fns';
 import { leaguesAPI } from '@/services/api';
 import { useTranslation } from 'react-i18next';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import lazyWithReload from '@/lib/lazyWithReload';
 
-// Lazy load the chart components
-const RechartsComponents = lazy(() => import('./RechartsComponents'));
+// Lazy load the chart components (with stale-chunk auto-reload)
+const RechartsComponents = lazyWithReload(() => import('./RechartsComponents'));
 
 const COLOR_PALETTE = [
   '#60a5fa',
