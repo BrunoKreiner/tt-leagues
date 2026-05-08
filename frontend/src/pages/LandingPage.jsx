@@ -81,7 +81,7 @@ const LandingPage = () => {
     }
   }, []);
 
-  const featuredLeagues = useMemo(() => publicLeagues.slice(0, 1), [publicLeagues]);
+  const featuredLeagues = useMemo(() => publicLeagues.slice(0, 2), [publicLeagues]);
 
   useEffect(() => {
     const node = leaderboardSectionRef.current;
@@ -104,7 +104,7 @@ const LandingPage = () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await leaguesAPI.getAll({ limit: 4 }, { ttlMs: 15000 });
+        const response = await leaguesAPI.getAll({ limit: 3 }, { ttlMs: 15000 });
         const data = response.data?.leagues;
         const leagues = Array.isArray(data) ? data.filter((l) => l.is_public) : [];
         setPublicLeagues(leagues);
@@ -549,7 +549,7 @@ const LandingPage = () => {
                     className="rounded-full px-6 py-5 text-[14px] border-[1.5px]"
                     style={{ borderColor: 'var(--line)' }}
                   >
-                    <Link to="/register">
+                    <Link to="/leagues">
                       {t('landing.public.seeAll')} →
                     </Link>
                   </Button>
