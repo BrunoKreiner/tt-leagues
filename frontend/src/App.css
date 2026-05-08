@@ -153,7 +153,10 @@
   background: var(--bg-2);
   border: 1.5px solid var(--line-soft);
   border-radius: var(--r-xl);
-  padding: 20px 22px;
+  padding: 16px 16px;
+}
+@media (min-width: 640px) {
+  .tt-panel { padding: 20px 22px; }
 }
 .panel-title {
   display: flex;
