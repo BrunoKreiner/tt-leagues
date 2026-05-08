@@ -126,11 +126,10 @@
 }
 
 /* ============= Loading ball (mini SpinningBall) =============
-   A still ping-pong ball with the leagues.lol logo + wordmark printed
-   on its surface, surrounded by orbital ink marks (arcs + dots) that
-   rotate around it — same impact-frame language the hero SpinningBall
-   uses to convey spin. The ball + decal stay still so the brand is
-   always legible; the rotation lives entirely on the ink layer. */
+   A still ping-pong ball with the leagues.lol mark on its surface,
+   surrounded by orbital ink streaks (arcs + dots) rotating around it
+   — same impact-frame language the hero SpinningBall uses on contact.
+   The ball stays still; the ink layer carries the motion. */
 
 .tt-loading-wrap {
   position: relative;
@@ -151,31 +150,15 @@
   box-shadow:
     0 3px 8px oklch(0 0 0 / 0.4),
     inset -2px -3px 6px oklch(0 0 0 / 0.12);
-  overflow: hidden;
   display: grid;
   place-items: center;
-}
-.tt-loading-decal {
-  display: inline-flex;
-  align-items: center;
-  gap: calc(var(--tt-loading-size) * 0.08);
-  font-family: "Inter Tight", ui-sans-serif, system-ui, sans-serif;
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  font-size: calc(var(--tt-loading-size) * 0.2);
-  line-height: 1;
   color: oklch(0.16 0.04 30);
-  white-space: nowrap;
-  pointer-events: none;
-}
-.tt-loading-wordmark-accent {
-  color: var(--accent);
 }
 .tt-loading-ink {
   position: absolute;
-  inset: -32%;
-  width: 164%;
-  height: 164%;
+  inset: -50%;
+  width: 200%;
+  height: 200%;
   z-index: 2;
   pointer-events: none;
   overflow: visible;

@@ -1,15 +1,11 @@
 import { BrandMark } from '@/components/layout/Brand';
 
 // Branded loading indicator — a still ping-pong ball with the leagues.lol
-// logo + wordmark printed on it, plus orbital ink marks circling around it
-// (arcs and dots tangent to the perimeter, like the impact-frame streaks the
-// hero SpinningBall throws off when it spins). The ink rotation conveys the
-// motion; the ball stays still so the brand stays legible.
-//
-// Pure CSS / SVG — no Three.js, no WebGL context.
+// brand mark on its surface, surrounded by orbital ink streaks (arcs +
+// dots) that rotate around it. Same impact-frame language the hero
+// SpinningBall throws off when it spins. Pure CSS / SVG — no WebGL.
 const LoadingSpinner = ({ size = 'default', className = '' }) => {
-  const px = { sm: 22, default: 44, md: 56, lg: 72 }[size] ?? 44;
-  const showWordmark = px >= 32;
+  const px = { sm: 22, default: 36, md: 48, lg: 64 }[size] ?? 36;
 
   // Use min-h-[200px] by default to vertically center in page-level contexts.
   // Callers can override via className (e.g. small inline spinners pass their own height).
@@ -24,32 +20,25 @@ const LoadingSpinner = ({ size = 'default', className = '' }) => {
         role="status"
         aria-label="Loading"
       >
-        {/* Static ball + decal (logo + wordmark stays put) */}
+        {/* Static ball with brand mark on its surface */}
         <span className="tt-loading-ball-shape">
-          <span className="tt-loading-decal">
-            <BrandMark size={Math.round(px * 0.42)} />
-            {showWordmark && (
-              <span className="tt-loading-wordmark">
-                leagues<span className="tt-loading-wordmark-accent">.lol</span>
-              </span>
-            )}
-          </span>
+          <BrandMark size={Math.round(px * 0.55)} />
         </span>
 
-        {/* Orbital ink streaks — rotate around the ball to imply spin */}
+        {/* Orbital ink streaks — rotate around the ball perimeter */}
         <svg
           className="tt-loading-ink"
           viewBox="-100 -100 200 200"
           aria-hidden="true"
         >
           <g className="tt-loading-ink-spin">
-            <path d="M 30 -52 A 60 60 0 0 1 56 -22" />
-            <path d="M -56 16 A 58 58 0 0 1 -34 44" strokeOpacity="0.78" />
-            <path d="M -64 -16 A 66 66 0 0 1 -42 -52" strokeOpacity="0.58" strokeWidth="2.2" />
-            <path d="M 58 24 A 62 62 0 0 1 36 54" strokeOpacity="0.6" strokeWidth="2.4" />
-            <circle cx="-22" cy="-62" r="2.6" fillOpacity="0.78" />
-            <circle cx="64" cy="-4" r="1.6" fillOpacity="0.6" />
-            <circle cx="14" cy="66" r="2" fillOpacity="0.55" />
+            <path d="M 28 -64 A 70 70 0 0 1 60 -36" />
+            <path d="M -62 26 A 67 67 0 0 1 -38 60" strokeOpacity="0.78" />
+            <path d="M -72 -22 A 75 75 0 0 1 -50 -56" strokeOpacity="0.6" strokeWidth="2.2" />
+            <path d="M 64 32 A 71 71 0 0 1 38 64" strokeOpacity="0.55" strokeWidth="2.4" />
+            <circle cx="-18" cy="-78" r="3" fillOpacity="0.78" />
+            <circle cx="80" cy="-6" r="2" fillOpacity="0.6" />
+            <circle cx="14" cy="84" r="2.4" fillOpacity="0.55" />
           </g>
         </svg>
       </span>
